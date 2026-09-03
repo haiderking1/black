@@ -1,0 +1,5 @@
+export { Composer } from './Composer'
+export type { ComposerProps, ComposerSubmitOptions } from './Composer'
+export { ComposerInput } from './ComposerInput'
+export { ComposerActions } from './ComposerActions'
+export { SendButton } from './SendButton'

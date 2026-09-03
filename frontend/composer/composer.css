@@ -1,0 +1,119 @@
+.composer-wrapper {
+  width: 100%;
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 0 16px 12px 16px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  position: relative;
+}
+
+.composer-capsule {
+  width: 100%;
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border-composer);
+  border-radius: var(--radius-capsule);
+  padding: 10px 12px 8px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  box-shadow: 0 16px 40px rgba(0, 0, 0, 0.6), 0 0 0 1px rgba(255, 255, 255, 0.02);
+}
+
+.composer-input-row {
+  width: 100%;
+  display: flex;
+  align-items: flex-start;
+  padding: 2px 2px 0 2px;
+}
+
+.composer-textarea {
+  width: 100%;
+  min-height: 28px;
+  max-height: 220px;
+  padding: 0;
+  color: var(--text-primary);
+  font-size: 15px;
+  line-height: 1.5;
+  background: transparent;
+  overflow-y: auto;
+}
+
+.composer-textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.composer-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  padding-top: 2px;
+}
+
+.composer-actions-left {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.composer-actions-right {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.composer-icon-btn {
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-circle);
+  color: var(--text-secondary);
+  background: transparent;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.composer-icon-btn:hover {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.composer-send-btn {
+  width: 32px;
+  height: 32px;
+  border-radius: var(--radius-circle);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.15s ease;
+}
+
+.composer-send-btn.disabled {
+  background-color: var(--btn-send-disabled-bg);
+  color: var(--btn-send-disabled-fg);
+  cursor: default;
+}
+
+.composer-send-btn.active {
+  background-color: var(--btn-send-active-bg);
+  color: var(--btn-send-active-fg);
+  cursor: pointer;
+  box-shadow: 0 2px 8px rgba(255, 255, 255, 0.15);
+}
+
+.composer-send-btn.active:hover {
+  transform: scale(1.04);
+  opacity: 0.95;
+}
+
+.composer-disclaimer {
+  font-size: 11.5px;
+  color: var(--text-muted);
+  margin-top: 8px;
+  text-align: center;
+  user-select: none;
+}
