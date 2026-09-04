@@ -1,23 +1,22 @@
 import React, { useState, useEffect } from 'react'
-import { Sidebar } from './sidebar'
+import { PanelLeft } from 'lucide-react'
+import { Sidebar, useSessions, DEFAULT_SESSION_TITLE } from './sidebar'
 import { Composer } from './composer'
 import { SpotlightModal, type ProjectItemData } from './spotlight'
-
-interface Message {
-  id: string
-  role: 'user' | 'assistant'
-  content: string
-  timestamp: string
-}
+import { createMessage, useConversations } from './chat'
+import { SettingsPage, useSettings } from './settings'
 
 const DEFAULT_PROJECTS: ProjectItemData[] = [
   { id: 'proj-black', name: 'black', path: '/home/soka/code/black' }
 ]
 
+type AppView = 'chat' | 'settings'
+
 export function App(): React.JSX.Element {
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const { settings, updateSetting, resetSettings } = useSettings()
+  const [sidebarOpen, setSidebarOpen] = useState(() => settings.openSidebarOnLaunch)
   const [spotlightOpen, setSpotlightOpen] = useState(false)
-  const [messages, setMessages] = useState<Message[]>([])
+  const [appView, setAppView] = useState<AppView>('chat')
 
   // Project state with localStorage persistence
   const [projects, setProjects] = useState<ProjectItemData[]>(() => {
@@ -51,8 +50,21 @@ export function App(): React.JSX.Element {
     } catch {
       // ignore
     }
-    return DEFAULT_PROJECTS[0]?.id || ''
+    return DEFAULT_PROJECTS[0]?.id ?? ''
   })
+
+  const {
+    sessions,
+    activeSessionId,
+    setActiveSession,
+    createSession,
+    renameSession,
+    deleteSession,
+    touchSession,
+    deleteSessionsForProject
+  } = useSessions(projects, activeProjectId)
+
+  const { getMessages, appendMessage, deleteConversations } = useConversations()
 
   useEffect(() => {
     try {
@@ -74,9 +86,18 @@ export function App(): React.JSX.Element {
     }
   }, [activeProjectId])
 
+  // Repair a stale active project id after removals or corrupt storage
+  useEffect(() => {
+    if (projects.length === 0) return
+    if (projects.some((p) => p.id === activeProjectId)) return
+    const fallback = projects[0]
+    if (fallback) setActiveProjectId(fallback.id)
+  }, [projects, activeProjectId])
+
   // Global Ctrl+K / Cmd+K listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      if (appView !== 'chat') return
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
         e.preventDefault()
         setSpotlightOpen((prev) => !prev)
@@ -87,12 +108,30 @@ export function App(): React.JSX.Element {
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [])
+  }, [appView])
 
-  const activeProject = projects.find((p) => p.id === activeProjectId) || projects[0]
+  const activeProject = projects.find((p) => p.id === activeProjectId) ?? projects[0]
 
   const handleSelectProject = (project: ProjectItemData) => {
     setActiveProjectId(project.id)
+  }
+
+  const handleSidebarSelectProject = (projectId: string) => {
+    setActiveProjectId(projectId)
+  }
+
+  const handleSidebarSelectSession = (sessionId: string) => {
+    if (!activeProject) return
+    setActiveSession(activeProject.id, sessionId)
+  }
+
+  const handleSidebarNewSession = (projectId: string) => {
+    createSession(projectId)
+  }
+
+  const handleSidebarDeleteSession = (sessionId: string) => {
+    deleteConversations([sessionId])
+    deleteSession(sessionId)
   }
 
   const handleAddProject = (project: ProjectItemData) => {
@@ -107,39 +146,79 @@ export function App(): React.JSX.Element {
   }
 
   const handleRemoveProject = (id: string) => {
+    const removedSessionIds = sessions
+      .filter((s) => s.projectId === id)
+      .map((s) => s.id)
+    deleteConversations(removedSessionIds)
+    deleteSessionsForProject(id)
+
     const remaining = projects.filter((p) => p.id !== id)
     setProjects(remaining)
     if (activeProjectId === id) {
-      setActiveProjectId(remaining[0]?.id || '')
+      setActiveProjectId(remaining[0]?.id ?? '')
     }
   }
 
   const handleSendMessage = (content: string) => {
-    const userMsg: Message = {
-      id: String(Date.now()),
-      role: 'user',
-      content,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    if (!activeProject) return
+
+    let sessionId = activeSessionId
+    if (sessionId === undefined) {
+      sessionId = createSession(activeProject.id).id
     }
 
-    const assistantMsg: Message = {
-      id: String(Date.now() + 1),
-      role: 'assistant',
-      content: `Received: "${content}". Active project: ${activeProject ? activeProject.name : 'None'}.`,
-      timestamp: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    // First message names the session
+    const currentSession = sessions.find((s) => s.id === sessionId)
+    if (currentSession === undefined || currentSession.title === DEFAULT_SESSION_TITLE) {
+      renameSession(sessionId, content)
     }
+    touchSession(sessionId)
 
-    setMessages((prev) => [...prev, userMsg, assistantMsg])
+    appendMessage(sessionId, createMessage('user', content))
+    appendMessage(
+      sessionId,
+      createMessage(
+        'assistant',
+        `Received: "${content}". Active project: ${activeProject.name}.`
+      )
+    )
+  }
+
+  const messages = activeSessionId !== undefined ? getMessages(activeSessionId) : []
+
+  if (appView === 'settings') {
+    return (
+      <SettingsPage
+        settings={settings}
+        onChange={updateSetting}
+        onReset={resetSettings}
+        onClose={() => setAppView('chat')}
+      />
+    )
   }
 
   return (
     <div style={{ display: 'flex', width: '100%', height: '100%', backgroundColor: 'var(--bg-main)' }}>
-      {/* Collapsible Sidebar */}
+      {/* Collapsible Sidebar with project/session tree */}
       <Sidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen((prev) => !prev)}
-        onOpenSearch={() => setSpotlightOpen(true)}
+        projects={projects}
+        activeProjectId={activeProject?.id}
+        sessions={sessions}
+        activeSessionId={activeSessionId}
         activeProjectName={activeProject?.name}
+        onSelectProject={handleSidebarSelectProject}
+        onSelectSession={handleSidebarSelectSession}
+        onNewSession={handleSidebarNewSession}
+        onRenameSession={renameSession}
+        onDeleteSession={handleSidebarDeleteSession}
+        onDeleteProject={handleRemoveProject}
+        onOpenSearch={() => setSpotlightOpen(true)}
+        onOpenSettings={() => {
+          setSpotlightOpen(false)
+          setAppView('settings')
+        }}
       />
 
       {/* Main Chat Workspace */}
@@ -171,19 +250,7 @@ export function App(): React.JSX.Element {
                   color: 'var(--text-secondary)'
                 }}
               >
-                <svg
-                  width="18"
-                  height="18"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <rect x="3" y="3" width="18" height="18" rx="2" ry="2" />
-                  <line x1="9" y1="3" x2="9" y2="21" />
-                </svg>
+                <PanelLeft size={18} />
               </button>
             )}
 
@@ -191,8 +258,6 @@ export function App(): React.JSX.Element {
               style={{
                 display: 'inline-flex',
                 alignItems: 'center',
-                gap: '8px',
-                padding: '6px 8px',
                 color: 'var(--text-primary)',
                 fontWeight: 600,
                 fontSize: '16px',
@@ -200,24 +265,6 @@ export function App(): React.JSX.Element {
               }}
             >
               <span>Black</span>
-              {activeProject && (
-                <span
-                  style={{
-                    fontSize: '12px',
-                    fontWeight: 500,
-                    color: 'var(--text-secondary)',
-                    backgroundColor: 'var(--bg-surface)',
-                    padding: '2px 8px',
-                    borderRadius: '6px',
-                    border: '1px solid var(--border-subtle)',
-                    cursor: 'pointer'
-                  }}
-                  onClick={() => setSpotlightOpen(true)}
-                  title="Switch or browse projects"
-                >
-                  {activeProject.name}
-                </span>
-              )}
             </div>
           </div>
         </header>
@@ -305,7 +352,7 @@ export function App(): React.JSX.Element {
 
         {/* ChatGPT Composer Footer */}
         <div style={{ flexShrink: 0, width: '100%' }}>
-          <Composer onSendMessage={handleSendMessage} />
+          <Composer onSendMessage={handleSendMessage} disabled={!activeProject} />
         </div>
       </div>
 

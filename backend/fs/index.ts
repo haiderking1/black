@@ -2,8 +2,9 @@ import os from 'node:os'
 import { ipcMain, type BrowserWindow } from 'electron'
 import { listDirectory, type DirectoryEntry, type DirectoryResult } from './navigator'
 import { openDirectoryDialog } from './dialog'
+import { openInFiles } from './open'
 
-export { listDirectory, openDirectoryDialog }
+export { listDirectory, openDirectoryDialog, openInFiles }
 export type { DirectoryEntry, DirectoryResult }
 
 export function registerFsIpc(mainWindowGetter: () => BrowserWindow | null): void {
@@ -16,6 +17,10 @@ export function registerFsIpc(mainWindowGetter: () => BrowserWindow | null): voi
     const win = mainWindowGetter()
     const validWin = win && !win.isDestroyed() ? win : null
     return openDirectoryDialog(validWin)
+  })
+
+  ipcMain.handle('fs:openInFiles', async (_event, targetPath: unknown): Promise<string> => {
+    return openInFiles(targetPath)
   })
 
   ipcMain.handle('fs:getHomeDir', (): string => {

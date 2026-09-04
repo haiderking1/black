@@ -1,6 +1,9 @@
-import React, { useState, useEffect, useRef } from 'react'
-import { ProjectList, type ProjectItemData } from './ProjectList'
-import { DirectoryNavigator } from './DirectoryNavigator'
+import React, { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
+import { ArrowDown, ArrowLeft, ArrowUp } from 'lucide-react'
+import { SourcesList } from './SourcesList'
+import { DirectoryList } from './DirectoryList'
+import type { ProjectItemData } from './ProjectList'
+import { useDirectoryListing } from './useDirectoryListing'
 import './spotlight.css'
 
 export interface SpotlightModalProps {
@@ -13,6 +16,19 @@ export interface SpotlightModalProps {
   onRemoveProject: (id: string) => void
 }
 
+type SpotlightView = 'sources' | 'directories'
+
+function extractFolderName(p: string): string {
+  const normalized = p.replace(/[/\\]+$/, '')
+  return normalized.split(/[/\\]/).filter(Boolean).pop() ?? p
+}
+
+function prettifyPath(p: string, homeDir: string): string {
+  if (homeDir !== '' && p === homeDir) return '~/'
+  if (homeDir !== '' && p.startsWith(`${homeDir}/`)) return `~${p.slice(homeDir.length)}`
+  return p
+}
+
 export function SpotlightModal({
   isOpen,
   onClose,
@@ -22,38 +38,163 @@ export function SpotlightModal({
   onAddProject,
   onRemoveProject
 }: SpotlightModalProps): React.JSX.Element | null {
-  const [activeTab, setActiveTab] = useState<'projects' | 'navigator'>('projects')
+  /** Row chosen with arrow keys, null when no keyboard selection is active */
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(0)
+  /** Row under the pointer, null when the pointer is not on a row */
+  const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
+  const [view, setView] = useState<SpotlightView>('sources')
   const [searchQuery, setSearchQuery] = useState('')
   const inputRef = useRef<HTMLInputElement>(null)
 
-  // Auto-focus input when opened
-  useEffect(() => {
-    let timer: ReturnType<typeof setTimeout> | null = null
-    if (isOpen) {
-      setSearchQuery('')
-      // If no projects exist yet, default to navigator tab
-      if (projects.length === 0) {
-        setActiveTab('navigator')
-      } else {
-        setActiveTab('projects')
-      }
-      timer = setTimeout(() => {
-        inputRef.current?.focus()
-      }, 50)
-    }
-    return () => {
-      if (timer) clearTimeout(timer)
-    }
-  }, [isOpen, projects.length])
+  const {
+    homeDir,
+    path,
+    parentPath,
+    entries,
+    isLoading,
+    error,
+    navigate,
+    goUp
+  } = useDirectoryListing(view === 'directories')
 
-  // Escape key handler
+  // What the user actually sees highlighted: hover wins, otherwise keyboard
+  const activeIndex = hoveredIndex ?? selectedIndex ?? -1
+
+  // Fresh state every time the palette opens
+  useEffect(() => {
+    if (!isOpen) return
+    setView('sources')
+    setSearchQuery('')
+    setSelectedIndex(0)
+    setHoveredIndex(null)
+    const timer = setTimeout(() => inputRef.current?.focus(), 50)
+    return () => clearTimeout(timer)
+  }, [isOpen])
+
+  // Keep the input focused while the sources view is showing
+  useEffect(() => {
+    if (!isOpen || view !== 'sources') return
+    const timer = setTimeout(() => inputRef.current?.focus(), 30)
+    return () => clearTimeout(timer)
+  }, [view, isOpen])
+
+  const filteredProjects = useMemo(() => {
+    const term = searchQuery.trim().toLowerCase()
+    if (term === '') return projects
+    return projects.filter(
+      (p) => p.name.toLowerCase().includes(term) || p.path.toLowerCase().includes(term)
+    )
+  }, [projects, searchQuery])
+
+  const showLocalFolder = useMemo(() => {
+    const term = searchQuery.trim().toLowerCase()
+    if (term === '') return true
+    return 'local folder browse a folder on disk'.includes(term)
+  }, [searchQuery])
+
+  const sourcesItemCount = (showLocalFolder ? 1 : 0) + filteredProjects.length
+
+  // Directory contents changed: nothing is selected until the user picks a row
+  useLayoutEffect(() => {
+    setSelectedIndex(null)
+    setHoveredIndex(null)
+  }, [path])
+
+  const openLocalFolder = (): void => {
+    setSelectedIndex(null)
+    setHoveredIndex(null)
+    setView('directories')
+  }
+
+  const backToSources = (): void => {
+    setSelectedIndex(0)
+    setHoveredIndex(null)
+    setView('sources')
+  }
+
+  const addCurrentDirectory = (): void => {
+    if (path === '' || isLoading || (error !== null && error !== '')) return
+    const name = extractFolderName(path)
+    if (name === '') return
+    onAddProject({ id: String(Date.now()), name, path })
+    onClose()
+  }
+
+  const handleHoverItem = (index: number): void => {
+    setHoveredIndex(index)
+    setSelectedIndex(index)
+  }
+
+  const handleHoverLeave = (): void => {
+    setHoveredIndex(null)
+    setSelectedIndex(null)
+  }
+
+  // Global keyboard navigation
   useEffect(() => {
     if (!isOpen) return
 
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === 'Escape') {
         e.preventDefault()
-        onClose()
+        if (view === 'directories') {
+          backToSources()
+        } else {
+          onClose()
+        }
+        return
+      }
+
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault()
+        const count = view === 'sources' ? sourcesItemCount : entries.length
+        if (count === 0) return
+        const delta = e.key === 'ArrowDown' ? 1 : -1
+        setSelectedIndex((prev) => {
+          const base = prev === null ? (delta === 1 ? -1 : 0) : prev
+          return Math.max(0, Math.min(base + delta, count - 1))
+        })
+        setHoveredIndex(null)
+        return
+      }
+
+      if (e.key === 'Enter') {
+        // Let a focused button (e.g. remove project) handle its own Enter
+        if (document.activeElement instanceof HTMLButtonElement) return
+        e.preventDefault()
+
+        const targetIndex = hoveredIndex ?? selectedIndex
+        if (targetIndex === null) return
+
+        if (view === 'sources') {
+          if (showLocalFolder && targetIndex === 0) {
+            openLocalFolder()
+            return
+          }
+          const projectIndex = targetIndex - (showLocalFolder ? 1 : 0)
+          const project = filteredProjects[projectIndex]
+          if (project !== undefined) {
+            onSelectProject(project)
+            onClose()
+          }
+          return
+        }
+
+        // Directory view: open the selected folder, or add the current one
+        const entry = entries[targetIndex]
+        if (entry !== undefined) {
+          navigate(entry.path)
+        } else if (path !== '' && !isLoading && (error === null || error === '')) {
+          addCurrentDirectory()
+        }
+        return
+      }
+
+      if (e.key === 'Backspace' && view === 'directories') {
+        e.preventDefault()
+        if (parentPath !== null) {
+          goUp()
+        }
       }
     }
 
@@ -61,7 +202,7 @@ export function SpotlightModal({
     return () => {
       window.removeEventListener('keydown', handleKeyDown)
     }
-  }, [isOpen, onClose])
+  })
 
   if (!isOpen) return null
 
@@ -71,114 +212,112 @@ export function SpotlightModal({
     }
   }
 
-  const handleProjectPicked = (project: ProjectItemData) => {
-    onSelectProject(project)
-    onClose()
-  }
-
-  const handleProjectAdded = (project: ProjectItemData) => {
-    onAddProject(project)
-    onClose()
-  }
+  const isDirView = view === 'directories'
 
   return (
     <div className="spotlight-backdrop" onClick={handleBackdropClick} role="dialog" aria-modal="true">
       <div className="spotlight-card" onClick={(e) => e.stopPropagation()}>
-        {/* Top Search Header */}
+        {/* Header: back arrow + search input (sources) or current path (directories) */}
         <div className="spotlight-header">
-          <svg
-            className="spotlight-search-icon"
-            width="18"
-            height="18"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <line x1="21" y1="21" x2="16.65" y2="16.65" />
-          </svg>
-
-          <input
-            ref={inputRef}
-            type="text"
-            className="spotlight-input"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={
-              activeTab === 'projects'
-                ? 'Search existing projects...'
-                : 'Filter directories or navigate below...'
-            }
-          />
-
-          <span className="spotlight-esc-badge">ESC</span>
-        </div>
-
-        {/* Tab switch */}
-        <div className="spotlight-tabs">
           <button
             type="button"
-            className={`spotlight-tab-btn ${activeTab === 'projects' ? 'active' : ''}`}
-            onClick={() => setActiveTab('projects')}
+            className="spotlight-back-btn"
+            onClick={isDirView ? backToSources : onClose}
+            aria-label="Back"
+            title="Back"
           >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            >
-              <rect x="2" y="7" width="20" height="14" rx="2" ry="2" />
-              <path d="M16 21V5a2 2 0 0 0-2-2h-4a2 2 0 0 0-2 2v16" />
-            </svg>
-            <span>Projects ({projects.length})</span>
+            <ArrowLeft size={18} strokeWidth={2} />
           </button>
 
-          <button
-            type="button"
-            className={`spotlight-tab-btn ${activeTab === 'navigator' ? 'active' : ''}`}
-            onClick={() => setActiveTab('navigator')}
-          >
-            <svg
-              width="14"
-              height="14"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
+          {isDirView ? (
+            <span className="spotlight-path" title={path}>
+              {path === '' ? '...' : prettifyPath(path, homeDir)}
+            </span>
+          ) : (
+            <input
+              ref={inputRef}
+              type="text"
+              className="spotlight-input"
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search..."
+            />
+          )}
+
+          {isDirView ? (
+            <button
+              type="button"
+              className="spotlight-add-btn"
+              onClick={addCurrentDirectory}
+              disabled={path === '' || isLoading || (error !== null && error !== '')}
+              title="Add this directory as a project"
             >
-              <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z" />
-              <line x1="12" y1="11" x2="12" y2="17" />
-              <line x1="9" y1="14" x2="15" y2="14" />
-            </svg>
-            <span>Add Project / Browse Folders</span>
-          </button>
+              <span>Add</span>
+              <span className="spotlight-add-shortcut">Enter</span>
+            </button>
+          ) : null}
         </div>
 
         {/* Body */}
         <div className="spotlight-body">
-          {activeTab === 'projects' ? (
-            <ProjectList
-              projects={projects}
-              activeProjectId={activeProjectId}
-              searchTerm={searchQuery}
-              onSelectProject={handleProjectPicked}
-              onRemoveProject={onRemoveProject}
-            />
+          {isDirView ? (
+            <>
+              <div className="spotlight-section-label">Directories</div>
+              <DirectoryList
+                entries={entries}
+                isLoading={isLoading || path === ''}
+                error={error}
+                selectedIndex={activeIndex}
+                onNavigate={(entry) => navigate(entry.path)}
+                onHover={handleHoverItem}
+                onHoverLeave={handleHoverLeave}
+              />
+            </>
           ) : (
-            <DirectoryNavigator
+            <SourcesList
+              showLocalFolder={showLocalFolder}
               searchTerm={searchQuery}
-              onAddProject={handleProjectAdded}
+              projects={filteredProjects}
+              activeProjectId={activeProjectId}
+              selectedIndex={activeIndex}
+              onSelectProject={onSelectProject}
+              onRemoveProject={onRemoveProject}
+              onOpenLocalFolder={openLocalFolder}
+              onHoverItem={handleHoverItem}
+              onHoverLeave={handleHoverLeave}
             />
           )}
+        </div>
+
+        {/* Footer hints */}
+        <div className="spotlight-footer">
+          <span className="spotlight-footer-group">
+            <span className="spotlight-kbd" aria-hidden="true">
+              <ArrowUp size={15} strokeWidth={1.75} />
+            </span>
+            <span className="spotlight-kbd" aria-hidden="true">
+              <ArrowDown size={15} strokeWidth={1.75} />
+            </span>
+            <span>Navigate</span>
+          </span>
+
+          {!isDirView && (
+            <span className="spotlight-footer-group">
+              <span className="spotlight-kbd">Enter</span>
+              <span>Select</span>
+            </span>
+          )}
+
+          <span className="spotlight-footer-group">
+            <span className="spotlight-kbd">Backspace</span>
+            <span>Back</span>
+          </span>
+
+          <span className="spotlight-footer-group">
+            <span className="spotlight-kbd">Esc</span>
+            <span>Close</span>
+          </span>
+
         </div>
       </div>
     </div>

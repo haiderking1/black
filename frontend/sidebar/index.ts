@@ -1,2 +1,6 @@
 export { Sidebar } from './Sidebar'
-export type { SidebarProps, SessionItem } from './Sidebar'
+export type { SidebarProps } from './Sidebar'
+export { useSessions } from './useSessions'
+export type { UseSessionsResult } from './useSessions'
+export { DEFAULT_SESSION_TITLE } from './sessionStore'
+export type { SessionRecord } from './types'

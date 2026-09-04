@@ -1,5 +1,4 @@
 export { SpotlightModal } from './SpotlightModal'
 export type { SpotlightModalProps } from './SpotlightModal'
-export { DirectoryNavigator } from './DirectoryNavigator'
 export { ProjectList } from './ProjectList'
 export type { ProjectItemData } from './ProjectList'

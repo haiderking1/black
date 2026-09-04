@@ -19,6 +19,7 @@ declare global {
     blackDesktop?: {
       listDirectory: (targetPath?: string) => Promise<DesktopDirectoryResult>
       openDirectoryDialog: () => Promise<string | null>
+      openInFiles: (targetPath: string) => Promise<string>
       getHomeDir: () => Promise<string>
       getCwd: () => Promise<string>
     }

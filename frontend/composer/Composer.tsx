@@ -51,10 +51,6 @@ export function Composer({
           </div>
         </div>
       </div>
-
-      <div className="composer-disclaimer">
-        Black can make mistakes. Verify important code and data.
-      </div>
     </div>
   )
 }
