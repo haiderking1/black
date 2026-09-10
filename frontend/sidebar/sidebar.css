@@ -21,6 +21,18 @@
   --sidebar-row-hover: #2d2d29;
 }
 
+:root[data-theme="catppuccin-mocha"] .sidebar-container {
+  --sidebar-row-hover: #313244;
+}
+
+:root[data-theme="rose-pine"] .sidebar-container {
+  --sidebar-row-hover: #21202e;
+}
+
+:root[data-theme="jellybeans"] .sidebar-container {
+  --sidebar-row-hover: #1c1c1c;
+}
+
 .sidebar-container.collapsed {
   width: 0;
   padding: 0;
@@ -385,7 +397,7 @@
 }
 
 .session-empty {
-  padding: 4px 8px 4px 0;
+  padding: 4px 18px 4px 50px;
   font-size: 12px;
   color: var(--text-dim);
 }

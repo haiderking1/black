@@ -1,5 +1,5 @@
 import React from 'react'
-import { Moon, Palette, Sun } from 'lucide-react'
+import { Candy, Coffee, Flower2, Moon, Palette, Sun } from 'lucide-react'
 import type { AppSettings, ThemePreference } from './types'
 
 interface AppearanceSettingsProps {
@@ -14,7 +14,10 @@ const THEME_OPTIONS: ReadonlyArray<{
 }> = [
   { value: 'dark', label: 'Dark', icon: Moon },
   { value: 'light', label: 'Light', icon: Sun },
-  { value: 'gruvbox', label: 'Gruvbox', icon: Palette }
+  { value: 'gruvbox', label: 'Gruvbox', icon: Palette },
+  { value: 'catppuccin-mocha', label: 'Catppuccin Mocha', icon: Coffee },
+  { value: 'rose-pine', label: 'Rosé Pine', icon: Flower2 },
+  { value: 'jellybeans', label: 'Jellybeans', icon: Candy }
 ]
 
 export function AppearanceSettings({

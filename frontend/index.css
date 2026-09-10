@@ -7,6 +7,8 @@
   --bg-main: #0c0c0c;
   --bg-surface: #141414;
   --bg-surface-hover: #1c1c1c;
+  --bg-composer: var(--bg-surface);
+  --bg-composer-hover: var(--bg-surface-hover);
   --bg-pill: #131313;
 
   --border-subtle: rgba(255, 255, 255, 0.07);
@@ -89,6 +91,86 @@
   --btn-send-active-fg: #282927;
   --btn-send-disabled-bg: rgba(235, 219, 178, 0.1);
   --btn-send-disabled-fg: #827c6b;
+}
+
+:root[data-theme="catppuccin-mocha"] {
+  color-scheme: dark;
+
+  --bg-app: #1e1e2e;
+  --bg-sidebar: #181825;
+  --bg-main: #1e1e2e;
+  --bg-surface: #313244;
+  --bg-surface-hover: #45475a;
+  --bg-pill: #313244;
+
+  --border-subtle: rgba(205, 214, 244, 0.1);
+  --border-medium: rgba(205, 214, 244, 0.18);
+  --border-composer: rgba(205, 214, 244, 0.14);
+
+  --text-primary: #cdd6f4;
+  --text-secondary: #bac2de;
+  --text-muted: #a6adc8;
+  --text-dim: #6c7086;
+  --text-invert: #1e1e2e;
+
+  --btn-send-active-bg: #cdd6f4;
+  --btn-send-active-fg: #1e1e2e;
+  --btn-send-disabled-bg: rgba(205, 214, 244, 0.1);
+  --btn-send-disabled-fg: #6c7086;
+}
+
+:root[data-theme="rose-pine"] {
+  color-scheme: dark;
+
+  --bg-app: #191724;
+  --bg-sidebar: #191724;
+  --bg-main: #191724;
+  --bg-surface: #1f1d2e;
+  --bg-surface-hover: #26233a;
+  --bg-pill: #1f1d2e;
+
+  --border-subtle: rgba(224, 222, 244, 0.1);
+  --border-medium: rgba(224, 222, 244, 0.18);
+  --border-composer: rgba(224, 222, 244, 0.14);
+
+  --text-primary: #e0def4;
+  --text-secondary: #908caa;
+  --text-muted: #6e6a86;
+  --text-dim: #524f67;
+  --text-invert: #191724;
+
+  --btn-send-active-bg: #e0def4;
+  --btn-send-active-fg: #191724;
+  --btn-send-disabled-bg: rgba(224, 222, 244, 0.1);
+  --btn-send-disabled-fg: #6e6a86;
+}
+
+:root[data-theme="jellybeans"] {
+  color-scheme: dark;
+
+  --bg-app: #151515;
+  --bg-sidebar: #101010;
+  --bg-main: #151515;
+  --bg-surface: #1c1c1c;
+  --bg-surface-hover: #262626;
+  --bg-composer: #151515;
+  --bg-composer-hover: #1c1c1c;
+  --bg-pill: #1c1c1c;
+
+  --border-subtle: #1c1c1c;
+  --border-medium: #404040;
+  --border-composer: #1c1c1c;
+
+  --text-primary: #e8e8d3;
+  --text-secondary: #ccc5c4;
+  --text-muted: #888888;
+  --text-dim: #605958;
+  --text-invert: #151515;
+
+  --btn-send-active-bg: #e8e8d3;
+  --btn-send-active-fg: #151515;
+  --btn-send-disabled-bg: rgba(255, 255, 255, 0.05);
+  --btn-send-disabled-fg: #454545;
 }
 
 *, *::before, *::after {

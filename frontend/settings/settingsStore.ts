@@ -1,4 +1,4 @@
-import type { AppSettings, ThemePreference } from './types'
+import { THEME_PREFERENCES, type AppSettings, type ThemePreference } from './types'
 
 export const SETTINGS_STORAGE_KEY = 'black_settings_v1'
 
@@ -14,7 +14,7 @@ export interface SettingsStorage {
 }
 
 function isThemePreference(value: unknown): value is ThemePreference {
-  return value === 'dark' || value === 'light' || value === 'gruvbox'
+  return typeof value === 'string' && (THEME_PREFERENCES as readonly string[]).includes(value)
 }
 
 export function parseSettings(value: unknown): AppSettings {

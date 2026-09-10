@@ -7,6 +7,7 @@ import {
   writeSettings,
   type SettingsStorage
 } from '../frontend/settings/settingsStore'
+import { THEME_PREFERENCES } from '../frontend/settings/types'
 
 function createMemoryStorage(initialValue: string | null = null): SettingsStorage {
   const values = new Map<string, string>()
@@ -49,8 +50,13 @@ describe('settings persistence', () => {
   })
 
   it('accepts every available theme and rejects removed theme values', () => {
-    for (const theme of ['dark', 'light', 'gruvbox'] as const) {
-      expect(parseSettings({ ...DEFAULT_SETTINGS, theme }).theme).toBe(theme)
+    const storage = createMemoryStorage()
+
+    for (const theme of THEME_PREFERENCES) {
+      const settings = { ...DEFAULT_SETTINGS, theme }
+      expect(parseSettings(settings).theme).toBe(theme)
+      expect(writeSettings(storage, settings)).toBe(true)
+      expect(readSettings(storage).theme).toBe(theme)
     }
 
     expect(parseSettings({ ...DEFAULT_SETTINGS, theme: 'system' }).theme).toBe(

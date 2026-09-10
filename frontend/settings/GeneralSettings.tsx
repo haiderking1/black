@@ -63,8 +63,6 @@ export function GeneralSettings({
             />
           </div>
 
-          <div className="settings-card-divider" />
-
           <div className="settings-row">
             <div className="settings-row-copy">
               <span className="settings-row-title">Reduce motion</span>
