@@ -38,6 +38,15 @@ export function codeFromStatus(status: number): ProviderErrorCode {
   return 'unknown'
 }
 
+/** Preserve vendor codes so quota errors are distinguishable from throttling. */
+export function providerErrorIdentifier(body: unknown): string {
+  if (typeof body !== 'object' || body === null) return ''
+  const value = body as { error?: unknown; code?: unknown; type?: unknown }
+  const inner = typeof value.error === 'object' && value.error !== null
+    ? value.error as { code?: unknown; type?: unknown } : value
+  return [inner.code, inner.type, value.code, value.type].filter(item => typeof item === 'string').join(' ')
+}
+
 /** Pull a message out of the error envelope these gateways return, if present. */
 export function messageFromBody(body: unknown, fallback: string): string {
   if (typeof body !== 'object' || body === null) return fallback

@@ -69,6 +69,7 @@ function stubHandlers(events: readonly ChatStreamEvent[] = [{ type: 'text', text
       }),
     [METHODS.stream]: () =>
       Stream.fromIterable(events),
+    [METHODS.title]: () => Effect.succeed({ title: 'Stub title' }),
     [METHODS.complete]: () =>
       Effect.succeed({
         text: 'stub reply',

@@ -353,17 +353,20 @@ describe('runToolLoop', () => {
     expect(events.at(-1)?.usage).toEqual({ input: 5, output: 7, total: 12 })
   })
 
-  it('gives up rather than looping forever when the model keeps asking', async () => {
-    const forever = async function* (): AsyncGenerator<ChatStreamEvent> {
-      yield { type: 'tool_calls', toolCalls: [{ id: 'c', name: 'compute', arguments: "{\"title\": \"Read test file\", \"code\": \"async () => await workspace.read({\\\"path\\\":\\\"missing\\\"})\"}" }] }
+  it('continues beyond 25 rounds and still responds to cancellation', async () => {
+    const controller = new AbortController()
+    let rounds = 0
+    const stream = async function* (): AsyncGenerator<ChatStreamEvent> {
+      rounds++
+      if (rounds === 30) controller.abort()
+      yield { type: 'tool_calls', toolCalls: [{ id: String(rounds), name: 'missing-tool', arguments: '{}' }] }
       yield { type: 'done', stopReason: 'stop' }
     }
-    const events = await collect(runToolLoop({ ...base(forever), maxRounds: 3 }))
-
-    expect(events.filter((event) => event.type === 'tool_result').length).toBe(3)
-    const error = events.find((event) => event.type === 'error')
-    expect(error?.message).toContain('3 rounds')
-    expect(events.at(-1)?.type).toBe('done')
+    const events = await collect(runToolLoop({ ...base(stream), signal: controller.signal }))
+    expect(rounds).toBe(30)
+    expect(events.filter(event => event.type === 'tool_result').length).toBeGreaterThan(25)
+    expect(events.at(-1)).toEqual({ type: 'done', stopReason: 'aborted' })
+    expect(events.some(event => event.type === 'error')).toBe(false)
   })
 
   it('passes through an event type it does not handle instead of dropping it', async () => {

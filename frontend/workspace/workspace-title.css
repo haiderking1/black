@@ -1,0 +1,35 @@
+.workspace-title {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-width: 0;
+  font-size: 16px;
+  font-weight: 500;
+  user-select: none;
+}
+
+.workspace-title-project {
+  flex: 0 1 auto;
+  max-width: 40%;
+  color: var(--text-secondary);
+}
+
+.workspace-title-project:only-child { max-width: 100%; }
+
+.workspace-title-separator {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.workspace-title-session {
+  flex: 1 1 auto;
+  color: var(--text-primary);
+}
+
+.workspace-title-project,
+.workspace-title-session {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}

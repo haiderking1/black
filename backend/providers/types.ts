@@ -80,7 +80,9 @@ export interface ChatStreamEvent {
   /** Present for 'done'. */
   stopReason?: ChatStopReason
   usage?: ChatUsage
-  /** Present for 'error'. */
+  /** Present for 'error'. Server-side metadata for retry decisions. */
+  errorStatus?: number
+  errorCode?: string
   message?: string
 }
 

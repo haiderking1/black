@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { PanelLeft } from 'lucide-react'
+import { WorkspaceTitle } from './workspace/WorkspaceTitle'
+import { deriveSessionTitle } from './sidebar/sessionStore'
 import { Sidebar, useSessions, DEFAULT_SESSION_TITLE } from './sidebar'
 import { Composer, QueuedMessages, commandFor } from './composer'
 import { SpotlightModal, type ProjectItemData } from './spotlight'
@@ -299,8 +301,18 @@ export function App(): React.JSX.Element {
     // First message names the session. An image sent with nothing typed would
     // otherwise name the thread with an empty string.
     const currentSession = sessions.find((s) => s.id === sessionId)
-    if (currentSession === undefined || currentSession.title === DEFAULT_SESSION_TITLE) {
-      renameSession(sessionId, content.trim() === '' ? 'Image' : content)
+    if (getMessages(sessionId).length === 0 && (currentSession === undefined || currentSession.title === DEFAULT_SESSION_TITLE)) {
+      const fallback = deriveSessionTitle(content.trim() === '' ? 'Image' : content)
+      renameSession(sessionId, fallback)
+      const titleSessionId = sessionId
+      const titleModel = options?.model || settings.selectedModelId
+      if (titleModel && client !== null) {
+        void Effect.runPromise(client['chat.title']({
+          providerId: 'opencode-go', model: titleModel, message: content, sessionId: titleSessionId,
+        })).then(({ title }) => renameSession(titleSessionId, title, fallback)).catch(() => {
+          // Naming must never interrupt a reply. Keep the first-message fallback.
+        })
+      }
     }
     touchSession(sessionId)
 
@@ -490,7 +502,6 @@ export function App(): React.JSX.Element {
         activeProjectId={activeProject?.id}
         sessions={sessions}
         activeSessionId={activeSessionId}
-        activeProjectName={activeProject?.name}
         onSelectProject={handleSidebarSelectProject}
         onSelectSession={handleSidebarSelectSession}
         onNewSession={handleSidebarNewSession}
@@ -517,13 +528,14 @@ export function App(): React.JSX.Element {
             flexShrink: 0
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', minWidth: 0, flex: 1 }}>
             {!sidebarOpen && (
               <button
                 type="button"
                 onClick={() => setSidebarOpen(true)}
                 title="Open sidebar"
                 style={{
+                  flexShrink: 0,
                   width: '34px',
                   height: '34px',
                   display: 'flex',
@@ -537,18 +549,10 @@ export function App(): React.JSX.Element {
               </button>
             )}
 
-            <div
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                color: 'var(--text-primary)',
-                fontWeight: 600,
-                fontSize: '16px',
-                userSelect: 'none'
-              }}
-            >
-              <span>Black</span>
-            </div>
+            <WorkspaceTitle
+              projectName={activeProject?.name}
+              sessionTitle={sessions.find(session => session.id === activeSessionId && session.projectId === activeProject?.id)?.title}
+            />
           </div>
         </header>
 

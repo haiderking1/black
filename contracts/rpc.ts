@@ -87,6 +87,12 @@ const ListModelsRpc = Rpc.make(METHODS.listModels, {
   error: ProviderConfigError,
 })
 
+const ChatTitleRpc = Rpc.make(METHODS.title, {
+  payload: Schema.Struct({ providerId: Schema.NonEmptyString, model: Schema.NonEmptyString, message: Schema.String, sessionId: Schema.NonEmptyString }),
+  success: Schema.Struct({ title: Schema.NonEmptyString }),
+  error: ProviderConfigError,
+})
+
 const ChatCompleteRpc = Rpc.make(METHODS.complete, {
   payload: ChatCompleteInput,
   success: ChatCompleteResult,
@@ -136,6 +142,7 @@ export const ServerRpcs = RpcGroup.make(
   ClearApiKeyRpc,
   SetEnabledRpc,
   ListModelsRpc,
+  ChatTitleRpc,
   ChatCompleteRpc,
   ChatStreamRpc,
   ChatCancelRpc,

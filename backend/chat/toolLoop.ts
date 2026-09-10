@@ -1,4 +1,5 @@
 import { toolByName } from '../tools/registry'
+import { retryModelStream } from './retry/stream'
 import { parseToolArguments } from '../tools/parseArguments'
 import type { ChatImage, ChatMessage, ChatStreamEvent, ChatUsage, ToolCall } from '../providers/types'
 import type { ImageAttachment, ToolContext } from '../tools/types'
@@ -11,7 +12,7 @@ import type { ImageAttachment, ToolContext } from '../tools/types'
  * visible turn is a loop: ask, run whatever it asked for, hand the results
  * back, ask again, until it answers without asking for anything.
  *
- * Three things here are load bearing.
+ * Two things here are load bearing.
  *
  * Every call gets a result. The API requires a message for each tool call id it
  * was given, so a call naming a tool that does not exist, or one whose
@@ -22,13 +23,8 @@ import type { ImageAttachment, ToolContext } from '../tools/types'
  * A tool that throws is a result, not a failure. The model gets the error text
  * and can fix what it sent. Failing the turn instead throws away a working
  * conversation over one bad path.
- *
- * The round count is bounded. A model that keeps asking for a file that does not
- * exist will loop forever given the chance, and each round is a paid request.
- */
 
-/** Rounds of tool calling allowed in one turn before it is declared stuck. */
-export const MAX_TOOL_ROUNDS = 25
+ */
 
 /** What a tool run produced, whether it succeeded or not. */
 interface ToolRun {
@@ -83,7 +79,6 @@ export interface ToolLoopOptions {
   /** Directory relative paths resolve against. */
   cwd: string
   signal?: AbortSignal
-  maxRounds?: number
   /**
    * Whether the model can be shown an image. Passed down so a tool that reads
    * one knows whether to decode it or report it.
@@ -92,7 +87,6 @@ export interface ToolLoopOptions {
 }
 
 export async function* runToolLoop(options: ToolLoopOptions): AsyncGenerator<ChatStreamEvent> {
-  const maxRounds = options.maxRounds ?? MAX_TOOL_ROUNDS
   const messages = [...options.messages]
   const context: ToolContext = {
     cwd: options.cwd,
@@ -105,7 +99,7 @@ export async function* runToolLoop(options: ToolLoopOptions): AsyncGenerator<Cha
   // inline check after the first one is treated as always false.
   const isAborted = (): boolean => options.signal?.aborted === true
 
-  for (let round = 0; round < maxRounds; round++) {
+  for (let round = 0; ; round++) {
     if (isAborted()) {
       yield { type: 'done', stopReason: 'aborted' }
       return
@@ -117,7 +111,7 @@ export async function* runToolLoop(options: ToolLoopOptions): AsyncGenerator<Cha
     let usage: ChatUsage | undefined
     let stopReason: string | undefined
 
-    for await (const event of options.stream(messages)) {
+    for await (const event of retryModelStream(() => options.stream(messages), options.signal)) {
       if (event.type === 'text') {
         assistantText += event.text ?? ''
         yield { ...event, round }
@@ -219,14 +213,4 @@ export async function* runToolLoop(options: ToolLoopOptions): AsyncGenerator<Cha
     }
   }
 
-  // Reported as an error rather than a quiet stop, because the model is still
-  // asking for things and the answer is incomplete.
-  yield {
-    type: 'error',
-    message:
-      'Stopped after ' +
-      String(maxRounds) +
-      ' rounds of tool calls in one turn. The model is still asking for more, so this answer is incomplete. Ask again to continue.'
-  }
-  yield { type: 'done', stopReason: 'length' }
 }

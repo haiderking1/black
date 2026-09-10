@@ -28,6 +28,7 @@ export const PROVIDER_METHODS = {
 
 /** Chat completions. */
 export const CHAT_METHODS = {
+  title: 'chat.title',
   complete: 'chat.complete',
   stream: 'chat.stream',
   cancel: 'chat.cancel',

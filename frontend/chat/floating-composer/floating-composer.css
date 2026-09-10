@@ -30,3 +30,8 @@
 .floating-chat > .jump-to-latest {
   bottom: calc(var(--composer-inset) + 8px);
 }
+
+/* Picker menus own this space until dismissed. */
+.floating-chat:has(.composer-picker-menu) > .jump-to-latest {
+  display: none;
+}

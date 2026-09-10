@@ -9,7 +9,7 @@
  * response, so the same extractor reads both and the two stay consistent.
  */
 
-import { messageFromBody } from '../errors'
+import { messageFromBody, providerErrorIdentifier } from '../errors'
 import type { ChatMessage, ChatStopReason, ChatStreamEvent, ChatUsage, FetchLike } from '../types'
 import { CHAT_COMPLETIONS_PATH, joinUrl } from './endpoints'
 import { extractStreamParts } from './reasoning'
@@ -175,6 +175,8 @@ export function createStreamingClient(options: StreamChatOptions): StreamingClie
         yield {
           type: 'error',
           message: messageFromBody(parsed, 'Streaming request failed with status ' + response.status),
+          errorStatus: response.status,
+          errorCode: providerErrorIdentifier(parsed),
         }
         return
       }

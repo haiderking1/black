@@ -16,7 +16,7 @@ export interface UseSessionsResult {
   activeSessionId: string | undefined
   setActiveSession: (projectId: string, sessionId: string) => void
   createSession: (projectId: string) => SessionRecord
-  renameSession: (sessionId: string, title: string) => void
+  renameSession: (sessionId: string, title: string, expectedTitle?: string) => void
   deleteSession: (sessionId: string) => void
   touchSession: (sessionId: string) => void
   deleteSessionsForProject: (projectId: string) => void
@@ -97,10 +97,10 @@ export function useSessions(projects: ProjectItemData[], activeProjectId: string
     return record
   }, [])
 
-  const renameSession = useCallback((sessionId: string, title: string): void => {
+  const renameSession = useCallback((sessionId: string, title: string, expectedTitle?: string): void => {
     const nextTitle = deriveSessionTitle(title)
     setSessions((prev) =>
-      prev.map((s) => (s.id === sessionId ? { ...s, title: nextTitle } : s))
+      prev.map((s) => (s.id === sessionId && (expectedTitle === undefined || s.title === expectedTitle) ? { ...s, title: nextTitle } : s))
     )
   }, [])
 

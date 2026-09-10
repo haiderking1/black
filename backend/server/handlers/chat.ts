@@ -1,4 +1,5 @@
 import * as Effect from 'effect/Effect'
+import { generateSessionTitle } from '../../sessions/title/generate'
 import * as Stream from 'effect/Stream'
 
 import { ProviderConfigError } from '../../../contracts/errors'
@@ -500,6 +501,16 @@ export function chatHandlers() {
     // not an error: the click landed on a reply that had already ended.
     [METHODS.cancel]: (payload: { requestId: string }) =>
       Effect.sync(() => ({ cancelled: abortRequest(payload.requestId) })),
+
+    [METHODS.title]: (payload: { providerId: string; model: string; message: string; sessionId: string }) =>
+      Effect.tryPromise({
+        try: async () => {
+          const resolved = resolveProvider(payload.providerId)
+          if (resolved.error !== null) throw new Error(resolved.error)
+          return generateSessionTitle(resolved.provider, payload.model, payload.message, payload.sessionId)
+        },
+        catch: asProviderError,
+      }),
 
     [METHODS.complete]: (payload: {
       providerId: string

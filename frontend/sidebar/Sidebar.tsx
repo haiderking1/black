@@ -21,7 +21,6 @@ export interface SidebarProps {
   onDeleteProject: (projectId: string) => void
   onOpenSearch?: () => void
   onOpenSettings?: () => void
-  activeProjectName?: string
 }
 
 export function Sidebar({
@@ -38,8 +37,7 @@ export function Sidebar({
   onDeleteSession,
   onDeleteProject,
   onOpenSearch,
-  onOpenSettings,
-  activeProjectName
+  onOpenSettings
 }: SidebarProps): React.JSX.Element {
   const { expandedIds, toggleProject, expandProject } = useExpandedProjects(projects)
 
@@ -65,7 +63,7 @@ export function Sidebar({
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
             <Search size={15} style={{ flexShrink: 0, opacity: 0.8 }} />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              {activeProjectName ?? 'Search'}
+              Search
             </span>
           </div>
 
