@@ -123,6 +123,8 @@ export interface UseConversationsResult {
    * bubble behind.
    */
   updateMessage: (sessionId: string, messageId: string, update: (previous: Message) => Message) => void
+  /** Replace a whole conversation, used when a checkpoint is applied. */
+  replaceMessages: (sessionId: string, messages: Message[]) => void
   /** Remove one message, used when a queued turn is taken back. */
   deleteMessage: (sessionId: string, messageId: string) => void
   deleteConversations: (sessionIds: string[]) => void
@@ -154,6 +156,10 @@ export function useConversations(): UseConversationsResult {
     []
   )
 
+  const replaceMessages = useCallback((sessionId: string, messages: Message[]): void => {
+    setConversations((prev) => ({ ...prev, [sessionId]: messages }))
+  }, [])
+
   const deleteMessage = useCallback((sessionId: string, messageId: string): void => {
     setConversations((prev) => removeMessage(prev, sessionId, messageId))
   }, [])
@@ -162,5 +168,12 @@ export function useConversations(): UseConversationsResult {
     setConversations((prev) => removeConversationsBySessionIds(prev, sessionIds))
   }, [])
 
-  return { getMessages, appendMessage, updateMessage, deleteMessage, deleteConversations }
+  return {
+    getMessages,
+    appendMessage,
+    updateMessage,
+    replaceMessages,
+    deleteMessage,
+    deleteConversations
+  }
 }

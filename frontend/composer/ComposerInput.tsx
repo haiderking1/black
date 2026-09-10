@@ -4,6 +4,14 @@ interface ComposerInputProps {
   value: string
   onChange: (value: string) => void
   onSubmit: () => void
+  /**
+   * Consulted before the input's own keys. Returning true means the key was
+   * handled and this component leaves it alone.
+   *
+   * Exists so a menu above the input can own the arrow keys and Enter while it
+   * is open, without the input needing to know a menu exists.
+   */
+  onKeyDown?: (event: React.KeyboardEvent<HTMLTextAreaElement>) => boolean
   placeholder?: string
   disabled?: boolean
 }
@@ -12,6 +20,7 @@ export function ComposerInput({
   value,
   onChange,
   onSubmit,
+  onKeyDown,
   placeholder = 'Message Black...',
   disabled = false
 }: ComposerInputProps): React.JSX.Element {
@@ -28,7 +37,10 @@ export function ComposerInput({
   }, [value])
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    // Mid-composition the keys belong to the input method, not to us.
     if (e.nativeEvent.isComposing) return
+
+    if (onKeyDown?.(e) === true) return
 
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()

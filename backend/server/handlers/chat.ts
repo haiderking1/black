@@ -2,14 +2,23 @@ import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
 
 import { ProviderConfigError } from '../../../contracts/errors'
-import type { ChatStreamEvent } from '../../../contracts/chat'
+import type { ChatMessage as WireMessage, ChatStreamEvent } from '../../../contracts/chat'
 import { METHODS } from '../../../contracts/methods'
 import { abortRequest, beginRequest, endRequest } from '../../chat/inflight'
+import { fitContext, measureContext } from '../../chat/fitContext'
+import type { TranscriptMessage } from '../../chat/transcript'
 import { withSystemPrompt } from '../../chat/systemPrompt'
+import { runToolLoop } from '../../chat/toolLoop'
+import { toolDefinitions } from '../../tools/registry'
+import type { ChatMessage, ChatStreamEvent as ProviderStreamEvent } from '../../providers/types'
 import { resolveApiKey } from '../../providers/credentials'
 import { findDescriptor } from '../../providers/descriptors'
 import { createOpenCodeProvider } from '../../providers/opencode'
-import type { Provider } from '../../providers/types'
+import type {
+  ChatStopReason,
+  Provider,
+} from '../../providers/types'
+import type { ResolvedCompactionSettings, SummarizationCall } from '../../compaction'
 
 /**
  * Chat handlers.
@@ -42,6 +51,136 @@ function resolveProvider(providerId: string): { provider: Provider; error: null 
   return { provider, error: null }
 }
 
+/** Recent turns kept verbatim after a checkpoint. */
+const KEEP_RECENT_TOKENS = 20000
+
+/**
+ * The share of the window held back, which is what sets the trigger point.
+ *
+ * Compaction fires when the transcript passes the window minus this, so a tenth
+ * means it fires at ninety per cent full. Expressed as a share rather than a
+ * fixed number because a fixed one means something different on every model.
+ */
+const RESERVE_SHARE = 0.1
+
+function compactionSettings(contextWindow: number): ResolvedCompactionSettings {
+  return {
+    enabled: true,
+    reserveTokens: Math.round(contextWindow * RESERVE_SHARE),
+    keepRecentTokens: KEEP_RECENT_TOKENS
+  }
+}
+
+function asStopReason(reason: ChatStopReason): 'stop' | 'length' | 'error' | 'aborted' {
+  if (reason === 'length' || reason === 'aborted' || reason === 'error') return reason
+  return 'stop'
+}
+
+/**
+ * One summarization round trip over the same provider the turn uses.
+ *
+ * The summary is asked for at a lower ceiling than the answer, because it is a
+ * compression task and there is no reader waiting on its prose.
+ */
+function summarizationCallFor(
+  provider: Provider,
+  providerId: string,
+  model: string,
+  signal: AbortSignal | undefined
+): SummarizationCall {
+  return async (request) => {
+    const result = await provider.chat({
+      model,
+      messages: [
+        { role: 'system', content: request.systemPrompt },
+        { role: 'user', content: request.text }
+      ],
+      maxTokens: request.maxTokens,
+      ...(request.sessionId !== undefined ? { sessionId: request.sessionId } : {}),
+      ...(signal !== undefined ? { signal } : {})
+    })
+
+    return {
+      role: 'assistant',
+      content: [{ type: 'text', text: result.text }],
+      api: 'chat',
+      provider: providerId,
+      model,
+      usage: {
+        input: Math.floor(result.usage.input),
+        output: Math.floor(result.usage.output),
+        cacheRead: 0,
+        cacheWrite: 0,
+        totalTokens: Math.floor(result.usage.total),
+        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 }
+      },
+      stopReason: asStopReason(result.stopReason),
+      timestamp: Date.now()
+    }
+  }
+}
+
+/**
+ * The turns to actually send, once the transcript has been measured.
+ *
+ * An unknown context window sends the transcript untouched. Trimming against a
+ * guessed budget would drop history the model could have taken, and the guess
+ * would be wrong in the direction that loses the reader's conversation.
+ */
+async function fitRequest(
+  provider: Provider,
+  providerId: string,
+  payload: {
+    model: string
+    messages: readonly WireMessage[]
+    sessionId?: string
+  },
+  signal: AbortSignal | undefined
+): Promise<{
+  messages: readonly TranscriptMessage[]
+  contextWindow: number | undefined
+  compacted: boolean
+  tokensBefore: number
+  tokensAfter: number
+}> {
+  const transcript: TranscriptMessage[] = payload.messages.map((message, index) => ({
+    // Position stands in when the wire carried no id, which happens for turns
+    // recorded before this existed.
+    id: message.id ?? 'turn-' + String(index),
+    role: message.role,
+    content: message.content
+  }))
+
+  let contextWindow: number
+  try {
+    contextWindow = await provider.contextWindowFor(payload.model)
+  } catch {
+    return {
+      messages: transcript,
+      contextWindow: undefined,
+      compacted: false,
+      tokensBefore: 0,
+      tokensAfter: 0
+    }
+  }
+
+  const fitted = await fitContext({
+    messages: transcript,
+    contextWindow,
+    settings: compactionSettings(contextWindow),
+    call: summarizationCallFor(provider, providerId, payload.model, signal),
+    ...(payload.sessionId !== undefined ? { sessionId: payload.sessionId } : {})
+  })
+
+  return {
+    messages: fitted.messages,
+    contextWindow,
+    compacted: fitted.compacted,
+    tokensBefore: fitted.tokensBefore,
+    tokensAfter: fitted.tokensAfter
+  }
+}
+
 export function chatHandlers() {
   return {
     // Streaming. A failure is delivered as an event rather than failing the
@@ -49,7 +188,7 @@ export function chatHandlers() {
     [METHODS.stream]: (payload: {
       providerId: string
       model: string
-      messages: readonly { role: 'system' | 'user' | 'assistant'; content: string }[]
+      messages: readonly WireMessage[]
       maxTokens?: number
       thinkingLevel?: string
       sessionId?: string
@@ -71,17 +210,103 @@ export function chatHandlers() {
         const controller = payload.requestId === undefined ? null : beginRequest(payload.requestId)
 
         try {
-          yield* resolved.provider.streamChat({
-            model: payload.model,
-            messages: withSystemPrompt(
-              payload.messages.map((message) => ({ role: message.role, content: message.content })),
-              payload.workingDirectory
-            ),
-            ...(payload.maxTokens !== undefined ? { maxTokens: payload.maxTokens } : {}),
-            ...(payload.thinkingLevel !== undefined ? { reasoningEffort: payload.thinkingLevel } : {}),
-            ...(payload.sessionId !== undefined ? { sessionId: payload.sessionId } : {}),
+          const fitted = await fitRequest(
+            resolved.provider,
+            payload.providerId,
+            payload,
+            controller?.signal
+          )
+
+          const provider = resolved.provider
+          const workingDirectory = payload.workingDirectory
+
+          // No directory means no tools. A relative path has nothing to resolve
+          // against, and a write with no root is a write that could land
+          // anywhere, so the model is offered nothing rather than something
+          // unbounded.
+          const tools = workingDirectory === undefined ? undefined : toolDefinitions()
+
+          const history: ChatMessage[] = fitted.messages.map((message) => ({
+            role: message.role,
+            content: message.content,
+          }))
+
+          // The budget a round must stay under. Undefined when the model's
+          // window is unknown, in which case growth is not guessed at.
+          const budget =
+            fitted.contextWindow === undefined
+              ? undefined
+              : fitted.contextWindow - Math.round(fitted.contextWindow * RESERVE_SHARE)
+
+          const streamRound = async function* (round: ChatMessage[]): AsyncGenerator<ProviderStreamEvent> {
+            const prepared = withSystemPrompt(round, workingDirectory)
+
+            // Checked before the request rather than after it fails. A round
+            // that grew past the window would otherwise be rejected by the
+            // vendor with a message about tokens that says nothing about which
+            // tool call produced the giant result.
+            if (budget !== undefined) {
+              const used = measureContext(
+                prepared.map((message, index) => ({
+                  id: 'round-' + String(index),
+                  role: message.role,
+                  content: message.content,
+                }))
+              )
+              if (used > budget) {
+                yield {
+                  type: 'error',
+                  message:
+                    'This turn asked for more context than the model can hold (' +
+                    String(used) +
+                    ' tokens against a ' +
+                    String(fitted.contextWindow ?? 0) +
+                    ' token window), so it stopped here. The work so far is above. Ask again to continue with what has been done.',
+                }
+                yield { type: 'done', stopReason: 'length' }
+                return
+              }
+            }
+
+            for await (const event of provider.streamChat({
+              model: payload.model,
+              messages: prepared,
+              ...(payload.maxTokens !== undefined ? { maxTokens: payload.maxTokens } : {}),
+              ...(payload.thinkingLevel !== undefined ? { reasoningEffort: payload.thinkingLevel } : {}),
+              ...(payload.sessionId !== undefined ? { sessionId: payload.sessionId } : {}),
+              ...(controller !== null ? { signal: controller.signal } : {}),
+              ...(tools === undefined ? {} : { tools }),
+            })) {
+              yield event
+            }
+          }
+
+          // Reported before the first token, because it happened before the
+          // first token. The reader sees why the context shrank as it happens
+          // rather than only noticing the model forgot something.
+          if (fitted.compacted === true) {
+            yield {
+              type: 'compacted',
+              tokensBefore: fitted.tokensBefore,
+              tokensAfter: fitted.tokensAfter
+            }
+          }
+
+          // The window is known here and not to the provider, so it is attached
+          // on the way past rather than reported separately and stitched
+          // together by the caller.
+          for await (const event of runToolLoop({
+            messages: history,
+            cwd: workingDirectory ?? '',
+            stream: streamRound,
             ...(controller !== null ? { signal: controller.signal } : {}),
-          })
+          })) {
+            if (event.type === 'done' && fitted.contextWindow !== undefined) {
+              yield { ...event, contextWindow: fitted.contextWindow }
+              continue
+            }
+            yield event
+          }
         } finally {
           // Released whether it finished, failed, or was aborted, so a finished
           // turn does not linger in the registry.
@@ -99,6 +324,118 @@ export function chatHandlers() {
       })
     },
 
+    // Forces a checkpoint now, and hands back what should replace the older
+    // turns. The caller owns its transcript, so it gets the pieces rather than a
+    // rewritten history it never asked for.
+    [METHODS.compact]: (payload: {
+      providerId: string
+      model: string
+      messages: readonly WireMessage[]
+      sessionId?: string
+    }) =>
+      Effect.tryPromise({
+        try: async () => {
+          const descriptor = findDescriptor(payload.providerId)
+          if (descriptor === undefined) throw new Error('Unknown provider: ' + payload.providerId)
+
+          const apiKey = resolveApiKey(payload.providerId)
+          if (apiKey === undefined) {
+            throw new Error('No API key configured for ' + descriptor.name)
+          }
+
+          const provider = buildProvider(payload.providerId, apiKey)
+          if (provider === undefined) throw new Error('Unknown provider: ' + payload.providerId)
+
+          const transcript: TranscriptMessage[] = payload.messages.map((message, index) => ({
+            id: message.id ?? 'turn-' + String(index),
+            role: message.role,
+            content: message.content
+          }))
+
+          const nothing = {
+            compacted: false,
+            summary: '',
+            firstKeptMessageId: '',
+            tokensBefore: 0,
+            tokensAfter: 0
+          }
+
+          let contextWindow: number
+          try {
+            contextWindow = await provider.contextWindowFor(payload.model)
+          } catch {
+            return nothing
+          }
+
+          const fitted = await fitContext({
+            messages: transcript,
+            contextWindow,
+            call: summarizationCallFor(provider, payload.providerId, payload.model, undefined),
+            // The same settings the automatic path uses. What differs is that
+            // nothing here consults the context window, so a manual checkpoint
+            // runs whenever there is something to fold up, not only when the
+            // transcript is nearly full. Inventing a smaller keep window for
+            // this path would mean a manual compact summarised history the
+            // automatic one deliberately preserves.
+            settings: compactionSettings(contextWindow),
+            force: true,
+            ...(payload.sessionId !== undefined ? { sessionId: payload.sessionId } : {})
+          })
+
+          if (!fitted.compacted) return nothing
+
+          return {
+            compacted: true,
+            summary: fitted.summary ?? '',
+            firstKeptMessageId: fitted.firstKeptId ?? '',
+            tokensBefore: fitted.tokensBefore,
+            tokensAfter: fitted.tokensAfter
+          }
+        },
+        catch: asProviderError
+      }),
+
+    // Measures the transcript as it stands, without sending anything. The
+    // window is read here because only the provider layer knows it, and a
+    // gauge without a denominator is not worth drawing.
+    [METHODS.contextUsage]: (payload: {
+      providerId: string
+      model: string
+      messages: readonly WireMessage[]
+    }) =>
+      Effect.tryPromise({
+        try: async () => {
+          const descriptor = findDescriptor(payload.providerId)
+          if (descriptor === undefined) throw new Error('Unknown provider: ' + payload.providerId)
+
+          const apiKey = resolveApiKey(payload.providerId)
+          if (apiKey === undefined) {
+            throw new Error('No API key configured for ' + descriptor.name)
+          }
+
+          const provider = buildProvider(payload.providerId, apiKey)
+          if (provider === undefined) throw new Error('Unknown provider: ' + payload.providerId)
+
+          const transcript: TranscriptMessage[] = payload.messages.map((message, index) => ({
+            id: message.id ?? 'turn-' + String(index),
+            role: message.role,
+            content: message.content
+          }))
+
+          const tokens = measureContext(transcript)
+
+          let contextWindow: number | null = null
+          try {
+            contextWindow = await provider.contextWindowFor(payload.model)
+          } catch {
+            contextWindow = null
+          }
+
+          return { tokens, contextWindow }
+        },
+        catch: asProviderError
+      }),
+
     // Reports whether anything was found. A turn that finished a moment ago is
     // not an error: the click landed on a reply that had already ended.
     [METHODS.cancel]: (payload: { requestId: string }) =>
@@ -107,7 +444,7 @@ export function chatHandlers() {
     [METHODS.complete]: (payload: {
       providerId: string
       model: string
-      messages: readonly { role: 'system' | 'user' | 'assistant'; content: string; thinkingSignature?: string }[]
+      messages: readonly WireMessage[]
       maxTokens?: number
       thinkingLevel?: string
       sessionId?: string
@@ -126,16 +463,12 @@ export function chatHandlers() {
           const provider = buildProvider(payload.providerId, apiKey)
           if (provider === undefined) throw new Error('Unknown provider: ' + payload.providerId)
 
+          const fitted = await fitRequest(provider, payload.providerId, payload, undefined)
+
           const result = await provider.chat({
             model: payload.model,
             messages: withSystemPrompt(
-              payload.messages.map((message) => ({
-                role: message.role,
-                content: message.content,
-                ...(message.thinkingSignature !== undefined
-                  ? { thinkingSignature: message.thinkingSignature }
-                  : {}),
-              })),
+              fitted.messages.map((message) => ({ role: message.role, content: message.content })),
               payload.workingDirectory
             ),
             ...(payload.maxTokens !== undefined ? { maxTokens: payload.maxTokens } : {}),

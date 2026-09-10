@@ -31,6 +31,8 @@ export const CHAT_METHODS = {
   complete: 'chat.complete',
   stream: 'chat.stream',
   cancel: 'chat.cancel',
+  contextUsage: 'chat.contextUsage',
+  compact: 'chat.compact',
 } as const
 
 /** Methods the main process answers. */

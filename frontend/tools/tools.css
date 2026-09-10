@@ -1,0 +1,112 @@
+/* Tool calls in the transcript. */
+
+.tool-runs {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  margin: 6px 0 2px;
+}
+
+.tool-row {
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-surface);
+  overflow: hidden;
+}
+
+.tool-row-failed {
+  border-color: var(--border-medium);
+}
+
+.tool-row-head {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  width: 100%;
+  padding: 5px 9px;
+  border: 0;
+  background: none;
+  color: inherit;
+  font: inherit;
+  font-size: 12.5px;
+  line-height: 1.6;
+  text-align: left;
+  cursor: pointer;
+}
+
+.tool-row-head:disabled {
+  cursor: default;
+}
+
+.tool-row-head:not(:disabled):hover {
+  background: var(--bg-surface-hover);
+}
+
+.tool-row-chevron {
+  width: 8px;
+  color: var(--text-dim);
+  font-size: 10px;
+}
+
+.tool-row-name {
+  color: var(--text-secondary);
+  font-weight: 500;
+}
+
+.tool-row-summary {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.tool-row-failed .tool-row-summary {
+  color: var(--text-secondary);
+}
+
+.tool-row-state {
+  color: var(--text-muted);
+  font-size: 11.5px;
+}
+
+.tool-row-body {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.tool-output,
+.tool-diff {
+  max-height: 340px;
+  margin: 0;
+  padding: 8px 10px;
+  overflow: auto;
+  background: var(--preview-bg);
+  color: var(--preview-text);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.55;
+  white-space: pre;
+  tab-size: 2;
+}
+
+.tool-diff-line {
+  white-space: pre;
+}
+
+.tool-diff-added {
+  color: var(--text-primary);
+  background: color-mix(in srgb, currentColor 8%, transparent);
+}
+
+.tool-diff-removed {
+  color: var(--text-dim);
+  text-decoration: line-through;
+  text-decoration-color: var(--border-medium);
+}
+
+.tool-diff-context {
+  color: var(--text-muted);
+}

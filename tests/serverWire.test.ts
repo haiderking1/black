@@ -55,6 +55,15 @@ function stubHandlers() {
       }),
     [METHODS.listModels]: () => Effect.succeed([{ id: 'glm-5.3', ownedBy: 'opencode', created: 1 }]),
     [METHODS.cancel]: () => Effect.succeed({ cancelled: true }),
+    [METHODS.contextUsage]: () => Effect.succeed({ tokens: 100, contextWindow: 1000 }),
+    [METHODS.compact]: () =>
+      Effect.succeed({
+        compacted: false,
+        summary: '',
+        firstKeptMessageId: '',
+        tokensBefore: 0,
+        tokensAfter: 0
+      }),
     [METHODS.stream]: () =>
       Stream.make({ type: 'text' as const, text: 'stub ' }, { type: 'done' as const, stopReason: 'stop' }),
     [METHODS.complete]: () =>

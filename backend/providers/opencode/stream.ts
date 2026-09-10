@@ -10,19 +10,22 @@
  */
 
 import { messageFromBody } from '../errors'
-import type { ChatStopReason, ChatStreamEvent, ChatUsage, FetchLike } from '../types'
+import type { ChatMessage, ChatStopReason, ChatStreamEvent, ChatUsage, FetchLike } from '../types'
 import { CHAT_COMPLETIONS_PATH, joinUrl } from './endpoints'
 import { extractContent } from './reasoning'
+import { ToolCallAccumulator } from './toolCalls'
 
 export type { ChatStreamEvent } from '../types'
 
 export interface StreamChatRequest {
   model: string
-  messages: readonly { role: 'system' | 'user' | 'assistant'; content: string }[]
+  messages: readonly ChatMessage[]
   maxTokens?: number
   reasoningEffort?: string
   sessionId?: string
   signal?: AbortSignal
+  /** Tools offered to the model, already in the completions API shape. */
+  tools?: readonly unknown[]
 }
 
 export interface StreamingClient {
@@ -63,12 +66,21 @@ interface Chunk {
   thinking: string
   finishReason: unknown
   usage: unknown
+  /** The raw `delta.tool_calls` array, accumulated by the caller. */
+  toolCallsDelta: unknown
   error: string | null
 }
 
 /** Pull the delta, finish reason, and usage out of one decoded chunk. */
 function readChunk(body: unknown): Chunk {
-  const empty: Chunk = { text: '', thinking: '', finishReason: undefined, usage: undefined, error: null }
+  const empty: Chunk = {
+    text: '',
+    thinking: '',
+    finishReason: undefined,
+    usage: undefined,
+    toolCallsDelta: undefined,
+    error: null
+  }
 
   if (typeof body !== 'object' || body === null) return empty
   const candidate = body as Record<string, unknown>
@@ -87,11 +99,14 @@ function readChunk(body: unknown): Chunk {
   const delta = first.delta
   const extracted = extractContent(delta)
 
+  const deltaRecord = typeof delta === 'object' && delta !== null ? (delta as Record<string, unknown>) : undefined
+
   return {
     text: extracted.text,
     thinking: extracted.thinking,
     finishReason: first.finish_reason,
     usage: candidate['usage'],
+    toolCallsDelta: deltaRecord?.['tool_calls'],
     error: null,
   }
 }
@@ -105,14 +120,42 @@ function readUsage(value: unknown): ChatUsage {
   return { input, output, total }
 }
 
+/**
+ * One message, in the shape the completions API expects.
+ *
+ * An assistant message that stops to call a tool has content it may not have
+ * written anything for. Some gateways reject an empty string there and want
+ * null, so an empty body on a tool asking turn is sent as null.
+ */
+function buildMessage(message: ChatMessage): Record<string, unknown> {
+  const out: Record<string, unknown> = {
+    role: message.role,
+    content: message.content === '' && message.toolCalls !== undefined ? null : message.content,
+  }
+  if (message.toolCalls !== undefined) {
+    out['tool_calls'] = message.toolCalls.map((call) => ({
+      id: call.id,
+      type: 'function',
+      function: { name: call.name, arguments: call.arguments },
+    }))
+  }
+  if (message.toolCallId !== undefined) {
+    out['tool_call_id'] = message.toolCallId
+  }
+  return out
+}
+
 function buildBody(request: StreamChatRequest): Record<string, unknown> {
   const body: Record<string, unknown> = {
     model: request.model,
-    messages: request.messages.map((message) => ({ role: message.role, content: message.content })),
+    messages: request.messages.map(buildMessage),
     stream: true,
     // Without this the final chunk carries no usage, so a streamed turn would
     // report zero tokens.
     stream_options: { include_usage: true },
+  }
+  if (request.tools !== undefined && request.tools.length > 0) {
+    body['tools'] = request.tools
   }
   if (request.maxTokens !== undefined) body['max_tokens'] = request.maxTokens
   if (request.reasoningEffort !== undefined && !OMITTED_EFFORTS.has(request.reasoningEffort)) {
@@ -169,6 +212,7 @@ export function createStreamingClient(options: StreamChatOptions): StreamingClie
 
       const reader = response.body.getReader()
       const decoder = new TextDecoder()
+      const accumulator = new ToolCallAccumulator()
       let buffer = ''
       let finishReason: unknown
       let usage: unknown
@@ -196,6 +240,7 @@ export function createStreamingClient(options: StreamChatOptions): StreamingClie
             }
             if (chunk.text !== '') yield { type: 'text', text: chunk.text }
             if (chunk.thinking !== '') yield { type: 'thinking', text: chunk.thinking }
+            accumulator.add(chunk.toolCallsDelta)
             if (chunk.finishReason !== undefined) finishReason = chunk.finishReason
             if (chunk.usage !== undefined) usage = chunk.usage
           }
@@ -211,6 +256,7 @@ export function createStreamingClient(options: StreamChatOptions): StreamingClie
           }
           if (chunk.text !== '') yield { type: 'text', text: chunk.text }
           if (chunk.thinking !== '') yield { type: 'thinking', text: chunk.thinking }
+          accumulator.add(chunk.toolCallsDelta)
           if (chunk.finishReason !== undefined) finishReason = chunk.finishReason
           if (chunk.usage !== undefined) usage = chunk.usage
         }
@@ -227,6 +273,13 @@ export function createStreamingClient(options: StreamChatOptions): StreamingClie
         return
       } finally {
         reader.releaseLock()
+      }
+
+      // Emitted only once the turn is over. A tool call is unusable until its
+      // last argument fragment lands, and a half parsed payload cannot be run.
+      const calls = accumulator.calls()
+      if (calls.length > 0) {
+        yield { type: 'tool_calls', toolCalls: calls }
       }
 
       yield { type: 'done', stopReason: toStopReason(finishReason), usage: readUsage(usage) }

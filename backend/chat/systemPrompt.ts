@@ -21,7 +21,8 @@ export const SYSTEM_PROMPT = [
 ].join('\n')
 
 export interface PromptMessage {
-  role: 'system' | 'user' | 'assistant'
+  /** A tool result passes through here too, so it has to be a role it accepts. */
+  role: 'system' | 'user' | 'assistant' | 'tool'
   content: string
 }
 

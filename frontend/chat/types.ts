@@ -1,3 +1,5 @@
+import type { ToolRun } from './toolRun'
+
 export type MessageRole = 'user' | 'assistant'
 
 export interface Message {
@@ -14,6 +16,21 @@ export interface Message {
   thinking?: string
   /** How long reasoning took, set once the answer starts or the turn ends. */
   thinkingMs?: number
+  /**
+   * Present when this turn folded older turns into a checkpoint.
+   *
+   * Stored rather than transient so the explanation is still there when the
+   * reader scrolls back to the point where the model stopped remembering.
+   */
+  compacted?: { before: number; after?: number }
+  /**
+   * Tools the model asked for during this turn, in the order it asked.
+   *
+   * Stored on the message rather than held separately, because they are part of
+   * what happened: a reply that read three files and edited one means something
+   * different from a reply that only talked.
+   */
+  tools?: ToolRun[]
 }
 
 let messageCounter = 0

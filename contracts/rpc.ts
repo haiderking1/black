@@ -4,7 +4,17 @@ import * as RpcGroup from 'effect/unstable/rpc/RpcGroup'
 
 import { FsError, ProviderConfigError } from './errors'
 import { DirectoryResult, ListDirectoryInput, OpenInFilesInput } from './fs'
-import { ChatCancelInput, ChatCancelResult, ChatCompleteInput, ChatCompleteResult, ChatStreamEvent } from './chat'
+import {
+  ChatCancelInput,
+  ChatCancelResult,
+  ChatCompleteInput,
+  ChatCompleteResult,
+  ChatCompactInput,
+  ChatCompactResult,
+  ChatContextUsageInput,
+  ChatContextUsageResult,
+  ChatStreamEvent,
+} from './chat'
 import { METHODS } from './methods'
 import {
   ListModelsInput,
@@ -99,6 +109,22 @@ const ChatCancelRpc = Rpc.make(METHODS.cancel, {
   success: ChatCancelResult,
 })
 
+// Measured on demand rather than reported alongside a turn, so the gauge has a
+// reading as soon as a conversation is open.
+const ChatContextUsageRpc = Rpc.make(METHODS.contextUsage, {
+  payload: ChatContextUsageInput,
+  success: ChatContextUsageResult,
+  error: ProviderConfigError,
+})
+
+// Forces a checkpoint rather than waiting for the window to fill, so the reader
+// can make room before a turn they know is going to be large.
+const ChatCompactRpc = Rpc.make(METHODS.compact, {
+  payload: ChatCompactInput,
+  success: ChatCompactResult,
+  error: ProviderConfigError,
+})
+
 export const ServerRpcs = RpcGroup.make(
   ListDirectoryRpc,
   OpenDirectoryDialogRpc,
@@ -113,4 +139,6 @@ export const ServerRpcs = RpcGroup.make(
   ChatCompleteRpc,
   ChatStreamRpc,
   ChatCancelRpc,
+  ChatContextUsageRpc,
+  ChatCompactRpc,
 )

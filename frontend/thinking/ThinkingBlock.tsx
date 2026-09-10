@@ -37,7 +37,7 @@ export function ThinkingBlock({ thinking, isStreaming, durationMs }: ThinkingBlo
         onClick={() => setOpen(!open)}
         aria-expanded={open}
       >
-        <span className={isStreaming ? 'thinking-label-streaming' : undefined}>
+        <span className={isStreaming ? 'shimmer-text' : undefined}>
           {thinkingLabel(isStreaming, durationMs)}
         </span>
       </button>

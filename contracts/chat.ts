@@ -10,14 +10,32 @@ import { THINKING_LEVELS } from './providers'
  * credential.
  */
 
-export const ChatRole = Schema.Literals(['system', 'user', 'assistant'])
+export const ChatRole = Schema.Literals(['system', 'user', 'assistant', 'tool'])
 export type ChatRole = typeof ChatRole.Type
 
+/** A tool the model asked to run. */
+export const ToolCall = Schema.Struct({
+  id: Schema.String,
+  name: Schema.String,
+  /** The arguments exactly as the model wrote them, still an unparsed JSON string. */
+  arguments: Schema.String,
+})
+export type ToolCall = typeof ToolCall.Type
+
 export const ChatMessage = Schema.Struct({
+  /**
+   * Stable per turn. Compaction names a cut point by entry id, so an id that
+   * changed between turns would make a cut unresolvable.
+   */
+  id: Schema.optional(Schema.String),
   role: ChatRole,
   content: Schema.String,
   /** Opaque reasoning replay payload from a previous assistant turn. */
   thinkingSignature: Schema.optional(Schema.String),
+  /** On an assistant turn that asked for tools instead of only answering. */
+  toolCalls: Schema.optional(Schema.Array(ToolCall)),
+  /** On a tool turn, naming the call this is the result of. */
+  toolCallId: Schema.optional(Schema.String),
 })
 export type ChatMessage = typeof ChatMessage.Type
 
@@ -58,6 +76,41 @@ export const ChatCompleteInput = Schema.Struct({
 })
 export type ChatCompleteInput = typeof ChatCompleteInput.Type
 
+export const ChatContextUsageInput = Schema.Struct({
+  providerId: Schema.NonEmptyString,
+  model: Schema.NonEmptyString,
+  messages: Schema.Array(ChatMessage),
+})
+export type ChatContextUsageInput = typeof ChatContextUsageInput.Type
+
+export const ChatContextUsageResult = Schema.Struct({
+  /** What the transcript measures, by the same estimate compaction uses. */
+  tokens: Schema.Int,
+  /** Null when the model's window could not be read. */
+  contextWindow: Schema.NullOr(Schema.Int),
+})
+export type ChatContextUsageResult = typeof ChatContextUsageResult.Type
+
+export const ChatCompactInput = Schema.Struct({
+  providerId: Schema.NonEmptyString,
+  model: Schema.NonEmptyString,
+  messages: Schema.Array(ChatMessage),
+  sessionId: Schema.optional(Schema.String),
+})
+export type ChatCompactInput = typeof ChatCompactInput.Type
+
+export const ChatCompactResult = Schema.Struct({
+  /** False when there was nothing worth folding, so no transcript change. */
+  compacted: Schema.Boolean,
+  /** Stands in for the turns it replaces. Empty when nothing was compacted. */
+  summary: Schema.String,
+  /** First message kept. The transcript resumes from here. */
+  firstKeptMessageId: Schema.String,
+  tokensBefore: Schema.Int,
+  tokensAfter: Schema.Int,
+})
+export type ChatCompactResult = typeof ChatCompactResult.Type
+
 export const ChatCancelInput = Schema.Struct({
   /** The id the streaming call was made under. */
   requestId: Schema.NonEmptyString,
@@ -78,15 +131,42 @@ export type ChatCancelResult = typeof ChatCancelResult.Type
  * keeps whatever it already rendered.
  */
 export const ChatStreamEvent = Schema.Struct({
-  type: Schema.Literals(['text', 'thinking', 'done', 'error']),
+  type: Schema.Literals([
+    'text',
+    'thinking',
+    'done',
+    'error',
+    'compacted',
+    'tool_calls',
+    'tool_result',
+  ]),
   /** Present for 'text' and 'thinking'. */
   text: Schema.optional(Schema.String),
+  /** Present for 'tool_calls': every call the model asked for this round. */
+  toolCalls: Schema.optional(Schema.Array(ToolCall)),
+  /** Present for 'tool_result'. */
+  toolCallId: Schema.optional(Schema.String),
+  toolName: Schema.optional(Schema.String),
+  toolResult: Schema.optional(Schema.String),
+  toolIsError: Schema.optional(Schema.Boolean),
+  /** Present for 'tool_result', when a tool produced something for the interface only. */
+  toolDetails: Schema.optional(Schema.Unknown),
   /** Present for 'done'. */
   stopReason: Schema.optional(Schema.String),
   /** Present for 'done'. */
   usage: Schema.optional(
     Schema.Struct({ input: Schema.Int, output: Schema.Int, total: Schema.Int })
   ),
+  /**
+   * What the model can hold, present for 'done'.
+   *
+   * Travels with the usage it is measured against, so a reader never divides
+   * tokens for one model by the window of another.
+   */
+  contextWindow: Schema.optional(Schema.Int),
+  /** Present for 'compacted': what the transcript measured before and after. */
+  tokensBefore: Schema.optional(Schema.Int),
+  tokensAfter: Schema.optional(Schema.Int),
   /** Present for 'error'. */
   message: Schema.optional(Schema.String),
 })

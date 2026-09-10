@@ -1,7 +1,16 @@
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
 
-import type { ChatStreamEvent } from '../../contracts/chat'
+import type { ChatStreamEvent, ToolCall } from '../../contracts/chat'
+
+export interface ReplyReport {
+  /** Undefined when the turn ended without saying why. */
+  stopReason: string | undefined
+  /** Prompt tokens the provider reported, which is the real context size. */
+  inputTokens: number | undefined
+  /** What the model can hold, when the server reported it. */
+  contextWindow: number | undefined
+}
 
 export interface ReplyHandlers {
   onThinking(text: string): void
@@ -10,14 +19,18 @@ export interface ReplyHandlers {
   onText(text: string): void
   /** The stream failed partway. Text already delivered is kept. */
   onFailure(message: string): void
+  /** The turn ended, with what the provider reported about it. */
+  onDone(report: ReplyReport): void
+  /** Older turns were folded into a summary before this turn was sent. */
+  onCompacted(before: number, after: number | undefined): void
   /**
-   * The turn ended. Undefined when it ended without saying why.
-   *
-   * Worth knowing because 'aborted' is a stop the reader asked for, and a turn
-   * that produced nothing before it was stopped should not be described as an
-   * empty reply.
+   * The model asked for tools. Called once per round, before any of them run,
+   * so the interface can show a call as in progress rather than only after it
+   * finishes.
    */
-  onDone(stopReason: string | undefined): void
+  onToolCalls(calls: readonly ToolCall[]): void
+  /** One call finished, successfully or not. */
+  onToolResult(callId: string, result: string, isError: boolean, details: unknown): void
 }
 
 /**
@@ -65,6 +78,31 @@ export async function consumeReply<E>(
           return
         }
 
+        if (event.type === 'compacted') {
+          handlers.onCompacted(event.tokensBefore ?? 0, event.tokensAfter)
+          return
+        }
+
+        // A tool call is not a token of the answer, so it also closes reasoning.
+        // Leaving the block shimmering while a file is read would look like the
+        // model is still thinking when it is actually waiting on disk.
+        if (event.type === 'tool_calls') {
+          closeThinking()
+          handlers.onToolCalls(event.toolCalls ?? [])
+          return
+        }
+
+        if (event.type === 'tool_result') {
+          closeThinking()
+          handlers.onToolResult(
+            event.toolCallId ?? '',
+            event.toolResult ?? '',
+            event.toolIsError === true,
+            event.toolDetails
+          )
+          return
+        }
+
         if (event.type === 'error') {
           closeThinking()
           handlers.onFailure(event.message ?? 'The stream failed.')
@@ -72,7 +110,11 @@ export async function consumeReply<E>(
         }
 
         closeThinking()
-        handlers.onDone(event.type === 'done' ? event.stopReason : undefined)
+        handlers.onDone({
+          stopReason: event.type === 'done' ? event.stopReason : undefined,
+          inputTokens: event.usage?.input,
+          contextWindow: event.contextWindow
+        })
       })
     )
   )

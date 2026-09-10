@@ -18,8 +18,20 @@ export interface ModelInfo {
   created: number
 }
 
+/** A tool the model asked to run. */
+export interface ToolCall {
+  id: string
+  name: string
+  /**
+   * The arguments exactly as the model wrote them: a JSON string, not yet
+   * parsed. Kept unparsed because a malformed payload has to be reported back
+   * to the model verbatim so it can see what it actually sent.
+   */
+  arguments: string
+}
+
 export interface ChatMessage {
-  role: 'system' | 'user' | 'assistant'
+  role: 'system' | 'user' | 'assistant' | 'tool'
   content: string
   /**
    * Opaque replay payload from a previous assistant turn. A reasoning model
@@ -27,13 +39,25 @@ export interface ChatMessage {
    * turns, so this travels with the message rather than being dropped.
    */
   thinkingSignature?: string
+  /** On an assistant message that asked for tools instead of only answering. */
+  toolCalls?: ToolCall[]
+  /** On a tool message, naming the call it is the result of. */
+  toolCallId?: string
 }
 
 /** One event on a streamed reply. */
 export interface ChatStreamEvent {
-  type: 'text' | 'thinking' | 'done' | 'error'
+  type: 'text' | 'thinking' | 'tool_calls' | 'tool_result' | 'done' | 'error'
   /** Present for 'text' and 'thinking'. */
   text?: string
+  /** Present for 'tool_calls', emitted once the turn ends and the calls are complete. */
+  toolCalls?: ToolCall[]
+  /** Present for 'tool_result'. */
+  toolCallId?: string
+  toolName?: string
+  toolResult?: string
+  toolIsError?: boolean
+  toolDetails?: unknown
   /** Present for 'done'. */
   stopReason?: ChatStopReason
   usage?: ChatUsage
@@ -58,6 +82,8 @@ export interface ChatRequest {
    */
   sessionId?: string
   signal?: AbortSignal
+  /** Tools offered to the model, in the shape the completions API expects. */
+  tools?: readonly unknown[]
 }
 
 export interface ChatUsage {

@@ -1,14 +1,16 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { PanelLeft } from 'lucide-react'
 import { Sidebar, useSessions, DEFAULT_SESSION_TITLE } from './sidebar'
-import { Composer, QueuedMessages } from './composer'
+import { Composer, QueuedMessages, commandFor } from './composer'
 import { SpotlightModal, type ProjectItemData } from './spotlight'
 import * as Effect from 'effect/Effect'
-import { consumeReply, createMessage, historyBefore, JumpToLatest, newRequestId, useConversations, useStickToBottom } from './chat'
+import { applyToolResult, consumeReply, createMessage, historyBefore, JumpToLatest, newRequestId, startToolRun, useContextUsage, useConversations, useStickToBottom } from './chat'
 import type { Message } from './chat'
+import { ToolRunList } from './tools'
 import { describeRpcError, useRpcClient } from './rpc'
 import type { ComposerSubmitOptions } from './composer'
 import { Markdown } from './markdown'
+import { CompactionNotice } from './compaction'
 import { ThinkingBlock } from './thinking'
 import './chat/chat-scroll.css'
 import { SettingsPage, useSettings } from './settings'
@@ -82,8 +84,14 @@ export function App(): React.JSX.Element {
     deleteSessionsForProject
   } = useSessions(projects, activeProjectId)
 
-  const { getMessages, appendMessage, updateMessage, deleteMessage, deleteConversations } =
-    useConversations()
+  const {
+    getMessages,
+    appendMessage,
+    updateMessage,
+    replaceMessages,
+    deleteMessage,
+    deleteConversations
+  } = useConversations()
 
   // Follows new content, and releases the moment the reader scrolls up.
   const { scrollRef, contentRef, handleScroll, isPinned, jumpToBottom } = useStickToBottom(activeSessionId)
@@ -210,6 +218,57 @@ export function App(): React.JSX.Element {
     }
   }
 
+  /**
+   * Folds the older turns into a checkpoint, now rather than when the window
+   * fills.
+   *
+   * The transcript is replaced, not just the request. Compaction only changes
+   * what gets sent, so leaving the old turns on screen would mean every later
+   * turn summarized the same history again at full cost.
+   */
+  const runCompact = async (sessionId: string, model: string): Promise<void> => {
+    if (client === null) return
+
+    const existing = messagesRef.current(sessionId)
+    if (existing.length === 0) return
+
+    try {
+      const result = await Effect.runPromise(
+        client['chat.compact']({
+          providerId: 'opencode-go',
+          model,
+          messages: existing.map((message) => ({
+            id: message.id,
+            role: message.role,
+            content: message.content
+          })),
+          sessionId
+        })
+      )
+
+      // Saying nothing would leave the reader unsure whether the command ran.
+      // The usual cause is a conversation shorter than the recent history black
+      // always keeps, which leaves nothing to fold up.
+      if (!result.compacted) {
+        appendMessage(
+          sessionId,
+          createMessage(
+            'assistant',
+            'Nothing to compact yet. The conversation is already smaller than the recent history black keeps.'
+          )
+        )
+        return
+      }
+
+      const cut = existing.findIndex((message) => message.id === result.firstKeptMessageId)
+      const kept = cut === -1 ? [] : existing.slice(cut)
+
+      replaceMessages(sessionId, [createMessage('assistant', result.summary), ...kept])
+    } catch (error) {
+      appendMessage(sessionId, createMessage('assistant', describeRpcError(error)))
+    }
+  }
+
   /** Appends the turn, then sends it or queues it behind the one running. */
   const handleSendMessage = async (
     content: string,
@@ -220,6 +279,17 @@ export function App(): React.JSX.Element {
     let sessionId = activeSessionId
     if (sessionId === undefined) {
       sessionId = createSession(activeProject.id).id
+    }
+
+    // A command is an instruction about the conversation, not a turn in it, so
+    // it never reaches the transcript and never names the session.
+    const command = commandFor(content)
+    if (command !== null) {
+      const commandModel = options?.model
+      if (commandModel !== undefined && commandModel !== '') {
+        await runCompact(sessionId, commandModel)
+      }
+      return
     }
 
     // First message names the session
@@ -274,8 +344,9 @@ export function App(): React.JSX.Element {
 
       // The turn's own message is already in the transcript, so the history
       // stops before it. Taking everything would ask the question twice.
+      // Ids travel with the turns: compaction names its cut point by entry id.
       const priorTurns = historyBefore(messagesRef.current(threadId), send.messageId).map(
-        (message) => ({ role: message.role, content: message.content })
+        (message) => ({ id: message.id, role: message.role, content: message.content })
       )
 
       // The reply is appended empty and filled in as events arrive, so the answer
@@ -296,7 +367,10 @@ export function App(): React.JSX.Element {
         const events = stream['chat.stream']({
           providerId: 'opencode-go',
           model,
-          messages: [...priorTurns, { role: 'user', content: send.content }],
+          messages: [
+            ...priorTurns,
+            { id: send.messageId, role: 'user', content: send.content }
+          ],
           requestId: send.requestId,
           // The conversation id doubles as the provider's routing key, so a whole
           // thread stays on one upstream.
@@ -316,8 +390,19 @@ export function App(): React.JSX.Element {
           onThinkingDone: (elapsedMs) => patch((m) => ({ ...m, thinkingMs: elapsedMs })),
           onText: (delta) => patch((m) => ({ ...m, content: m.content + delta })),
           onFailure: (message) => patch((m) => ({ ...m, content: message })),
-          onDone: (reason) => {
-            stopReason = reason
+          onCompacted: (before, after) =>
+            patch((m) => ({
+              ...m,
+              compacted: after === undefined ? { before } : { before, after }
+            })),
+          // Rows appear as the model asks for them, so a slow read shows up as
+          // work in progress rather than as a reply that has stopped moving.
+          onToolCalls: (calls) =>
+            patch((m) => ({ ...m, tools: [...(m.tools ?? []), ...calls.map(startToolRun)] })),
+          onToolResult: (callId, result, isError, details) =>
+            patch((m) => ({ ...m, tools: applyToolResult(m.tools ?? [], callId, result, isError, details) })),
+          onDone: (report) => {
+            stopReason = report.stopReason
           }
         })
 
@@ -391,6 +476,10 @@ export function App(): React.JSX.Element {
   }
 
   const messages = activeSessionId !== undefined ? getMessages(activeSessionId) : []
+
+  // Measured from the transcript, so it is there as soon as a conversation is
+  // open rather than only after a message has been sent.
+  const contextUsage = useContextUsage('opencode-go', settings.selectedModelId, messages)
 
   if (appView === 'settings') {
     return (
@@ -569,6 +658,15 @@ export function App(): React.JSX.Element {
                         typed, so a stray asterisk is not silently emphasis. */}
                     {m.role === 'assistant' ? (
                       <>
+                        {m.compacted !== undefined ? (
+                          <CompactionNotice
+                            tokensBefore={m.compacted.before}
+                            tokensAfter={m.compacted.after}
+                            /* Still working until the answer starts, which is
+                               when the label stops sweeping. */
+                            isStreaming={m.id === activeReplyId && m.content === ''}
+                          />
+                        ) : null}
                         {m.thinking !== undefined && m.thinking !== '' ? (
                           <ThinkingBlock
                             thinking={m.thinking}
@@ -576,6 +674,10 @@ export function App(): React.JSX.Element {
                             durationMs={m.thinkingMs}
                           />
                         ) : null}
+                        {/* Before the answer, because that is the order they
+                            happened in: the model read and edited first, then
+                            said what it found. */}
+                        <ToolRunList runs={m.tools ?? []} />
                         {/* Nothing until text arrives, so an answer that has not
                             started leaves no gap under the reasoning. */}
                         {m.content === '' ? null : <Markdown>{m.content}</Markdown>}
@@ -604,6 +706,7 @@ export function App(): React.JSX.Element {
             disabled={!activeProject}
             streaming={activeReplyId !== null}
             onStop={handleStop}
+            contextUsage={contextUsage}
             model={settings.selectedModelId}
             onSelectModel={(modelId) => updateSetting('selectedModelId', modelId)}
             thinkingLevel={settings.thinkingLevel}
