@@ -1,16 +1,27 @@
-import React, { useState, useEffect } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { PanelLeft } from 'lucide-react'
 import { Sidebar, useSessions, DEFAULT_SESSION_TITLE } from './sidebar'
-import { Composer } from './composer'
+import { Composer, QueuedMessages } from './composer'
 import { SpotlightModal, type ProjectItemData } from './spotlight'
 import * as Effect from 'effect/Effect'
-import * as Stream from 'effect/Stream'
-import { createMessage, JumpToLatest, useConversations, useStickToBottom } from './chat'
+import { consumeReply, createMessage, historyBefore, JumpToLatest, newRequestId, useConversations, useStickToBottom } from './chat'
+import type { Message } from './chat'
 import { describeRpcError, useRpcClient } from './rpc'
 import type { ComposerSubmitOptions } from './composer'
 import { Markdown } from './markdown'
+import { ThinkingBlock } from './thinking'
 import './chat/chat-scroll.css'
 import { SettingsPage, useSettings } from './settings'
+
+/** A turn typed while a reply was arriving, waiting for that reply to finish. */
+interface QueuedSend {
+  requestId: string
+  sessionId: string
+  /** The user message already appended for this turn. */
+  messageId: string
+  content: string
+  options: ComposerSubmitOptions | undefined
+}
 
 const DEFAULT_PROJECTS: ProjectItemData[] = [
   { id: 'proj-black', name: 'black', path: '/home/soka/code/black' }
@@ -70,11 +81,36 @@ export function App(): React.JSX.Element {
     deleteSessionsForProject
   } = useSessions(projects, activeProjectId)
 
-  const { getMessages, appendMessage, updateMessage, deleteConversations } = useConversations()
+  const { getMessages, appendMessage, updateMessage, deleteMessage, deleteConversations } =
+    useConversations()
 
   // Follows new content, and releases the moment the reader scrolls up.
   const { scrollRef, contentRef, handleScroll, isPinned, jumpToBottom } = useStickToBottom(activeSessionId)
   const client = useRpcClient()
+
+  // The message still arriving. Only that one keeps shimmering; the rest are
+  // settled and should read as history.
+  const [activeReplyId, setActiveReplyId] = useState<string | null>(null)
+
+  // The id of the turn being streamed, so it can be stopped.
+  const [activeRequestId, setActiveRequestId] = useState<string | null>(null)
+
+  // Turns typed while a reply was arriving, oldest first. The ref is what the
+  // drain reads; the state is the same list, for rendering.
+  const sendQueueRef = useRef<QueuedSend[]>([])
+  const [queuedSends, setQueuedSends] = useState<QueuedSend[]>([])
+
+  // True from the moment a send starts until its stream ends. A ref rather than
+  // a check on activeReplyId, because the reply is appended a tick later and a
+  // second turn landing in that gap would start a stream beside the first.
+  const busyRef = useRef(false)
+
+  // The queue drains from a closure created during an earlier render, so it has
+  // to read the conversation as it is now rather than as it was then.
+  const messagesRef = useRef(getMessages)
+  useEffect(() => {
+    messagesRef.current = getMessages
+  }, [getMessages])
 
   useEffect(() => {
     try {
@@ -169,6 +205,7 @@ export function App(): React.JSX.Element {
     }
   }
 
+  /** Appends the turn, then sends it or queues it behind the one running. */
   const handleSendMessage = async (
     content: string,
     options?: ComposerSubmitOptions
@@ -187,68 +224,160 @@ export function App(): React.JSX.Element {
     }
     touchSession(sessionId)
 
-    // Captured before the append: state has not re-rendered yet, so reading the
-    // conversation afterwards would miss the message just added.
-    const priorTurns = getMessages(sessionId).map((message) => ({
-      role: message.role,
-      content: message.content
-    }))
+    const userMessage = createMessage('user', content)
+    appendMessage(sessionId, userMessage)
 
-    appendMessage(sessionId, createMessage('user', content))
+    const send: QueuedSend = {
+      requestId: newRequestId(),
+      sessionId,
+      messageId: userMessage.id,
+      content,
+      options
+    }
 
-    const model = options?.model
-    if (client === null || model === undefined || model === '') {
-      appendMessage(
-        sessionId,
-        createMessage(
-          'assistant',
-          'No model is available. Add an API key in Settings, then choose a model in the composer.'
-        )
-      )
+    if (busyRef.current) {
+      // A reply is still arriving. Hold this turn rather than starting a second
+      // stream beside it: two replies writing into one conversation interleave,
+      // and neither can be stopped without stopping the other.
+      sendQueueRef.current = [...sendQueueRef.current, send]
+      setQueuedSends(sendQueueRef.current)
       return
     }
 
-    // Captured as a const so the stream callbacks below keep the narrowing.
-    const threadId = sessionId
+    await runSend(send)
+  }
+
+  /** Runs one turn to completion, then releases whatever waited behind it. */
+  const runSend = async (send: QueuedSend): Promise<void> => {
+    const threadId = send.sessionId
+    const model = send.options?.model
     const stream = client
 
-    // The reply is appended empty and filled in as events arrive, so the answer
-    // renders while it is still being written rather than after the last token.
-    const reply = createMessage('assistant', '')
-    appendMessage(threadId, reply)
-
-    const appendText = (text: string): void => {
-      updateMessage(threadId, reply.id, (previous) => previous + text)
-    }
+    busyRef.current = true
 
     try {
-      const events = stream['chat.stream']({
-        providerId: 'opencode-go',
-        model,
-        messages: [...priorTurns, { role: 'user', content }],
-        // The conversation id doubles as the provider's routing key, so a whole
-        // thread stays on one upstream.
-        ...(sessionId !== undefined ? { sessionId } : {}),
-        ...(options?.thinkingLevel !== undefined ? { thinkingLevel: options.thinkingLevel } : {})
-      })
-
-      await Effect.runPromise(
-        Stream.runForEach(events, (event) =>
-          Effect.sync(() => {
-            if (event.type === 'text' && event.text !== undefined) {
-              appendText(event.text)
-            } else if (event.type === 'error') {
-              updateMessage(threadId, reply.id, () => event.message ?? 'The stream failed.')
-            }
-          })
+      if (stream === null || model === undefined || model === '') {
+        appendMessage(
+          threadId,
+          createMessage(
+            'assistant',
+            'No model is available. Add an API key in Settings, then choose a model in the composer.'
+          )
         )
+        return
+      }
+
+      // The turn's own message is already in the transcript, so the history
+      // stops before it. Taking everything would ask the question twice.
+      const priorTurns = historyBefore(messagesRef.current(threadId), send.messageId).map(
+        (message) => ({ role: message.role, content: message.content })
       )
 
-      // An empty bubble reads as a bug; say what happened instead.
-      updateMessage(threadId, reply.id, (previous) => (previous === '' ? '(empty reply)' : previous))
-    } catch (error) {
-      updateMessage(threadId, reply.id, () => describeRpcError(error))
+      // The reply is appended empty and filled in as events arrive, so the answer
+      // renders while it is still being written rather than after the last token.
+      const reply = createMessage('assistant', '')
+      appendMessage(threadId, reply)
+
+      setActiveReplyId(reply.id)
+      setActiveRequestId(send.requestId)
+
+      const patch = (update: (previous: Message) => Message): void => {
+        updateMessage(threadId, reply.id, update)
+      }
+
+      let stopReason: string | undefined
+
+      try {
+        const events = stream['chat.stream']({
+          providerId: 'opencode-go',
+          model,
+          messages: [...priorTurns, { role: 'user', content: send.content }],
+          requestId: send.requestId,
+          // The conversation id doubles as the provider's routing key, so a whole
+          // thread stays on one upstream.
+          sessionId: send.sessionId,
+          ...(send.options?.thinkingLevel !== undefined
+            ? { thinkingLevel: send.options.thinkingLevel }
+            : {})
+        })
+
+        await consumeReply(events, {
+          onThinking: (delta) => patch((m) => ({ ...m, thinking: (m.thinking ?? '') + delta })),
+          onThinkingDone: (elapsedMs) => patch((m) => ({ ...m, thinkingMs: elapsedMs })),
+          onText: (delta) => patch((m) => ({ ...m, content: m.content + delta })),
+          onFailure: (message) => patch((m) => ({ ...m, content: message })),
+          onDone: (reason) => {
+            stopReason = reason
+          }
+        })
+
+        // An empty bubble reads as a bug; say what happened instead. A stopped
+        // turn is its own case: nothing was answered because nothing was asked
+        // to finish.
+        patch((m) => {
+          if (m.content !== '') return m
+          return { ...m, content: stopReason === 'aborted' ? '(stopped)' : '(empty reply)' }
+        })
+      } catch (error) {
+        patch((m) => ({ ...m, content: describeRpcError(error) }))
+      }
+    } finally {
+      busyRef.current = false
+      setActiveReplyId(null)
+      setActiveRequestId(null)
+
+      // Whatever waited for this turn goes now, oldest first.
+      const next = sendQueueRef.current[0]
+      if (next !== undefined) {
+        sendQueueRef.current = sendQueueRef.current.slice(1)
+        setQueuedSends(sendQueueRef.current)
+        void runSend(next)
+      }
     }
+  }
+
+  /** Stops the reply that is arriving, without adding anything to the transcript. */
+  const handleStop = (): void => {
+    const requestId = activeRequestId
+    if (requestId === null || client === null) return
+
+    // A failure is not reported. Losing this race means the reply ended on its
+    // own a moment earlier, and the stream clears the UI either way.
+    void Effect.runPromise(client['chat.cancel']({ requestId })).catch(() => undefined)
+  }
+
+  /**
+   * Takes one queued turn back out, message and all.
+   *
+   * The user message was appended when the turn was queued, so dropping only the
+   * queue entry would leave a question in the transcript that nothing will ever
+   * answer.
+   */
+  const handleDismissQueued = (requestId: string): void => {
+    const queued = sendQueueRef.current.find((send) => send.requestId === requestId)
+    if (queued === undefined) return
+
+    sendQueueRef.current = sendQueueRef.current.filter((send) => send.requestId !== requestId)
+    setQueuedSends(sendQueueRef.current)
+    deleteMessage(queued.sessionId, queued.messageId)
+  }
+
+  /**
+   * Moves a queued turn to the front and stops the reply that is running.
+   *
+   * The running reply is cancelled rather than left to finish, because the point
+   * of steering is to change direction now. The queue drains the moment that
+   * stream ends, so the moved turn goes next either way.
+   */
+  const handleSteerQueued = (requestId: string): void => {
+    const queued = sendQueueRef.current
+    const target = queued.find((send) => send.requestId === requestId)
+    if (target === undefined) return
+
+    sendQueueRef.current = [target, ...queued.filter((send) => send.requestId !== requestId)]
+    setQueuedSends(sendQueueRef.current)
+
+    handleStop()
   }
 
   const messages = activeSessionId !== undefined ? getMessages(activeSessionId) : []
@@ -428,7 +557,22 @@ export function App(): React.JSX.Element {
                   >
                     {/* Assistant turns are markdown. User text is left exactly as
                         typed, so a stray asterisk is not silently emphasis. */}
-                    {m.role === 'assistant' ? <Markdown>{m.content}</Markdown> : m.content}
+                    {m.role === 'assistant' ? (
+                      <>
+                        {m.thinking !== undefined && m.thinking !== '' ? (
+                          <ThinkingBlock
+                            thinking={m.thinking}
+                            isStreaming={m.id === activeReplyId && m.thinkingMs === undefined}
+                            durationMs={m.thinkingMs}
+                          />
+                        ) : null}
+                        {/* Nothing until text arrives, so an answer that has not
+                            started leaves no gap under the reasoning. */}
+                        {m.content === '' ? null : <Markdown>{m.content}</Markdown>}
+                      </>
+                    ) : (
+                      m.content
+                    )}
                   </div>
                 </div>
               ))}
@@ -440,9 +584,16 @@ export function App(): React.JSX.Element {
 
         {/* ChatGPT Composer Footer */}
         <div style={{ flexShrink: 0, width: '100%' }}>
+          <QueuedMessages
+            messages={queuedSends}
+            onDismiss={handleDismissQueued}
+            onSteer={handleSteerQueued}
+          />
           <Composer
             onSendMessage={handleSendMessage}
             disabled={!activeProject}
+            streaming={activeReplyId !== null}
+            onStop={handleStop}
             model={settings.selectedModelId}
             onSelectModel={(modelId) => updateSetting('selectedModelId', modelId)}
             thinkingLevel={settings.thinkingLevel}

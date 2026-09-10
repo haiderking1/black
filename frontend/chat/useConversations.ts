@@ -63,16 +63,18 @@ export function removeConversationsBySessionIds(
 }
 
 /**
- * Rewrite one message's text.
+ * Rewrite one message.
  *
- * Returns the previous object when nothing changed, so a streaming reply does
- * not re-render on every event that carries no text.
+ * The updater returns the message unchanged to signal that nothing moved, and
+ * the previous state object is returned in that case. A streaming reply fires on
+ * every event, including ones that carry no usable text, and re-rendering the
+ * whole transcript for those is wasted work.
  */
 export function applyMessageUpdate(
   conversations: Record<string, Message[]>,
   sessionId: string,
   messageId: string,
-  update: (previous: string) => string
+  update: (previous: Message) => Message
 ): Record<string, Message[]> {
   const existing = conversations[sessionId]
   if (existing === undefined) return conversations
@@ -80,23 +82,49 @@ export function applyMessageUpdate(
   let changed = false
   const next = existing.map((message) => {
     if (message.id !== messageId) return message
-    const content = update(message.content)
-    if (content === message.content) return message
+    const updated = update(message)
+    if (updated === message) return message
     changed = true
-    return { ...message, content }
+    return updated
   })
 
   return changed ? { ...conversations, [sessionId]: next } : conversations
+}
+
+/**
+ * Drop one message.
+ *
+ * A queued turn appends its message before it is sent, so dismissing the queued
+ * turn has to take the message back out. Leaving it behind would show a question
+ * in the transcript that nothing is ever going to answer.
+ */
+export function removeMessage(
+  conversations: Record<string, Message[]>,
+  sessionId: string,
+  messageId: string
+): Record<string, Message[]> {
+  const existing = conversations[sessionId]
+  if (existing === undefined) return conversations
+
+  const next = existing.filter((message) => message.id !== messageId)
+  // The same object when nothing matched, so an unrelated dismiss does not
+  // re-render the transcript.
+  if (next.length === existing.length) return conversations
+
+  return { ...conversations, [sessionId]: next }
 }
 
 export interface UseConversationsResult {
   getMessages: (sessionId: string) => Message[]
   appendMessage: (sessionId: string, message: Message) => void
   /**
-   * Rewrite one message's text. Used to grow a streaming reply in place, and to
-   * replace it with an error without leaving a blank bubble behind.
+   * Rewrite one message. Used to grow a streaming reply in place, to append
+   * reasoning beside it, and to replace it with an error without leaving a blank
+   * bubble behind.
    */
-  updateMessage: (sessionId: string, messageId: string, update: (previous: string) => string) => void
+  updateMessage: (sessionId: string, messageId: string, update: (previous: Message) => Message) => void
+  /** Remove one message, used when a queued turn is taken back. */
+  deleteMessage: (sessionId: string, messageId: string) => void
   deleteConversations: (sessionIds: string[]) => void
 }
 
@@ -120,15 +148,19 @@ export function useConversations(): UseConversationsResult {
   }, [])
 
   const updateMessage = useCallback(
-    (sessionId: string, messageId: string, update: (previous: string) => string): void => {
+    (sessionId: string, messageId: string, update: (previous: Message) => Message): void => {
       setConversations((prev) => applyMessageUpdate(prev, sessionId, messageId, update))
     },
     []
   )
 
+  const deleteMessage = useCallback((sessionId: string, messageId: string): void => {
+    setConversations((prev) => removeMessage(prev, sessionId, messageId))
+  }, [])
+
   const deleteConversations = useCallback((sessionIds: string[]): void => {
     setConversations((prev) => removeConversationsBySessionIds(prev, sessionIds))
   }, [])
 
-  return { getMessages, appendMessage, updateMessage, deleteConversations }
+  return { getMessages, appendMessage, updateMessage, deleteMessage, deleteConversations }
 }
