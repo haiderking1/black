@@ -301,6 +301,11 @@ export function App(): React.JSX.Element {
           // The conversation id doubles as the provider's routing key, so a whole
           // thread stays on one upstream.
           sessionId: send.sessionId,
+          // The open project is the directory this turn is about. Without it the
+          // model is asked about a repository it was never told the location of.
+          ...(activeProject?.path !== undefined && activeProject.path !== ''
+            ? { workingDirectory: activeProject.path }
+            : {}),
           ...(send.options?.thinkingLevel !== undefined
             ? { thinkingLevel: send.options.thinkingLevel }
             : {})

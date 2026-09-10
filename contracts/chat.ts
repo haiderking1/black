@@ -50,6 +50,11 @@ export const ChatCompleteInput = Schema.Struct({
    * without an id cannot be reached once it has begun.
    */
   requestId: Schema.optional(Schema.String),
+  /**
+   * Directory the turn is about, when a project is open. Reaches the model in
+   * its system prompt, so it stops guessing where it is running.
+   */
+  workingDirectory: Schema.optional(Schema.String),
 })
 export type ChatCompleteInput = typeof ChatCompleteInput.Type
 

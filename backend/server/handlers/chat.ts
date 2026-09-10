@@ -54,6 +54,7 @@ export function chatHandlers() {
       thinkingLevel?: string
       sessionId?: string
       requestId?: string
+      workingDirectory?: string
     }) => {
       const resolved = resolveProvider(payload.providerId)
 
@@ -73,7 +74,8 @@ export function chatHandlers() {
           yield* resolved.provider.streamChat({
             model: payload.model,
             messages: withSystemPrompt(
-              payload.messages.map((message) => ({ role: message.role, content: message.content }))
+              payload.messages.map((message) => ({ role: message.role, content: message.content })),
+              payload.workingDirectory
             ),
             ...(payload.maxTokens !== undefined ? { maxTokens: payload.maxTokens } : {}),
             ...(payload.thinkingLevel !== undefined ? { reasoningEffort: payload.thinkingLevel } : {}),
@@ -109,6 +111,7 @@ export function chatHandlers() {
       maxTokens?: number
       thinkingLevel?: string
       sessionId?: string
+      workingDirectory?: string
     }) =>
       Effect.tryPromise({
         try: async () => {
@@ -132,7 +135,8 @@ export function chatHandlers() {
                 ...(message.thinkingSignature !== undefined
                   ? { thinkingSignature: message.thinkingSignature }
                   : {}),
-              }))
+              })),
+              payload.workingDirectory
             ),
             ...(payload.maxTokens !== undefined ? { maxTokens: payload.maxTokens } : {}),
             ...(payload.thinkingLevel !== undefined ? { reasoningEffort: payload.thinkingLevel } : {}),
