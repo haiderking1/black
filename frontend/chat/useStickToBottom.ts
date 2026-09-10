@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 
-import { decideFollow } from './scrollGeometry'
+import { decideFollow, isAtBottom as measureAtBottom } from './scrollGeometry'
 import { isInspectingWork } from '../working/inspection'
 
 export interface UseStickToBottomResult {
@@ -13,6 +13,8 @@ export interface UseStickToBottomResult {
   handleScroll: () => void
   /** True while the view is following new content. */
   isPinned: boolean
+  /** Actual proximity to the bottom, independent of paused following. */
+  isAtBottom: boolean
   /** Return to the bottom and resume following. */
   jumpToBottom: (behavior?: ScrollBehavior) => void
 }
@@ -51,6 +53,11 @@ export function useStickToBottom(resetKey: string | undefined): UseStickToBottom
   // observe a stale pin and fight the reader.
   const pinnedRef = useRef(true)
   const [isPinned, setIsPinned] = useState(true)
+  const [isAtBottom, setIsAtBottom] = useState(true)
+  const updateBottomPosition = useCallback((): void => {
+    const element = scrollRef.current
+    setIsAtBottom(element === null || measureAtBottom(element))
+  }, [])
 
   // The last scrollTop any scroll event reported. Comparing against it is what
   // separates a reader scrolling up from content growing underneath them.
@@ -83,12 +90,13 @@ export function useStickToBottom(resetKey: string | undefined): UseStickToBottom
     const previousTop = lastScrollTopRef.current
     lastScrollTopRef.current = element.scrollTop
 
+    updateBottomPosition()
     const decision = decideFollow(element, previousTop)
     if (decision === 'follow') pin(true)
     else if (decision === 'release') pin(false)
     // 'hold' leaves the current state alone: the geometry moved, but the reader
     // did not.
-  }, [pin])
+  }, [pin, updateBottomPosition])
 
   // (1) A different conversation starts at its end. Instant rather than smooth:
   // animating down from the top of a long history is a slideshow.
@@ -98,7 +106,8 @@ export function useStickToBottom(resetKey: string | undefined): UseStickToBottom
     // Rebased for the new conversation, so its first scroll event is not
     // compared against the previous conversation's position.
     lastScrollTopRef.current = scrollRef.current?.scrollTop ?? 0
-  }, [resetKey, pin, scrollToBottom])
+    updateBottomPosition()
+  }, [resetKey, pin, scrollToBottom, updateBottomPosition])
 
   // (2) Stay at the bottom while content grows.
   //
@@ -111,10 +120,12 @@ export function useStickToBottom(resetKey: string | undefined): UseStickToBottom
     const observer = new ResizeObserver(() => {
       // (3) Released: leave the reader where they are, even as content grows
       // beneath them.
-      if (!pinnedRef.current || isInspectingWork(contentElement)) return
       const element = scrollRef.current
       if (element === null) return
-      element.scrollTop = element.scrollHeight
+      if (pinnedRef.current && !isInspectingWork(contentElement)) {
+        element.scrollTop = element.scrollHeight
+      }
+      updateBottomPosition()
     })
 
     const inspect = (event: Event): void => {
@@ -123,12 +134,13 @@ export function useStickToBottom(resetKey: string | undefined): UseStickToBottom
     contentElement.addEventListener('pointerdown', inspect)
     contentElement.addEventListener('focusin', inspect)
     observer.observe(contentElement)
+    if (scrollRef.current) observer.observe(scrollRef.current)
     return () => {
       observer.disconnect()
       contentElement.removeEventListener('pointerdown', inspect)
       contentElement.removeEventListener('focusin', inspect)
     }
-  }, [contentElement, pin])
+  }, [contentElement, pin, updateBottomPosition])
 
-  return { scrollRef, contentRef, handleScroll, isPinned, jumpToBottom }
+  return { scrollRef, contentRef, handleScroll, isPinned, isAtBottom, jumpToBottom }
 }

@@ -100,7 +100,7 @@ export function App(): React.JSX.Element {
   } = useConversations()
 
   // Follows new content, and releases the moment the reader scrolls up.
-  const { scrollRef, contentRef, handleScroll, isPinned, jumpToBottom } = useStickToBottom(activeSessionId)
+  const { scrollRef, contentRef, handleScroll, isPinned, isAtBottom, jumpToBottom } = useStickToBottom(activeSessionId)
   const { frameRef, footerRef } = useFloatingComposer(scrollRef, isPinned)
   const client = useRpcClient()
 
@@ -670,7 +670,7 @@ export function App(): React.JSX.Element {
             </div>
           )}
         </main>
-        <JumpToLatest visible={!isPinned} onClick={() => jumpToBottom()} />
+        <JumpToLatest visible={!isAtBottom} onClick={() => jumpToBottom()} />
 
         <div className="floating-composer" ref={footerRef}>
           <QueuedMessages

@@ -13,7 +13,7 @@
   cursor: pointer;
 }
 .working-header:hover { color: var(--text-secondary); }
-.working-header:focus-visible { outline: 1px solid var(--text-secondary); outline-offset: 3px; }
+.working-header:focus-visible { outline: none; }
 .working-caret { flex: none; }
 .working-caret-open { transform: rotate(90deg); }
 .working-body { padding-top: 4px; }

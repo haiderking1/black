@@ -98,8 +98,7 @@
    the way past, so it comes up to full and takes a ring. */
 .lightbox-close:focus-visible {
   opacity: 1;
-  outline: 2px solid rgba(255, 255, 255, 0.7);
-  outline-offset: 1px;
+  outline: none;
 }
 
 .lightbox-name {
@@ -126,7 +125,6 @@
 }
 
 .preview-trigger:focus-visible {
-  outline: 2px solid var(--border-medium);
-  outline-offset: 2px;
+  outline: none;
   border-radius: var(--radius-sm);
 }

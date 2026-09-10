@@ -8,6 +8,28 @@ const scroll = () => document.getElementById('scroll')!
 
 export async function runScenarios(): Promise<string[]> {
   const passed: string[] = []
+  const originalHeight = scroll().style.height
+  scroll().style.height = '10000px'
+  window.workingHarness.jump()
+  await wait()
+  header().focus()
+  header().click()
+  await wait()
+  header().dispatchEvent(new PointerEvent('pointerdown', { bubbles: true }))
+  await wait()
+  check(document.getElementById('pinned')!.textContent === 'false', 'work inspection pauses following')
+  check(document.getElementById('at-bottom')!.textContent === 'true', 'opening work at bottom does not imply hidden content')
+  header().click()
+  await wait()
+  check(document.getElementById('at-bottom')!.textContent === 'true', 'collapsing work at bottom keeps arrow hidden')
+  scroll().style.height = originalHeight
+  await wait()
+  check(document.getElementById('at-bottom')!.textContent === 'false', 'viewport resize detects content below without a scroll event')
+  ;(document.activeElement as HTMLElement)?.blur()
+  window.workingHarness.jump()
+  await wait()
+  check(document.getElementById('at-bottom')!.textContent === 'true', 'jumping to bottom clears hidden-content state')
+  passed.push('bottom position independent of work inspection')
   check(header().getAttribute('aria-expanded') === 'false', 'new activity starts collapsed')
   header().click()
   await wait()
@@ -54,6 +76,7 @@ export async function runScenarios(): Promise<string[]> {
   scroll().dispatchEvent(new Event('scroll', { bubbles: true }))
   await wait()
   check(document.getElementById('pinned')!.textContent === 'false', 'scrolling up releases follow')
+  check(document.getElementById('at-bottom')!.textContent === 'false', 'scrolling up shows the jump arrow')
   const before = scroll().scrollTop
   window.workingHarness.patch({ type: 'text', round: 2, text: '\n\n' + 'New answer line.\n\n'.repeat(50) })
   await wait()

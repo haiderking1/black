@@ -1,5 +1,5 @@
-import React, { useState } from 'react'
-import { Check, Eye, EyeOff, Trash2 } from 'lucide-react'
+import React, { useId, useState } from 'react'
+import { ChevronDown, Eye, EyeOff, Trash2 } from 'lucide-react'
 
 import type { ProviderStatus } from '../../contracts/providers'
 import { OpenCodeLogo } from '../providers'
@@ -23,7 +23,7 @@ interface ProviderRowProps {
 /**
  * One provider.
  *
- * The status line reports what is configured without ever showing the key, and
+ * The status dot reports configured availability without showing the key, and
  * the field is empty on purpose: a stored key is never sent back to the
  * renderer, so there is nothing to prefill.
  */
@@ -33,6 +33,8 @@ export function ProviderRow({
   onClearApiKey,
   onSetEnabled,
 }: ProviderRowProps): React.JSX.Element {
+  const [expanded, setExpanded] = useState(false)
+  const panelId = useId()
   const [draft, setDraft] = useState('')
   const [revealed, setRevealed] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
@@ -40,9 +42,7 @@ export function ProviderRow({
   const Logo = LOGOS[provider.id]
   const canSave = draft.trim() !== '' && !isSaving
 
-  const status = provider.authenticated
-    ? 'Authenticated' + (provider.modelCount !== null ? ' \u00b7 ' + provider.modelCount + ' models' : '')
-    : 'No API key'
+  const ready = provider.enabled && provider.authenticated
 
   const handleSave = async (): Promise<void> => {
     if (!canSave) return
@@ -51,28 +51,35 @@ export function ProviderRow({
       await onSetApiKey(provider.id, draft.trim())
       setDraft('')
       setRevealed(false)
+    } catch {
+      // useProviders displays the RPC error. Keep the draft available for retry.
     } finally {
       setIsSaving(false)
     }
   }
 
   return (
-    <div className="settings-provider">
+    <div className={"settings-provider" + (expanded ? " is-expanded" : "")}>
       <div className="settings-provider-row">
-        <div className="settings-provider-identity">
+        <button
+          type="button"
+          className="settings-provider-identity"
+          aria-expanded={expanded}
+          aria-controls={panelId}
+          onClick={() => { setExpanded(value => !value); setRevealed(false) }}
+        >
           <span className="settings-provider-logo">
-            {Logo !== undefined ? <Logo size={32} /> : <NetworkMark />}
+            {Logo !== undefined ? <Logo size={24} /> : <NetworkMark />}
+            {ready ? <span className="settings-provider-dot" role="img" aria-label="Enabled with API key" title="Enabled with API key" /> : null}
           </span>
-          <div className="settings-provider-copy">
-            <div className="settings-provider-title">
+          <span className="settings-provider-copy">
+            <span className="settings-provider-title">
               <span className="settings-provider-name">{provider.name}</span>
-              {provider.authenticated ? (
-                <Check className="settings-provider-check" size={14} aria-hidden="true" />
-              ) : null}
-            </div>
-            <span className="settings-provider-status">{status}</span>
-          </div>
-        </div>
+
+            </span>
+          </span>
+          <ChevronDown className="settings-provider-chevron" size={15} aria-hidden="true" />
+        </button>
 
         <button
           type="button"
@@ -86,7 +93,8 @@ export function ProviderRow({
         </button>
       </div>
 
-      <div className="settings-provider-key">
+      <div id={panelId} hidden={!expanded}>
+      {expanded ? <div className="settings-provider-key">
         <label className="settings-provider-key-label" htmlFor={'key-' + provider.id}>
           API key
         </label>
@@ -96,6 +104,7 @@ export function ProviderRow({
             type={revealed ? 'text' : 'password'}
             className="settings-provider-input"
             value={draft}
+            disabled={isSaving}
             spellCheck={false}
             autoComplete="off"
             placeholder={provider.authenticated ? 'Replace the stored key' : 'Paste your key'}
@@ -128,6 +137,7 @@ export function ProviderRow({
               type="button"
               className="settings-provider-icon-button"
               aria-label="Remove key"
+              disabled={isSaving}
               onClick={() => void onClearApiKey(provider.id)}
             >
               <Trash2 size={15} aria-hidden="true" />
@@ -137,6 +147,7 @@ export function ProviderRow({
         <p className="settings-provider-hint">
           Stored in your agent directory and sent only to this provider.
         </p>
+      </div> : null}
       </div>
     </div>
   )

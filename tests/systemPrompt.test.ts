@@ -56,6 +56,12 @@ describe('withSystemPrompt', () => {
     expect(prompt).toContain('Apply these style rules to prose, not code or quoted text.')
   })
 
+  it('forbids dash punctuation in replies and commits without damaging technical syntax', () => {
+    expect(SYSTEM_PROMPT).toContain('In replies and commit messages, never use em dashes, en dashes, or hyphens as sentence separators or bullet markers.')
+    expect(SYSTEM_PROMPT).toContain('Use periods or commas to separate thoughts, and numbered lists when needed.')
+    expect(SYSTEM_PROMPT).toContain('Preserve required hyphens in technical names, paths, flags, and code.')
+  })
+
   it('carries no directory when none was given', () => {
     const messages = withSystemPrompt([{ role: 'user' as const, content: 'hi' }])
     expect(messages[0]?.content).not.toContain('Current working directory')

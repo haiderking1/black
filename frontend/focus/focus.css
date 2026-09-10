@@ -1,0 +1,4 @@
+/* Suppress browser focus rings without disabling focus or keyboard input. */
+:focus {
+  outline: none;
+}

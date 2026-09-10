@@ -26,7 +26,7 @@ declare global { interface Window { workingHarness: BrowserHarness } }
 function Fixture() {
   const [message, setMessage] = useState(() => replay(rounds.slice(0, 11)))
   const [key, setKey] = useState(0)
-  const { scrollRef, contentRef, handleScroll, jumpToBottom, isPinned } = useStickToBottom('fixture')
+  const { scrollRef, contentRef, handleScroll, jumpToBottom, isPinned, isAtBottom } = useStickToBottom('fixture')
   window.workingHarness = {
     patch: event => flushSync(() => setMessage(m => applyWorkEvent(m, event, 2500))),
     replace: m => flushSync(() => setMessage(m)),
@@ -44,6 +44,7 @@ function Fixture() {
       </div>
     </main>
     <output id="pinned">{String(isPinned)}</output>
+    <output id="at-bottom">{String(isAtBottom)}</output>
   </PreviewProvider>
 }
 createRoot(document.getElementById('root')!).render(<Fixture />)

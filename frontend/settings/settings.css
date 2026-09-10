@@ -372,8 +372,7 @@
 .settings-theme-option:focus-visible,
 .settings-toggle:focus-visible,
 .settings-reset-button:focus-visible {
-  outline: 2px solid var(--text-secondary);
-  outline-offset: 2px;
+  outline: none;
 }
 
 @media (max-width: 900px) {

@@ -36,8 +36,7 @@
 }
 
 .tool-row-head:focus-visible {
-  outline: 1px solid var(--border-medium);
-  outline-offset: -1px;
+  outline: none;
 }
 
 .tool-mark {
