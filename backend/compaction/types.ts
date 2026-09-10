@@ -94,6 +94,12 @@ export interface SummarizationRequest {
  * Provider-free summarization hook. Returning a normal assistant message keeps
  * the caller's stop reason, usage, and error text flowing through the failure
  * checks unchanged.
+ *
+ * Contract: report a transport failure as a message with stopReason "error" and
+ * the reason in errorMessage, and report cancellation as stopReason "aborted".
+ * Do not throw for either. The retry wrapper only inspects responses, so a
+ * thrown error bypasses it, and an abort it cannot see cannot be normalized.
+ * Throwing is reserved for programming errors, which are never retried.
  */
 export type SummarizationCall = (request: SummarizationRequest) => Promise<AssistantMessage>
 
