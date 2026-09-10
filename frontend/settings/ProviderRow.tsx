@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { Check, Eye, EyeOff, Trash2 } from 'lucide-react'
 
 import type { ProviderStatus } from '../../contracts/providers'
-import { OpenCodeLogo } from './OpencodeLogo'
+import { OpenCodeLogo } from '../providers'
 
 /** The logo per provider. A provider without an entry falls back to its initial. */
 const LOGOS: Record<string, (props: { size?: number }) => React.JSX.Element> = {
