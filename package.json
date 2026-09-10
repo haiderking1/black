@@ -12,13 +12,16 @@
     "test": "bun test"
   },
   "dependencies": {
+    "@effect/platform-node": "4.0.0-rc.113",
     "@fontsource/inter": "^5.3.0",
     "@tanstack/react-query": "^5.102.8",
     "@tanstack/react-virtual": "^3.14.10",
-    "effect": "^3.22.1",
+    "effect": "4.0.0-rc.113",
     "lucide-react": "^1.40.0",
     "react": "^19.2.8",
-    "react-dom": "^19.2.8"
+    "react-dom": "^19.2.8",
+    "react-markdown": "^10.1.0",
+    "remark-gfm": "^4.0.1"
   },
   "devDependencies": {
     "@types/bun": "latest",

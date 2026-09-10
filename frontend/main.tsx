@@ -2,6 +2,7 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { App } from './App'
+import { ConnectionProvider } from './rpc'
 import './index.css'
 
 const queryClient = new QueryClient({
@@ -21,8 +22,10 @@ if (!container) {
 const root = createRoot(container)
 root.render(
   <React.StrictMode>
-    <QueryClientProvider client={queryClient}>
-      <App />
-    </QueryClientProvider>
+    <ConnectionProvider>
+      <QueryClientProvider client={queryClient}>
+        <App />
+      </QueryClientProvider>
+    </ConnectionProvider>
   </React.StrictMode>
 )

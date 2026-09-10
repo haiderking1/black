@@ -1,11 +1,14 @@
 import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react'
-import type { DesktopDirectoryEntry } from '../env'
+import * as Effect from 'effect/Effect'
+
+import type { DirectoryEntry } from '../../contracts/fs'
+import { describeRpcError, useRpcClient } from '../rpc'
 
 export interface DirectoryListing {
   homeDir: string
   path: string
   parentPath: string | null
-  entries: DesktopDirectoryEntry[]
+  entries: DirectoryEntry[]
   isLoading: boolean
   error: string | null
   navigate: (targetPath: string) => void
@@ -13,14 +16,19 @@ export interface DirectoryListing {
 }
 
 /**
- * Loads directory entries through the file-system IPC bridge.
- * Only fetches while the active flag is true; starts at the user's home directory.
+ * Loads directory entries through the RPC connection.
+ *
+ * Only fetches while the active flag is true; starts at the user's home
+ * directory. The connection may not be established on the first activation, in
+ * which case the listing reports itself as loading and the effects re-run once
+ * the client arrives.
  */
 export function useDirectoryListing(active: boolean): DirectoryListing {
+  const client = useRpcClient()
   const [homeDir, setHomeDir] = useState('')
   const [path, setPath] = useState('')
   const [parentPath, setParentPath] = useState<string | null>(null)
-  const [entries, setEntries] = useState<DesktopDirectoryEntry[]>([])
+  const [entries, setEntries] = useState<DirectoryEntry[]>([])
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const mountedRef = useRef(true)
@@ -32,9 +40,9 @@ export function useDirectoryListing(active: boolean): DirectoryListing {
     }
   }, [])
 
-  // Start from a clean slate on every activation so the picker never
-  // resumes from whatever folder was on screen last time. Runs as a layout
-  // effect so the stale listing never gets a chance to paint.
+  // Start from a clean slate on every activation so the picker never resumes
+  // from whatever folder was on screen last time. Runs as a layout effect so the
+  // stale listing never gets a chance to paint.
   useLayoutEffect(() => {
     if (!active) return
     setPath('')
@@ -44,22 +52,22 @@ export function useDirectoryListing(active: boolean): DirectoryListing {
     setIsLoading(false)
   }, [active])
 
-  // Resolve a starting point (home dir, then cwd, then root) when activated
+  // Resolve a starting point (home dir, then cwd, then root) when activated.
   useEffect(() => {
-    if (!active) return
+    if (!active || client === null) return
 
     let cancelled = false
-    const init = async () => {
+    const init = async (): Promise<void> => {
       let start = ''
       try {
-        const home = await window.blackDesktop?.getHomeDir()
+        const home = await Effect.runPromise(client['fs.getHomeDir']())
         if (typeof home === 'string' && home !== '') start = home
       } catch {
         // fall through to cwd
       }
       if (start === '') {
         try {
-          const cwd = await window.blackDesktop?.getCwd()
+          const cwd = await Effect.runPromise(client['fs.getCwd']())
           if (typeof cwd === 'string' && cwd !== '') start = cwd
         } catch {
           // fall through to root
@@ -76,39 +84,32 @@ export function useDirectoryListing(active: boolean): DirectoryListing {
     return () => {
       cancelled = true
     }
-  }, [active])
+  }, [active, client])
 
-  // Fetch entries whenever the current path changes
+  // Fetch entries whenever the current path changes.
   useEffect(() => {
-    if (!active || path === '') return
+    if (!active || client === null || path === '') return
 
     let cancelled = false
     setIsLoading(true)
     setError(null)
 
-    const fetchDir = async () => {
+    const fetchDir = async (): Promise<void> => {
       try {
-        const res = await window.blackDesktop?.listDirectory(path)
+        const result = await Effect.runPromise(client['fs.listDirectory']({ path }))
         if (cancelled || !mountedRef.current) return
 
-        if (res === undefined) {
-          setParentPath(null)
-          setEntries([])
-          setError('File system access is unavailable.')
-          return
-        }
-
-        setParentPath(res.parentPath)
-        if (res.error !== undefined && res.error !== '') {
-          setError(res.error)
+        setParentPath(result.parentPath)
+        if (result.error !== undefined && result.error !== '') {
+          setError(result.error)
           setEntries([])
         } else {
           setError(null)
-          setEntries(res.entries.filter((e) => e.isDirectory))
+          setEntries(result.entries.filter((entry) => entry.isDirectory))
         }
-      } catch (err) {
+      } catch (caught) {
         if (cancelled || !mountedRef.current) return
-        setError(err instanceof Error ? err.message : String(err))
+        setError(describeRpcError(caught))
         setParentPath(null)
         setEntries([])
       } finally {
@@ -120,7 +121,7 @@ export function useDirectoryListing(active: boolean): DirectoryListing {
     return () => {
       cancelled = true
     }
-  }, [active, path])
+  }, [active, client, path])
 
   const navigate = useCallback((targetPath: string): void => {
     if (targetPath === '') return

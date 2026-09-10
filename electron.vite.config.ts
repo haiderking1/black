@@ -7,7 +7,12 @@ export default defineConfig({
     plugins: [externalizeDepsPlugin()],
     build: {
       rollupOptions: {
-        external: ['electron'],
+        // `ws` is a transitive dependency of @effect/platform-node, so
+        // externalizeDepsPlugin does not catch it. Bundling it breaks the
+        // WebSocket upgrade: rollup turns `ws`'s optional requires for its
+        // native addons into hard throws, and every upgrade dies there.
+        // Required from node_modules at runtime instead.
+        external: ['electron', 'ws', 'bufferutil', 'utf-8-validate'],
         input: {
           index: resolve(__dirname, 'backend/main.ts')
         }

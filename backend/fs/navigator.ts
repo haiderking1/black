@@ -2,19 +2,12 @@ import fs from 'node:fs/promises'
 import path from 'node:path'
 import os from 'node:os'
 
-export interface DirectoryEntry {
-  name: string
-  path: string
-  isDirectory: boolean
-  isHidden: boolean
-}
+// Types come from the contract so there is exactly one definition of what
+// crosses the wire. Declaring them here as well let the two drift, and an
+// extra or renamed field would only have shown up at runtime.
+import type { DirectoryEntry, DirectoryResult } from '../../contracts/fs'
 
-export interface DirectoryResult {
-  currentPath: string
-  parentPath: string | null
-  entries: DirectoryEntry[]
-  error?: string
-}
+export type { DirectoryEntry, DirectoryResult }
 
 function resolveUserPath(inputPath?: unknown): string {
   if (typeof inputPath !== 'string' || inputPath.trim() === '') {

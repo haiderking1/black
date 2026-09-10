@@ -1,5 +1,14 @@
-import { resolve } from 'node:path'
+import { dirname, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 import { BrowserWindow, shell } from 'electron'
+
+/**
+ * This module's directory.
+ *
+ * The main process is bundled as ESM, where __dirname does not exist. It is
+ * derived from the module URL instead.
+ */
+const currentDir = dirname(fileURLToPath(import.meta.url))
 
 export function createWindow(): BrowserWindow {
   const mainWindow = new BrowserWindow({
@@ -13,7 +22,7 @@ export function createWindow(): BrowserWindow {
     show: false,
     autoHideMenuBar: true,
     webPreferences: {
-      preload: resolve(__dirname, '../preload/index.cjs'),
+      preload: resolve(currentDir, '../preload/index.cjs'),
       sandbox: false,
       contextIsolation: true,
       nodeIntegration: false
@@ -44,7 +53,7 @@ export function createWindow(): BrowserWindow {
       console.error('Failed to load renderer URL in dev:', err)
     })
   } else {
-    mainWindow.loadFile(resolve(__dirname, '../renderer/index.html')).catch((err) => {
+    mainWindow.loadFile(resolve(currentDir, '../renderer/index.html')).catch((err) => {
       console.error('Failed to load local HTML file in production:', err)
     })
   }

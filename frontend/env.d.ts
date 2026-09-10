@@ -1,27 +1,22 @@
 /// <reference types="vite/client" />
 
-export interface DesktopDirectoryEntry {
-  name: string
+/**
+ * The endpoint the desktop hands the renderer at startup.
+ *
+ * The renderer cannot import the server, so it asks the preload bridge where the
+ * server is listening. This is the only thing the bridge exposes.
+ */
+export interface DesktopServerEndpoint {
+  host: string
+  port: number
   path: string
-  isDirectory: boolean
-  isHidden: boolean
-}
-
-export interface DesktopDirectoryResult {
-  currentPath: string
-  parentPath: string | null
-  entries: DesktopDirectoryEntry[]
-  error?: string
 }
 
 declare global {
   interface Window {
     blackDesktop?: {
-      listDirectory: (targetPath?: string) => Promise<DesktopDirectoryResult>
-      openDirectoryDialog: () => Promise<string | null>
-      openInFiles: (targetPath: string) => Promise<string>
-      getHomeDir: () => Promise<string>
-      getCwd: () => Promise<string>
+      getServerEndpoint: () => DesktopServerEndpoint | null
+      getServerToken: () => string | null
     }
   }
 }

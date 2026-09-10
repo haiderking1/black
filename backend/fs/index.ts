@@ -1,33 +1,20 @@
 import os from 'node:os'
-import { ipcMain, type BrowserWindow } from 'electron'
+
 import { listDirectory, type DirectoryEntry, type DirectoryResult } from './navigator'
 import { openDirectoryDialog } from './dialog'
 import { openInFiles } from './open'
 
+/**
+ * Filesystem operations.
+ *
+ * These are plain functions the RPC handlers wrap in Effects. There are no IPC
+ * channels here: the renderer reaches them through the RPC server, which is the
+ * only boundary between the two processes.
+ */
+
 export { listDirectory, openDirectoryDialog, openInFiles }
 export type { DirectoryEntry, DirectoryResult }
 
-export function registerFsIpc(mainWindowGetter: () => BrowserWindow | null): void {
-  ipcMain.handle('fs:listDirectory', async (_event, targetPath?: unknown): Promise<DirectoryResult> => {
-    const safePath = typeof targetPath === 'string' ? targetPath : undefined
-    return listDirectory(safePath)
-  })
-
-  ipcMain.handle('fs:openDirectoryDialog', async (): Promise<string | null> => {
-    const win = mainWindowGetter()
-    const validWin = win && !win.isDestroyed() ? win : null
-    return openDirectoryDialog(validWin)
-  })
-
-  ipcMain.handle('fs:openInFiles', async (_event, targetPath: unknown): Promise<string> => {
-    return openInFiles(targetPath)
-  })
-
-  ipcMain.handle('fs:getHomeDir', (): string => {
-    return os.homedir()
-  })
-
-  ipcMain.handle('fs:getCwd', (): string => {
-    return process.cwd()
-  })
+export function getHomeDir(): string {
+  return os.homedir()
 }

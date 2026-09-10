@@ -1,13 +1,13 @@
 import React from 'react'
 import { Folder } from 'lucide-react'
-import type { DesktopDirectoryEntry } from '../env'
+import type { DirectoryEntry } from '../../contracts/fs'
 
 interface DirectoryListProps {
-  entries: DesktopDirectoryEntry[]
+  entries: DirectoryEntry[]
   isLoading: boolean
   error: string | null
   selectedIndex: number
-  onNavigate: (entry: DesktopDirectoryEntry) => void
+  onNavigate: (entry: DirectoryEntry) => void
   onHover: (index: number) => void
   onHoverLeave: () => void
 }

@@ -19,5 +19,12 @@
     "noUnusedParameters": false,
     "noPropertyAccessFromIndexSignature": false
   },
-  "include": ["backend/**/*.ts", "frontend/**/*.ts", "frontend/**/*.tsx", "electron.vite.config.ts", "tests/**/*.ts"]
+  "include": [
+    "contracts/**/*.ts",
+    "backend/**/*.ts",
+    "frontend/**/*.ts",
+    "frontend/**/*.tsx",
+    "electron.vite.config.ts",
+    "tests/**/*.ts"
+  ]
 }
