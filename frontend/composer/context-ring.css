@@ -1,0 +1,44 @@
+/*
+ * Context fullness, beside the send button.
+ *
+ * Centred on the row with the send button, one step narrower. At the button's
+ * own 32 the outline overhung it, because an outline carries no interior mass
+ * and so reads larger than a filled disc of the same diameter.
+ *
+ * Drawn from the theme's own text colours, since it is a gauge and not a
+ * control.
+ */
+
+.context-ring {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 28px;
+  height: 28px;
+  cursor: default;
+}
+
+/* Rotated so the fill starts at the top and runs clockwise. */
+.context-ring svg {
+  transform: rotate(-90deg);
+}
+
+/* No svg sizing here: the element carries its own width, and the circle is
+   drawn to fill it. */
+.context-ring-track {
+  fill: none;
+  stroke: var(--border-medium);
+}
+
+.context-ring-fill {
+  fill: none;
+  stroke: var(--text-muted);
+  stroke-linecap: round;
+  transition: stroke-dashoffset 0.3s ease, stroke 0.2s ease;
+}
+
+/* Past the point where compaction fires. */
+.context-ring.full .context-ring-fill {
+  stroke: var(--text-primary);
+}

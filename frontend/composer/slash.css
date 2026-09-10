@@ -1,0 +1,61 @@
+/*
+ * The command menu.
+ *
+ * Deliberately the same shape as the queued turns: inset from the composer, top
+ * corners rounded, pulled under it by a negative margin. Both occupy the slot
+ * above the composer and only one shows at a time, so they should read as the
+ * same surface.
+ */
+
+/* Inside the composer wrapper, which already carries the width and padding. It
+   sits in the same slot as the queued tab, so only one of them is ever up. */
+.slash-menu {
+  width: 100%;
+  margin: 0 0 -14px;
+}
+
+.slash-card {
+  margin: 0 12px;
+  /* Inset horizontally so a rounded row has room, rather than touching the
+     card's own edge. */
+  padding: 4px 6px 18px;
+  border: 1px solid var(--border-composer);
+  border-bottom: none;
+  border-radius: var(--radius-capsule) var(--radius-capsule) 0 0;
+  background-color: var(--bg-composer);
+}
+
+.slash-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 7px 10px;
+  border-radius: var(--radius-md);
+  text-align: left;
+  cursor: pointer;
+}
+
+/* Hover and keyboard share one highlight, since hovering moves the selection
+   rather than sitting beside it. */
+.slash-row:hover,
+.slash-row.active {
+  background-color: var(--bg-surface-hover);
+}
+
+.slash-name {
+  flex-shrink: 0;
+  color: var(--text-primary);
+  font-size: 13.5px;
+  font-weight: 600;
+}
+
+.slash-description {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text-muted);
+  font-size: 12px;
+}

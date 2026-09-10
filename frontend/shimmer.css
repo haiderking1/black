@@ -1,0 +1,57 @@
+/*
+ * The sweeping label.
+ *
+ * Shared because two places want the same treatment: a status line that is still
+ * working shimmers, and the same line once settled does not. Defining it twice
+ * would let the two drift apart the first time either is tuned.
+ *
+ * Pure CSS: the text is painted with a gradient clipped to its glyphs and the
+ * gradient slides across in a loop.
+ *
+ * A bright band about as wide as the label, ramped through the mid tone on both
+ * sides rather than jumping straight to the peak, travelling its full length
+ * plus a margin at each end over two seconds. The margin is what makes it read
+ * as something passing through: the band arrives from off the left and leaves
+ * past the right, instead of fading up in the middle of the word.
+ *
+ * The gradient starts and ends on the base colour, so the tiled background has
+ * no visible seam where one copy meets the next.
+ */
+.shimmer-text {
+  background-image: linear-gradient(
+    90deg,
+    var(--text-muted) 0%,
+    var(--text-muted) 30%,
+    var(--text-secondary) 42%,
+    var(--text-primary) 50%,
+    var(--text-secondary) 58%,
+    var(--text-muted) 70%,
+    var(--text-muted) 100%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: shimmer-sweep 2s linear infinite;
+}
+
+@keyframes shimmer-sweep {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+/*
+ * With motion off the gradient would sit frozen mid-sweep and leave the label
+ * half-lit, so it is dropped entirely rather than left in that state.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .shimmer-text {
+    background-image: none;
+    color: var(--text-secondary);
+    animation: none;
+  }
+}
