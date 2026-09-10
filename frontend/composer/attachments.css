@@ -1,0 +1,86 @@
+/* Images waiting to be sent. */
+
+.attachment-strip {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  /* No padding of its own. The capsule already spaces the top, and the strip
+     adding to it left a band of nothing above the first row of thumbnails. */
+  padding: 0;
+}
+
+/* No margin either. It existed to clear the remove button, which no longer
+   hangs outside the thumbnail. */
+.attachment-chip {
+  position: relative;
+}
+
+.attachment-thumb {
+  display: block;
+  width: 56px;
+  height: 56px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+  object-fit: cover;
+}
+
+/* Inside the corner of the thumbnail rather than hanging off it. Outside, the
+   button reads as belonging to whatever is next to the image instead of to the
+   image, and it needs clearance the rows above cannot always give it.
+
+   The gap is a third of the button's own width, which is what the reference
+   shows. At three pixels on both sides it read as sitting on the corner rather
+   than in it, and the right one sat closer to the edge than the top. */
+.attachment-remove {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  /* A rounded square rather than a circle, so it sits in the corner of a
+     rounded thumbnail without a curve fighting a curve. */
+  border-radius: 5px;
+  border: 0;
+  /* Near black plate, dark grey glyph. Both values are measured off the
+     reference rather than picked: the plate there sits at luma 22 and the glyph
+     at luma 80, so the X is a grey well down from white and reads as a mark on
+     the plate instead of a light shining through it. */
+  background-color: rgba(0, 0, 0, 0.72);
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition:
+    background-color 0.15s ease,
+    color 0.15s ease;
+}
+
+.attachment-remove:hover:not(:disabled) {
+  background-color: rgba(0, 0, 0, 0.88);
+  color: rgba(255, 255, 255, 0.62);
+}
+
+.attachment-remove:disabled {
+  cursor: default;
+  opacity: 0.6;
+}
+
+/* A refused file. Shown rather than swallowed, since the reader chose it and
+   would otherwise assume it attached. */
+.attachment-error {
+  margin: 2px 0 0;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 1.5;
+}
+
+.attachment-input {
+  display: none;
+}
+
+/* A drop target reads as one while a file is over it. */
+.composer-wrapper.attachment-dragging .composer-capsule {
+  border-color: var(--border-medium);
+}

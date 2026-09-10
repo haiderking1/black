@@ -1,7 +1,7 @@
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
 
-import type { ChatStreamEvent, ToolCall, ToolImage } from '../../contracts/chat'
+import type { ChatStreamEvent, ToolCall, ImageAttachment } from '../../contracts/chat'
 
 export interface ReplyReport {
   /** Undefined when the turn ended without saying why. */
@@ -35,7 +35,7 @@ export interface ReplyHandlers {
     result: string,
     isError: boolean,
     details: unknown,
-    images: readonly ToolImage[] | undefined
+    images: readonly ImageAttachment[] | undefined
   ): void
 }
 

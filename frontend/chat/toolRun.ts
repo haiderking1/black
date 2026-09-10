@@ -1,4 +1,4 @@
-import type { ToolCall, ToolImage } from '../../contracts/chat'
+import type { ToolCall, ImageAttachment } from '../../contracts/chat'
 
 /**
  * One tool call, as the transcript holds it.
@@ -28,7 +28,7 @@ export interface ToolRun {
    * Held as the base64 the server sent rather than a data url, so the same
    * value can be measured or forwarded without unpicking a prefix.
    */
-  images?: readonly ToolImage[]
+  images?: readonly ImageAttachment[]
 }
 
 function readArgs(args: string): Record<string, unknown> | undefined {
@@ -115,7 +115,7 @@ export function finishToolRun(
   result: string,
   isError: boolean,
   details: unknown,
-  images?: readonly ToolImage[]
+  images?: readonly ImageAttachment[]
 ): ToolRun {
   const diff =
     details !== null && typeof details === 'object' && typeof (details as Record<string, unknown>)['diff'] === 'string'
@@ -138,7 +138,7 @@ export function finishToolRun(
 }
 
 /** A data url for an image, which is what an img tag needs to display it. */
-export function imageDataUrl(image: ToolImage): string {
+export function imageDataUrl(image: ImageAttachment): string {
   return 'data:' + image.mimeType + ';base64,' + image.data
 }
 
@@ -161,7 +161,7 @@ export function applyToolResult(
   result: string,
   isError: boolean,
   details: unknown,
-  images?: readonly ToolImage[]
+  images?: readonly ImageAttachment[]
 ): ToolRun[] {
   let matched = false
   const next = runs.map((run) => {

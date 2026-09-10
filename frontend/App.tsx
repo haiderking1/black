@@ -7,12 +7,14 @@ import * as Effect from 'effect/Effect'
 import { applyToolResult, consumeReply, createMessage, historyBefore, JumpToLatest, newRequestId, startToolRun, useContextUsage, useConversations, useStickToBottom } from './chat'
 import type { Message } from './chat'
 import { ToolRunList } from './tools'
+import { PreviewImage } from './lightbox'
 import { describeRpcError, useRpcClient } from './rpc'
 import type { ComposerSubmitOptions } from './composer'
 import { Markdown } from './markdown'
 import { CompactionNotice } from './compaction'
 import { ThinkingBlock } from './thinking'
 import './chat/chat-scroll.css'
+import './chat/message-images.css'
 import { SettingsPage, useSettings } from './settings'
 import { useProviders } from './settings/useProviders'
 
@@ -24,6 +26,8 @@ interface QueuedSend {
   messageId: string
   content: string
   options: ComposerSubmitOptions | undefined
+  /** Images that went with it, kept so the queue can resend them intact. */
+  images: Array<{ mimeType: string; data: string }>
 }
 
 const DEFAULT_PROJECTS: ProjectItemData[] = [
@@ -292,14 +296,19 @@ export function App(): React.JSX.Element {
       return
     }
 
-    // First message names the session
+    // First message names the session. An image sent with nothing typed would
+    // otherwise name the thread with an empty string.
     const currentSession = sessions.find((s) => s.id === sessionId)
     if (currentSession === undefined || currentSession.title === DEFAULT_SESSION_TITLE) {
-      renameSession(sessionId, content)
+      renameSession(sessionId, content.trim() === '' ? 'Image' : content)
     }
     touchSession(sessionId)
 
-    const userMessage = createMessage('user', content)
+    const images = options?.images ?? []
+    const userMessage: Message = {
+      ...createMessage('user', content),
+      ...(images.length === 0 ? {} : { images })
+    }
     appendMessage(sessionId, userMessage)
 
     const send: QueuedSend = {
@@ -307,7 +316,8 @@ export function App(): React.JSX.Element {
       sessionId,
       messageId: userMessage.id,
       content,
-      options
+      options,
+      images
     }
 
     if (busyRef.current) {
@@ -345,9 +355,17 @@ export function App(): React.JSX.Element {
       // The turn's own message is already in the transcript, so the history
       // stops before it. Taking everything would ask the question twice.
       // Ids travel with the turns: compaction names its cut point by entry id.
-      const priorTurns = historyBefore(messagesRef.current(threadId), send.messageId).map(
-        (message) => ({ id: message.id, role: message.role, content: message.content })
-      )
+      // Images travel with their turn. A screenshot is part of the question, so
+      // dropping it from the history would leave the model answering about a
+      // picture it can no longer see.
+      const priorTurns = historyBefore(messagesRef.current(threadId), send.messageId).map((message) => ({
+        id: message.id,
+        role: message.role,
+        content: message.content,
+        ...(message.images === undefined || message.images.length === 0
+          ? {}
+          : { images: message.images })
+      }))
 
       // The reply is appended empty and filled in as events arrive, so the answer
       // renders while it is still being written rather than after the last token.
@@ -369,7 +387,12 @@ export function App(): React.JSX.Element {
           model,
           messages: [
             ...priorTurns,
-            { id: send.messageId, role: 'user', content: send.content }
+            {
+              id: send.messageId,
+              role: 'user',
+              content: send.content,
+              ...(send.images.length === 0 ? {} : { images: send.images })
+            }
           ],
           requestId: send.requestId,
           // The conversation id doubles as the provider's routing key, so a whole
@@ -686,7 +709,24 @@ export function App(): React.JSX.Element {
                         {m.content === '' ? null : <Markdown>{m.content}</Markdown>}
                       </>
                     ) : (
-                      m.content
+                      <>
+                        {/* Above the text, in the order the message reads: the
+                            picture, then what was said about it. */}
+                        {m.images === undefined || m.images.length === 0 ? null : (
+                          <div className="message-images">
+                            {m.images.map((image, index) => (
+                              <PreviewImage
+                                key={String(index) + image.mimeType}
+                                className="message-image"
+                                src={'data:' + image.mimeType + ';base64,' + image.data}
+                                {...(image.name === undefined ? {} : { name: image.name })}
+                                alt="Attached image"
+                              />
+                            ))}
+                          </div>
+                        )}
+                        {m.content}
+                      </>
                     )}
                   </div>
                 </div>

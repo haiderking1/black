@@ -1,3 +1,4 @@
+import type { ImageAttachment } from '../../contracts/chat'
 import type { ToolRun } from './toolRun'
 
 export type MessageRole = 'user' | 'assistant'
@@ -31,6 +32,8 @@ export interface Message {
    * different from a reply that only talked.
    */
   tools?: ToolRun[]
+  /** Images sent with this turn, on a user message. */
+  images?: ImageAttachment[]
 }
 
 let messageCounter = 0

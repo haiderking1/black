@@ -13,13 +13,27 @@ import { THINKING_LEVELS } from './providers'
 export const ChatRole = Schema.Literals(['system', 'user', 'assistant', 'tool'])
 export type ChatRole = typeof ChatRole.Type
 
-/** An image a tool produced, for showing alongside its result. */
-export const ToolImage = Schema.Struct({
+/**
+ * An image travelling with a message.
+ *
+ * Used in both directions. A tool that read a file returns one, and a reader
+ * who pasted a screenshot into the composer sends one. The shape is the same
+ * either way, so it is defined once.
+ */
+export const ImageAttachment = Schema.Struct({
   mimeType: Schema.String,
   /** Base64, without a data url prefix. */
   data: Schema.String,
+  /**
+   * What the file was called.
+   *
+   * Never sent to a provider, which has no field for it. It travels so the
+   * transcript and the preview can label the picture with the name the reader
+   * recognises, rather than a generic one.
+   */
+  name: Schema.optional(Schema.String),
 })
-export type ToolImage = typeof ToolImage.Type
+export type ImageAttachment = typeof ImageAttachment.Type
 
 /** A tool the model asked to run. */
 export const ToolCall = Schema.Struct({
@@ -44,6 +58,14 @@ export const ChatMessage = Schema.Struct({
   toolCalls: Schema.optional(Schema.Array(ToolCall)),
   /** On a tool turn, naming the call this is the result of. */
   toolCallId: Schema.optional(Schema.String),
+  /**
+   * Images sent with this turn.
+   *
+   * Only ever set on a user turn. A tool result is text on the wire and has
+   * nowhere to put an image, so a tool that returns one is followed by a user
+   * turn carrying it.
+   */
+  images: Schema.optional(Schema.Array(ImageAttachment)),
 })
 export type ChatMessage = typeof ChatMessage.Type
 
@@ -158,7 +180,7 @@ export const ChatStreamEvent = Schema.Struct({
   toolResult: Schema.optional(Schema.String),
   toolIsError: Schema.optional(Schema.Boolean),
   /** Present for 'tool_result', when a tool returned an image. */
-  toolImages: Schema.optional(Schema.Array(ToolImage)),
+  toolImages: Schema.optional(Schema.Array(ImageAttachment)),
   /** Present for 'tool_result', when a tool produced something for the interface only. */
   toolDetails: Schema.optional(Schema.Unknown),
   /** Present for 'done'. */

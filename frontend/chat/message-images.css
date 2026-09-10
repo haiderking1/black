@@ -1,0 +1,18 @@
+/* Images a reader attached to a message. */
+
+.message-images {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.message-image {
+  display: block;
+  max-width: 260px;
+  max-height: 260px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  background-color: var(--bg-surface);
+  object-fit: contain;
+}

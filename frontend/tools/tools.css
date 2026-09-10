@@ -83,15 +83,17 @@
   display: block;
   max-width: min(100%, 420px);
   max-height: 320px;
-  margin: 8px 10px 0;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
   background: var(--preview-bg);
   object-fit: contain;
 }
 
-.tool-image + .tool-output {
-  margin-top: 8px;
+/* The spacing sits on the wrapper rather than the image, because the image is
+   inside a button now and a margin on it would not separate it from whatever
+   the row renders next. */
+.tool-row-body > .preview-trigger {
+  margin: 8px 10px;
 }
 
 .tool-output,

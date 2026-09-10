@@ -1,0 +1,132 @@
+/* Full size image preview. */
+
+.lightbox {
+  position: fixed;
+  inset: 0;
+  /* Above the spotlight, which is the highest thing the app already stacks. */
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  /* 16 across and 24 down, which is what the sizing works against: an image is
+     given 92vw and 86vh, and the reserve set aside for everything around it is
+     80px. At 40px of padding the three numbers disagreed, and a figure sized to
+     92vw overflowed a box that only had 100vw minus 80px to give. */
+  padding: 24px 16px;
+  background-color: rgba(0, 0, 0, 0.82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: lightbox-fade 0.12s ease-out;
+}
+
+@keyframes lightbox-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Sized to the image it holds, and the image is given an exact size in
+   javascript. A container that fits its content is what makes the close button
+   land on the same corner whatever shape the picture is. */
+.lightbox-figure {
+  position: relative;
+  max-width: 92vw;
+  animation: lightbox-rise 0.14s ease-out;
+}
+
+@keyframes lightbox-rise {
+  from {
+    opacity: 0;
+    transform: scale(0.985);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.lightbox-image {
+  display: block;
+  max-width: 92vw;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-medium);
+  background-color: var(--bg-surface);
+}
+
+/* In the image's own top right corner, with nothing behind it so the part of
+   the picture it sits over is still the picture. */
+.lightbox-close {
+  position: absolute;
+  top: 6px;
+  right: 10px;
+  width: 30px;
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 0;
+  border-radius: var(--radius-circle);
+  background-color: transparent;
+  color: #ffffff;
+  cursor: pointer;
+  /* Faded as a whole, glyph and shadow together, so it sits over the picture
+     without ever looking like a control bolted on top of it. */
+  opacity: 0.55;
+  transition:
+    opacity 0.15s ease,
+    background-color 0.15s ease;
+  /* The shadow follows the shape of the icon rather than a box, so the glyph
+     stays readable over a light image without a plate behind it. */
+  filter: drop-shadow(0 1px 2px rgba(0, 0, 0, 0.95));
+}
+
+/* A faint wash on hover, which confirms the thing is clickable rather than
+   hiding any of the image while it is being looked at. */
+.lightbox-close:hover {
+  background-color: rgba(128, 128, 128, 0.2);
+}
+
+/* Hovering does not brighten the glyph. Going from faint to solid under the
+   cursor pulls the eye to the corner of the picture, which is the last place it
+   should be pulled while the picture is what is being looked at. Reached by
+   keyboard, though, it is the thing being used rather than something crossed on
+   the way past, so it comes up to full and takes a ring. */
+.lightbox-close:focus-visible {
+  opacity: 1;
+  outline: 2px solid rgba(255, 255, 255, 0.7);
+  outline-offset: 1px;
+}
+
+.lightbox-name {
+  /* Held to the figure's width so a long name cannot widen the box and drag the
+     button off the corner. */
+  max-width: 100%;
+  margin: 8px 0 0;
+  overflow: hidden;
+  color: var(--text-muted);
+  font-family: var(--font-mono);
+  font-size: 12.5px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Anything that opens a preview. */
+.preview-trigger {
+  display: block;
+  padding: 0;
+  border: 0;
+  background: none;
+  line-height: 0;
+  cursor: zoom-in;
+}
+
+.preview-trigger:focus-visible {
+  outline: 2px solid var(--border-medium);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react'
 
 import { imageDataUrl, isRunning, type ToolRun } from '../chat/toolRun'
+import { PreviewImage } from '../lightbox'
 import { DiffView } from './DiffView'
 import './tools.css'
 
@@ -45,10 +46,13 @@ export function ToolRow({ run }: { run: ToolRun }): React.JSX.Element {
       {expanded && hasBody ? (
         <div className="tool-row-body">
           {images.map((image, index) => (
-            <img
-              className="tool-image"
+            <PreviewImage
               key={String(index) + image.mimeType}
+              className="tool-image"
               src={imageDataUrl(image)}
+              /* The path the read tool resolved, which is what tells two
+                 screenshots apart when both are called shot.png. */
+              {...(run.path === undefined ? {} : { name: run.path })}
               alt="Image returned by the read tool"
             />
           ))}

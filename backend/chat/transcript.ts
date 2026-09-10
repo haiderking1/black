@@ -1,4 +1,5 @@
 import type { AgentMessage, SessionMessageEntry } from '../sessions/types'
+import type { ChatImage } from '../providers/types'
 import { zeroUsage } from '../compaction'
 
 /** A turn as the wire carries it. */
@@ -6,6 +7,18 @@ export interface TranscriptMessage {
   id: string
   role: 'system' | 'user' | 'assistant' | 'tool'
   content: string
+  /**
+   * Images sent with this turn.
+   *
+   * Carried through compaction rather than dropped at the door. A checkpoint
+   * keeps the recent turns verbatim, and a pasted screenshot on one of those
+   * turns is part of the question being asked. Losing it would leave the model
+   * answering about a picture it can no longer see.
+   *
+   * They count for nothing when measuring. Estimating an image in tokens is a
+   * guess, and a guess that undercounts is the one that overflows.
+   */
+  images?: readonly ChatImage[]
 }
 
 /** One entry in the chain compaction reasons about. */

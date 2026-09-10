@@ -1,7 +1,6 @@
 export { Composer } from './Composer'
 export type { ComposerProps, ComposerSubmitOptions } from './Composer'
 export { ComposerInput } from './ComposerInput'
-export { ComposerActions } from './ComposerActions'
 export { Dropdown } from './Dropdown'
 export type { DropdownProps } from './Dropdown'
 export { ModelPicker } from './ModelPicker'

@@ -10,7 +10,8 @@ import type { TranscriptMessage } from '../../chat/transcript'
 import { withSystemPrompt } from '../../chat/systemPrompt'
 import { runToolLoop } from '../../chat/toolLoop'
 import { toolDefinitions } from '../../tools/registry'
-import type { ChatMessage, ChatStreamEvent as ProviderStreamEvent } from '../../providers/types'
+import type { ChatImage, ChatMessage, ChatStreamEvent as ProviderStreamEvent } from '../../providers/types'
+import { processImage } from '../../tools/image'
 import { resolveApiKey } from '../../providers/credentials'
 import { findDescriptor } from '../../providers/descriptors'
 import { createOpenCodeProvider } from '../../providers/opencode'
@@ -148,7 +149,8 @@ async function fitRequest(
     // recorded before this existed.
     id: message.id ?? 'turn-' + String(index),
     role: message.role,
-    content: message.content
+    content: message.content,
+    ...(message.images === undefined || message.images.length === 0 ? {} : { images: message.images })
   }))
 
   let contextWindow: number
@@ -173,12 +175,80 @@ async function fitRequest(
   })
 
   return {
-    messages: fitted.messages,
+    messages: await normalizeImages(fitted.messages),
     contextWindow,
     compacted: fitted.compacted,
     tokensBefore: fitted.tokensBefore,
     tokensAfter: fitted.tokensAfter
   }
+}
+
+/** Formats a provider takes as they are. */
+const INLINE_IMAGE_TYPES = new Set(['image/png', 'image/jpeg', 'image/gif', 'image/webp'])
+
+/** Ceiling on the base64 payload, matching what the tool side enforces. */
+const MAX_IMAGE_BASE64_BYTES = 4.5 * 1024 * 1024
+
+/**
+ * Normalise every image in a transcript, not only the ones just added.
+ *
+ * A turn is re-sent whole on every request, so an image that arrived oversized
+ * would be re-sent oversized on every later turn and fail all of them rather
+ * than just the one it was attached to. Doing this per request is the point at
+ * which history is covered as well as the new turn.
+ *
+ * A supported format already under the size limit is passed through untouched,
+ * which is the ordinary case and costs nothing. Anything else goes through the
+ * same ladder a tool read uses, so there is one resize and it is the tested
+ * one.
+ */
+async function normalizeImages(messages: readonly TranscriptMessage[]): Promise<TranscriptMessage[]> {
+  const out: TranscriptMessage[] = []
+
+  for (const message of messages) {
+    const images = message.images
+    if (images === undefined || images.length === 0) {
+      out.push(message)
+      continue
+    }
+
+    const kept: ChatImage[] = []
+    let dropped = 0
+
+    for (const image of images) {
+      if (INLINE_IMAGE_TYPES.has(image.mimeType) && image.data.length < MAX_IMAGE_BASE64_BYTES) {
+        kept.push(image)
+        continue
+      }
+      const processed = await processImage(Buffer.from(image.data, 'base64'), image.mimeType)
+      if (processed.ok) {
+        kept.push({ mimeType: processed.mimeType, data: processed.data })
+      } else {
+        dropped += 1
+      }
+    }
+
+    // An image that cannot be read is said out loud rather than dropped.
+    // Losing it silently leaves the model answering a question about something
+    // it was never shown, with nothing on screen explaining why.
+    if (dropped > 0) {
+      const note =
+        dropped === 1
+          ? '[An attached image could not be read and was not sent.]'
+          : '[' + String(dropped) + ' attached images could not be read and were not sent.]'
+      const content = message.content === '' ? note : message.content + '\n\n' + note
+      out.push(
+        kept.length === 0
+          ? { id: message.id, role: message.role, content }
+          : { id: message.id, role: message.role, content, images: kept }
+      )
+      continue
+    }
+
+    out.push({ id: message.id, role: message.role, content: message.content, images: kept })
+  }
+
+  return out
 }
 
 export function chatHandlers() {
@@ -233,6 +303,9 @@ export function chatHandlers() {
           const history: ChatMessage[] = fitted.messages.map((message) => ({
             role: message.role,
             content: message.content,
+            ...(message.images === undefined || message.images.length === 0
+              ? {}
+              : { images: [...message.images] }),
           }))
 
           // The budget a round must stay under. Undefined when the model's

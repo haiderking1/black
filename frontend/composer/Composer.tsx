@@ -1,6 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import { AttachButton } from './AttachButton'
+import { AttachmentStrip } from './AttachmentStrip'
+import { attachmentsFromFiles, imageFilesFrom, isFileDrag, type Attachment } from './attachments'
 import { ComposerInput } from './ComposerInput'
-import { ComposerActions } from './ComposerActions'
 import { ContextRing } from './ContextRing'
 import { SlashMenu } from './SlashMenu'
 import { matchCommands, type SlashCommand } from './slashCommands'
@@ -11,12 +13,15 @@ import { useModels } from './useModels'
 import { clampThinkingLevel, thinkingOptionsFor } from './thinkingOptions'
 import './composer.css'
 import './pickers.css'
+import './attachments.css'
 
 export interface ComposerSubmitOptions {
   /** Model the message was composed for. */
   model?: string
   /** Reasoning effort chosen alongside it. */
   thinkingLevel?: string
+  /** Images sent with the message, already base64. */
+  images?: Array<{ mimeType: string; data: string }>
   [key: string]: unknown
 }
 
@@ -24,7 +29,6 @@ export interface ComposerProps {
   onSendMessage?: (content: string, options?: ComposerSubmitOptions) => void
   disabled?: boolean
   placeholder?: string
-  onAttachClick?: () => void
   /** Which provider's catalog to offer. */
   providerId?: string
   /** Display name of that provider, from its descriptor. */
@@ -48,8 +52,7 @@ export interface ComposerProps {
 export function Composer({
   onSendMessage,
   disabled = false,
-  placeholder = 'Message Black...',
-  onAttachClick,
+  placeholder = 'Message Black, or attach an image',
   providerId = 'opencode-go',
   providerName,
   model,
@@ -61,6 +64,9 @@ export function Composer({
   contextUsage = null
 }: ComposerProps): React.JSX.Element {
   const [text, setText] = useState('')
+  const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [attachmentError, setAttachmentError] = useState<string | null>(null)
+  const [dragging, setDragging] = useState(false)
 
   const { models, isLoading, error } = useModels(providerId)
 
@@ -83,7 +89,9 @@ export function Composer({
     if (clamped !== thinkingLevel) onSelectThinkingLevel(clamped)
   }, [thinkingLevel, thinking.choices, onSelectThinkingLevel])
 
-  const canSend = text.trim().length > 0 && !disabled
+  // An image on its own is a complete message. Screenshots are often sent
+  // with nothing typed beside them.
+  const canSend = (text.trim().length > 0 || attachments.length > 0) && !disabled
 
   // Offered only while the input is a command being typed, never mid-sentence.
   const commands = useMemo(() => matchCommands(text), [text])
@@ -98,14 +106,61 @@ export function Composer({
   const submit = (content: string): void => {
     onSendMessage?.(content, {
       ...(activeModelId !== null ? { model: activeModelId } : {}),
-      thinkingLevel
+      thinkingLevel,
+      ...(attachments.length > 0
+        ? {
+            images: attachments.map((item) => ({
+              mimeType: item.mimeType,
+              data: item.data,
+              name: item.name
+            }))
+          }
+        : {})
     })
     setText('')
+    setAttachments([])
+    setAttachmentError(null)
   }
 
   const handleSend = (): void => {
     if (!canSend) return
     submit(text.trim())
+  }
+
+  /**
+   * Take whatever files arrived, wherever they came from.
+   *
+   * A refusal is kept on screen until the next attempt. A file the reader chose
+   * that silently did not attach is the worst outcome here, because everything
+   * looks correct until the reply answers a question they did not ask.
+   */
+  const addFiles = async (files: File[]): Promise<void> => {
+    const batch = await attachmentsFromFiles(files)
+    if (batch.attachments.length > 0) {
+      setAttachments((previous) => [...previous, ...batch.attachments])
+    }
+    setAttachmentError(batch.errors.length === 0 ? null : batch.errors.join(' '))
+  }
+
+  const handlePaste = (event: React.ClipboardEvent): void => {
+    const files = imageFilesFrom(event.clipboardData)
+    if (files.length === 0) {
+      return
+    }
+    // Only claimed when there is actually an image, so pasting text still
+    // pastes text.
+    event.preventDefault()
+    void addFiles(files)
+  }
+
+  const handleDrop = (event: React.DragEvent): void => {
+    setDragging(false)
+    const files = imageFilesFrom(event.dataTransfer)
+    if (files.length === 0) {
+      return
+    }
+    event.preventDefault()
+    void addFiles(files)
   }
 
   /**
@@ -147,7 +202,25 @@ export function Composer({
   }
 
   return (
-    <div className="composer-wrapper">
+    <div
+      className={'composer-wrapper' + (dragging ? ' attachment-dragging' : '')}
+      onPaste={handlePaste}
+      onDragOver={(event) => {
+        // A drop only lands if the default is prevented during the drag over.
+        if (isFileDrag(event.dataTransfer)) {
+          event.preventDefault()
+          setDragging(true)
+        }
+      }}
+      onDragLeave={(event) => {
+        // Moving onto a child fires a leave on the parent, so clearing on every
+        // one of them makes the highlight flicker across the whole capsule.
+        if (!event.currentTarget.contains(event.relatedTarget as Node | null)) {
+          setDragging(false)
+        }
+      }}
+      onDrop={handleDrop}
+    >
       <SlashMenu
         commands={commands}
         activeIndex={commands.length === 0 ? 0 : Math.min(activeIndex, commands.length - 1)}
@@ -156,6 +229,12 @@ export function Composer({
       />
 
       <div className="composer-capsule">
+        <AttachmentStrip
+          attachments={attachments}
+          onRemove={(id) => setAttachments((previous) => previous.filter((item) => item.id !== id))}
+          disabled={disabled}
+        />
+
         <ComposerInput
           value={text}
           onChange={setText}
@@ -167,12 +246,13 @@ export function Composer({
           disabled={disabled}
         />
 
+        {attachmentError === null ? null : <p className="attachment-error">{attachmentError}</p>}
+
         <div className="composer-toolbar">
-          {/* The pickers sit with the attach button rather than beside send.
-              They decide what the message goes out as, so they belong with the
-              control that shapes it, not the one that fires it. */}
+          {/* The pickers decide what the message goes out as, so they belong
+              with the control that shapes it, at the opposite end from the one
+              that fires it. */}
           <div className="composer-actions-left">
-            <ComposerActions onAttachClick={onAttachClick} />
             <ModelPicker
               models={models}
               selectedModelId={activeModelId}
@@ -196,6 +276,7 @@ export function Composer({
               tokens={contextUsage?.tokens ?? null}
               contextWindow={contextUsage?.window ?? null}
             />
+            <AttachButton onFiles={(files) => void addFiles(files)} disabled={disabled} />
             <SendButton
               streaming={streaming}
               disabled={!canSend}
