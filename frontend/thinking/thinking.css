@@ -60,7 +60,8 @@
  * Pure CSS: the text is painted with a gradient clipped to its glyphs and the
  * gradient slides across in a loop.
  *
- * The proportions follow the sweep Codex uses for this same word. A bright band
+ * The proportions follow the sweep the Codex CLI uses for this same word
+ * (https://github.com/openai/codex, Apache-2.0, see NOTICE). A bright band
  * about as wide as the label, ramped through the mid tone on both sides rather
  * than jumping straight to the peak, travelling its full length plus a margin at
  * each end over two seconds. The margin is what makes it read as something
