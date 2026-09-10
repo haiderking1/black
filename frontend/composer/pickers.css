@@ -112,3 +112,259 @@
   align-items: center;
   gap: 4px;
 }
+
+/*
+ * The model panel.
+ *
+ * A rail of providers, a search, and rows that carry what the model does with
+ * reasoning. Wider and taller than a list of names, because that is what it now
+ * has to hold. The search stays put and only the list scrolls under it.
+ */
+/*
+ * The menu bounds the column, and the column bounds the list.
+ *
+ * Without this the menu clipped instead of scrolling: a fixed max-height with
+ * overflow hidden severs everything past the cap, and the list inside never
+ * scrolled because nothing had told it how tall it was allowed to be. Each level
+ * has to pass a height down for the innermost overflow to have something to
+ * scroll within.
+ */
+.composer-picker-menu-wide {
+  width: 380px;
+  max-height: 400px;
+  padding: 0;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+}
+
+.model-panel {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.model-rail {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  width: 42px;
+  padding: 8px 0;
+  border-right: 1px solid var(--border-subtle);
+}
+
+.model-rail-item {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 29px;
+  height: 29px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.model-rail-item:hover {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+/* The selected provider carries an accent bar down its left edge. */
+.model-rail-item.active {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
+  box-shadow: inset 3px 0 0 var(--text-primary);
+}
+
+.model-rail-divider {
+  width: 20px;
+  height: 1px;
+  margin: 3px 0;
+  background-color: var(--border-subtle);
+}
+
+.model-main {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+}
+
+.model-search {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-shrink: 0;
+  padding: 9px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.model-search-icon {
+  flex-shrink: 0;
+  color: var(--text-muted);
+}
+
+.model-search-input {
+  flex: 1;
+  min-width: 0;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: 13px;
+}
+
+.model-search-input::placeholder {
+  color: var(--text-muted);
+}
+
+.model-scroll {
+  display: flex;
+  flex-direction: column;
+  /* Takes whatever the search left, rather than growing to its content. */
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 4px;
+}
+
+.model-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.model-row {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 8px;
+  border-radius: var(--radius-md);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.12s ease;
+}
+
+.model-row:hover,
+.model-row.active {
+  background-color: var(--bg-surface-hover);
+}
+
+/* Holds the provider's own mark, which brings its own tile and corner. */
+.model-mark {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+}
+
+.model-text {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.model-name {
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  color: var(--text-primary);
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.model-provider {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  overflow: hidden;
+  white-space: nowrap;
+  color: var(--text-muted);
+  font-size: 11.5px;
+}
+
+.model-provider-mark {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 13px;
+  height: 13px;
+}
+
+.model-shortcut {
+  flex-shrink: 0;
+  padding: 1px 6px;
+  border-radius: var(--radius-sm);
+  background-color: var(--bg-surface-hover);
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 10px;
+}
+
+.model-check {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+.model-star {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: var(--radius-sm);
+  color: var(--text-muted);
+  cursor: pointer;
+  transition: background-color 0.12s ease, color 0.12s ease;
+}
+
+.model-star:hover {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.model-star.on {
+  color: var(--text-primary);
+}
+
+.model-group {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: 100%;
+  padding: 7px 8px;
+  border-radius: var(--radius-md);
+  text-align: left;
+  cursor: pointer;
+}
+
+.model-group:hover {
+  background-color: var(--bg-surface-hover);
+}
+
+.model-group-note {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.model-group-chevron {
+  flex-shrink: 0;
+  color: var(--text-muted);
+  transition: transform 0.15s ease;
+}
+
+.model-group-chevron.open {
+  transform: rotate(90deg);
+}

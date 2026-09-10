@@ -14,6 +14,8 @@ export interface DropdownProps {
   title: string
   /** Class for the trigger, so each picker can size itself. */
   className?: string
+  /** Extra class for the menu, for a picker whose contents need a larger panel. */
+  menuClassName?: string
   disabled?: boolean
   /** Rendered inside the menu. Receives a close callback. */
   children: (close: () => void) => ReactNode
@@ -23,6 +25,7 @@ export function Dropdown({
   label,
   title,
   className,
+  menuClassName,
   disabled = false,
   children,
 }: DropdownProps): React.JSX.Element {
@@ -74,7 +77,15 @@ export function Dropdown({
       </button>
 
       {open ? (
-        <div className="composer-picker-menu" role="listbox" aria-label={title}>
+        <div
+          className={
+            menuClassName === undefined
+              ? 'composer-picker-menu'
+              : 'composer-picker-menu ' + menuClassName
+          }
+          role="listbox"
+          aria-label={title}
+        >
           {children(close)}
         </div>
       ) : null}

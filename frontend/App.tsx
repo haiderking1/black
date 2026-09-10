@@ -12,6 +12,7 @@ import { Markdown } from './markdown'
 import { ThinkingBlock } from './thinking'
 import './chat/chat-scroll.css'
 import { SettingsPage, useSettings } from './settings'
+import { useProviders } from './settings/useProviders'
 
 /** A turn typed while a reply was arriving, waiting for that reply to finish. */
 interface QueuedSend {
@@ -87,6 +88,10 @@ export function App(): React.JSX.Element {
   // Follows new content, and releases the moment the reader scrolls up.
   const { scrollRef, contentRef, handleScroll, isPinned, jumpToBottom } = useStickToBottom(activeSessionId)
   const client = useRpcClient()
+
+  // Only for the provider's display name, which the picker labels its rows with.
+  const { providers } = useProviders()
+  const providerName = providers.find((entry) => entry.id === 'opencode-go')?.name
 
   // The message still arriving. Only that one keeps shimmering; the rest are
   // settled and should read as history.
@@ -598,6 +603,7 @@ export function App(): React.JSX.Element {
             onSelectModel={(modelId) => updateSetting('selectedModelId', modelId)}
             thinkingLevel={settings.thinkingLevel}
             onSelectThinkingLevel={(level) => updateSetting('thinkingLevel', level)}
+            {...(providerName !== undefined ? { providerName } : {})}
           />
         </div>
       </div>

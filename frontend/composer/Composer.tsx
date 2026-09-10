@@ -24,6 +24,8 @@ export interface ComposerProps {
   onAttachClick?: () => void
   /** Which provider's catalog to offer. */
   providerId?: string
+  /** Display name of that provider, from its descriptor. */
+  providerName?: string
   /**
    * Selected model, or null to fall back to the provider's first. Controlled so
    * the choice survives a remount, which it did not when held locally.
@@ -44,6 +46,7 @@ export function Composer({
   placeholder = 'Message Black...',
   onAttachClick,
   providerId = 'opencode-go',
+  providerName,
   model,
   onSelectModel,
   thinkingLevel,
@@ -109,6 +112,8 @@ export function Composer({
               models={models}
               selectedModelId={activeModelId}
               onSelect={onSelectModel}
+              providerId={providerId}
+              {...(providerName !== undefined ? { providerName } : {})}
               isLoading={isLoading}
               error={error}
             />

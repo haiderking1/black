@@ -1,13 +1,18 @@
 import React from 'react'
-import { Check, ChevronDown } from 'lucide-react'
+import { ChevronDown } from 'lucide-react'
 
 import type { ModelInfo } from '../../contracts/providers'
 import { Dropdown } from './Dropdown'
+import { ModelPanel } from './ModelPanel'
 
 export interface ModelPickerProps {
   models: readonly ModelInfo[]
   selectedModelId: string | null
   onSelect: (modelId: string) => void
+  /** Provider serving this catalog. */
+  providerId?: string
+  /** Display name of the serving provider, from its descriptor. */
+  providerName?: string
   isLoading?: boolean
   error?: string | null
 }
@@ -20,14 +25,19 @@ function shortName(id: string): string {
 /**
  * Model chooser.
  *
- * Lists what the provider currently serves. An empty catalog explains itself
- * rather than rendering an empty menu, because the usual cause is a missing key
- * and that is actionable.
+ * A panel rather than a list of names, because a catalog of thirty-odd entries
+ * with no way to narrow it is a scroll, and each entry needs to say what it is
+ * before the reader commits to it.
+ *
+ * An empty catalog explains itself rather than rendering an empty panel: the
+ * usual cause is a missing key, and that is actionable.
  */
 export function ModelPicker({
   models,
   selectedModelId,
   onSelect,
+  providerId = 'opencode-go',
+  providerName = 'Provider',
   isLoading = false,
   error = null,
 }: ModelPickerProps): React.JSX.Element {
@@ -37,6 +47,7 @@ export function ModelPicker({
     <Dropdown
       title="Choose a model"
       disabled={isLoading}
+      menuClassName="composer-picker-menu-wide"
       label={
         <>
           <span className="composer-picker-label">{shortName(label)}</span>
@@ -57,28 +68,14 @@ export function ModelPicker({
           ) : null}
 
           {!isLoading && models.length > 0 ? (
-            <ul className="composer-picker-list">
-              {models.map((model) => {
-                const selected = model.id === selectedModelId
-                return (
-                  <li key={model.id}>
-                    <button
-                      type="button"
-                      role="option"
-                      aria-selected={selected}
-                      className={'composer-picker-item ' + (selected ? 'active' : '')}
-                      onClick={() => {
-                        onSelect(model.id)
-                        close()
-                      }}
-                    >
-                      <span className="composer-picker-item-id">{model.id}</span>
-                      {selected ? <Check size={13} aria-hidden="true" /> : null}
-                    </button>
-                  </li>
-                )
-              })}
-            </ul>
+            <ModelPanel
+              models={models}
+              selectedModelId={selectedModelId}
+              providerId={providerId}
+              providerName={providerName}
+              onSelect={onSelect}
+              close={close}
+            />
           ) : null}
         </>
       )}
