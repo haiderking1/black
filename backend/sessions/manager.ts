@@ -24,6 +24,7 @@ import { CURRENT_SESSION_VERSION } from './types'
 import type {
   AgentMessage,
   BashExecutionMessage,
+  BranchSummaryEntry,
   CompactionEntry,
   CustomEntry,
   CustomMessage,
@@ -368,6 +369,26 @@ export class SessionManager {
     }
     if (retainedTail !== undefined) {
       entry.retainedTail = retainedTail
+    }
+    return this.appendEntry(entry)
+  }
+
+  /** Append a branch summary for an abandoned branch, then advance the leaf. Returns the entry id. */
+  appendBranchSummary<TDetails = unknown>(
+    summary: string,
+    fromId: string,
+    details?: TDetails,
+    fromHook?: boolean,
+    usage?: Usage,
+  ): string {
+    const entry: BranchSummaryEntry<TDetails> = {
+      ...this.baseEntry('branch_summary'),
+      type: 'branch_summary',
+      summary,
+      fromId,
+      details,
+      usage,
+      fromHook,
     }
     return this.appendEntry(entry)
   }

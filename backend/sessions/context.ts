@@ -60,6 +60,11 @@ export function buildSessionPath(
 
 type SessionSettings = Pick<SessionContext, 'thinkingLevel' | 'model'>
 
+/** Whether a message entry actually carries a message object to read from. */
+function isMessageRecord(value: unknown): value is AgentMessage {
+  return typeof value === 'object' && value !== null && typeof (value as { role?: unknown }).role === 'string'
+}
+
 function getSessionContextSettings(path: SessionEntry[]): SessionSettings {
   let thinkingLevel = 'off'
   let model: { provider: string; modelId: string } | null = null
@@ -69,7 +74,7 @@ function getSessionContextSettings(path: SessionEntry[]): SessionSettings {
       thinkingLevel = entry.thinkingLevel
     } else if (entry.type === 'model_change') {
       model = { provider: entry.provider, modelId: entry.modelId }
-    } else if (entry.type === 'message' && entry.message.role === 'assistant') {
+    } else if (entry.type === 'message' && isMessageRecord(entry.message) && entry.message.role === 'assistant') {
       const assistant = entry.message as AssistantMessage
       model = { provider: assistant.provider, modelId: assistant.model }
     }
@@ -94,6 +99,9 @@ function isContextMessage(message: AgentMessage): boolean {
 export function sessionEntryToContextMessages(entry: SessionEntry): AgentMessage[] {
   if (entry.type === 'message') {
     const message = entry.message
+    // A message entry can lose its payload in a hand-edited or truncated file.
+    // It contributes nothing rather than throwing on the way to the model.
+    if (!isMessageRecord(message)) return []
     if (
       (message.role === 'user' || message.role === 'assistant' || message.role === 'toolResult') &&
       (message as { content?: unknown }).content == null
