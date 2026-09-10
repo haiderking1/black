@@ -2,15 +2,20 @@ import { describe, expect, it } from 'bun:test'
 
 import { createOpenCodeProvider } from '../backend/providers/opencode'
 import { OPENCODE_GO_BASE_URL } from '../backend/providers/opencode/endpoints'
+import { isOnline } from './support/network'
 
 /**
  * Live catalog check against the real Go endpoint.
  *
  * The model list endpoint needs no credentials, so this verifies the base URL,
  * the response shape, and the parser against the vendor rather than a fixture.
- * Inference calls are not exercised here because they need a key.
+ * Inference calls are not exercised here because they need a key, and no test
+ * in this suite should ever add one: a contributor running the tests must not
+ * spend anything.
+ *
+ * Needs a network, so it skips rather than fails when there is none.
  */
-describe('opencode go live catalog', () => {
+describe.skipIf(!(await isOnline()))('opencode go live catalog', () => {
   it('reads the real model list', async () => {
     const provider = createOpenCodeProvider({ apiKey: 'unused-for-catalog', ttlMs: 0 })
 
