@@ -34,11 +34,18 @@
   text-overflow: ellipsis;
 }
 
-/* Opens upward: the composer sits at the bottom of the window. */
+/*
+ * Opens upward and grows to the right of its trigger.
+ *
+ * Upward because the composer sits at the bottom of the window. Rightward
+ * because the pickers sit at the left of the capsule, so anchoring to the
+ * trigger's right edge would hang a 220px menu past the left of the window on
+ * anything but a wide one.
+ */
 .composer-picker-menu {
   position: absolute;
   bottom: calc(100% + 8px);
-  right: 0;
+  left: 0;
   z-index: 20;
   min-width: 220px;
   max-height: 320px;

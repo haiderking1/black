@@ -32,6 +32,10 @@ export interface ComposerProps {
   onSelectModel: (modelId: string) => void
   thinkingLevel: string
   onSelectThinkingLevel: (level: string) => void
+  /** True while a reply is arriving. Turns send into stop. */
+  streaming?: boolean
+  /** Stop the reply that is arriving. */
+  onStop?: () => void
 }
 
 export function Composer({
@@ -43,7 +47,9 @@ export function Composer({
   model,
   onSelectModel,
   thinkingLevel,
-  onSelectThinkingLevel
+  onSelectThinkingLevel,
+  streaming = false,
+  onStop
 }: ComposerProps): React.JSX.Element {
   const [text, setText] = useState('')
 
@@ -87,14 +93,18 @@ export function Composer({
           value={text}
           onChange={setText}
           onSubmit={handleSend}
-          placeholder={placeholder}
+          /* While a reply is arriving the next message is a follow-up, not a
+             fresh request. */
+          placeholder={streaming ? 'Send follow-up' : placeholder}
           disabled={disabled}
         />
 
         <div className="composer-toolbar">
-          <ComposerActions onAttachClick={onAttachClick} />
-
-          <div className="composer-actions-right">
+          {/* The pickers sit with the attach button rather than beside send.
+              They decide what the message goes out as, so they belong with the
+              control that shapes it, not the one that fires it. */}
+          <div className="composer-actions-left">
+            <ComposerActions onAttachClick={onAttachClick} />
             <ModelPicker
               models={models}
               selectedModelId={activeModelId}
@@ -109,7 +119,20 @@ export function Composer({
               disabled={thinking.disabled}
               note={thinking.note}
             />
-            <SendButton disabled={!canSend} onClick={handleSend} />
+          </div>
+
+          <div className="composer-actions-right">
+            <SendButton
+              streaming={streaming}
+              disabled={!canSend}
+              onClick={() => {
+                if (streaming) {
+                  onStop?.()
+                  return
+                }
+                handleSend()
+              }}
+            />
           </div>
         </div>
       </div>

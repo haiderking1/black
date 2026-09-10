@@ -1,0 +1,89 @@
+/*
+ * Turns waiting for the reply ahead of them to finish.
+ *
+ * A tab peeking out from behind the composer, not a card sitting above it. The
+ * negative bottom margin pulls the composer up over the card's lower edge, and
+ * the inset keeps the card clear of the composer's left and right sides so the
+ * composer reads as the surface in front.
+ */
+
+.queued-messages {
+  max-width: 800px;
+  width: 100%;
+  /* The composer overlaps the card by this much. */
+  margin: 0 auto -14px;
+  padding: 0 16px;
+}
+
+.queued-card {
+  /* Inset from the composer's edges, so the composer looks like it is in front. */
+  margin: 0 12px;
+  /* Enough room below the last row that the overlap never covers it. */
+  padding: 4px 0 18px;
+  border: 1px solid var(--border-composer);
+  border-bottom: none;
+  /* Rounded where it is exposed, open where the composer covers it. */
+  border-radius: var(--radius-capsule) var(--radius-capsule) 0 0;
+  /* The composer's own surface, not a generic panel colour. The tab is meant to
+     look like part of the composer, and any other fill reads as a separate
+     object wedged behind it. */
+  background-color: var(--bg-composer);
+}
+
+.queued-card-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 8px 7px 14px;
+}
+
+/* A rule between turns, never above the first or below the last. */
+.queued-card-row + .queued-card-row {
+  border-top: 1px solid var(--border-subtle);
+}
+
+.queued-card-icon {
+  flex-shrink: 0;
+  color: var(--text-secondary);
+}
+
+/*
+ * One line, truncated. The card is a glance at what is waiting, and a long turn
+ * would push the tab taller than the thing it is peeking out from behind.
+ */
+.queued-card-text {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  /* The composer's own text colour. A queued turn is still a turn the reader
+     wrote, and dimming it made the whole tab read as disabled. */
+  color: var(--text-primary);
+  font-size: 13.5px;
+}
+
+.queued-card-actions {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.queued-card-action {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 26px;
+  padding: 0 8px;
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-size: 12px;
+  cursor: pointer;
+  transition: background-color 0.15s ease, color 0.15s ease;
+}
+
+.queued-card-action:hover {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
