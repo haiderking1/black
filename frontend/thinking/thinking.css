@@ -1,0 +1,110 @@
+/*
+ * Reasoning.
+ *
+ * The label is plain muted text on the message's left edge, flush with the
+ * answer's first word. No box, no chevron, no indent: anything in front of it
+ * pushes it out of line with the text it belongs to.
+ */
+
+.thinking-block {
+  margin: 0 0 1px;
+}
+
+.thinking-header {
+  display: inline-flex;
+  align-items: center;
+  /* Vertical padding only. Any horizontal padding would move the label off the
+     edge the answer starts from. */
+  padding: 2px 0;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+  text-align: left;
+  cursor: pointer;
+  transition: color 0.15s ease;
+}
+
+.thinking-header:hover {
+  color: var(--text-secondary);
+}
+
+/*
+ * The reasoning runs full width in the message flow, not capped or scrolled
+ * internally: a nested scroll area inside a transcript that already scrolls
+ * catches the wheel when you do not expect it.
+ */
+.thinking-body {
+  margin: 6px 0 10px;
+}
+
+/*
+ * Rendered as markdown, toned down so it stays subordinate to the answer. Same
+ * structure, smaller and quieter: one override rather than a rule per element,
+ * because the markdown container sets the colour its children inherit.
+ */
+.thinking-body .markdown {
+  font-size: 14.5px;
+  line-height: 1.65;
+  color: var(--text-secondary);
+}
+
+/* Lists in reasoning are frequent and do not need the answer's 22px indent. */
+.thinking-body .markdown ul,
+.thinking-body .markdown ol {
+  padding-left: 20px;
+}
+
+/*
+ * The label sweeps while reasoning is still arriving.
+ *
+ * Pure CSS: the text is painted with a gradient clipped to its glyphs and the
+ * gradient slides across in a loop.
+ *
+ * The proportions follow the sweep Codex uses for this same word. A bright band
+ * about as wide as the label, ramped through the mid tone on both sides rather
+ * than jumping straight to the peak, travelling its full length plus a margin at
+ * each end over two seconds. The margin is what makes it read as something
+ * passing through: the band arrives from off the left and leaves past the right,
+ * instead of fading up in the middle of the word.
+ *
+ * The gradient starts and ends on the base colour, so the tiled background has
+ * no visible seam where one copy meets the next.
+ */
+.thinking-label-streaming {
+  background-image: linear-gradient(
+    90deg,
+    var(--text-muted) 0%,
+    var(--text-muted) 30%,
+    var(--text-secondary) 42%,
+    var(--text-primary) 50%,
+    var(--text-secondary) 58%,
+    var(--text-muted) 70%,
+    var(--text-muted) 100%
+  );
+  background-size: 200% 100%;
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  animation: thinking-sweep 2s linear infinite;
+}
+
+@keyframes thinking-sweep {
+  from {
+    background-position: 150% 0;
+  }
+  to {
+    background-position: -50% 0;
+  }
+}
+
+/*
+ * With motion off the gradient would sit frozen mid-sweep and leave the label
+ * half-lit, so it is dropped entirely rather than left in that state.
+ */
+@media (prefers-reduced-motion: reduce) {
+  .thinking-label-streaming {
+    background-image: none;
+    color: var(--text-secondary);
+    animation: none;
+  }
+}

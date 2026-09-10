@@ -5,6 +5,15 @@ export interface Message {
   role: MessageRole
   content: string
   timestamp: string
+  /**
+   * The model's reasoning, kept apart from the answer.
+   *
+   * Vendors send it on a separate channel from the reply text, and folding the
+   * two together would put scratch work in the middle of the answer.
+   */
+  thinking?: string
+  /** How long reasoning took, set once the answer starts or the turn ends. */
+  thinkingMs?: number
 }
 
 let messageCounter = 0
