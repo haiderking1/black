@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react'
-import { ArrowLeft, Palette, SlidersHorizontal } from 'lucide-react'
+import { ArrowLeft, Palette, Plug, SlidersHorizontal } from 'lucide-react'
 import { AppearanceSettings } from './AppearanceSettings'
 import { GeneralSettings } from './GeneralSettings'
+import { ProvidersSettings } from './ProvidersSettings'
 import type { AppSettings } from './types'
 import './settings.css'
 
@@ -12,7 +13,7 @@ export interface SettingsPageProps {
   onClose: () => void
 }
 
-type SettingsSection = 'general' | 'appearance'
+type SettingsSection = 'general' | 'appearance' | 'providers'
 
 export function SettingsPage({
   settings,
@@ -57,6 +58,15 @@ export function SettingsPage({
             <Palette size={16} aria-hidden="true" />
             <span>Appearance</span>
           </button>
+          <button
+            type="button"
+            className={`settings-navigation-item ${activeSection === 'providers' ? 'active' : ''}`}
+            aria-current={activeSection === 'providers' ? 'page' : undefined}
+            onClick={() => setActiveSection('providers')}
+          >
+            <Plug size={16} aria-hidden="true" />
+            <span>Providers</span>
+          </button>
         </nav>
 
         <button type="button" className="settings-back-button" onClick={onClose}>
@@ -68,8 +78,10 @@ export function SettingsPage({
       <main className="settings-content">
         {activeSection === 'general' ? (
           <GeneralSettings settings={settings} onChange={onChange} onReset={onReset} />
-        ) : (
+        ) : activeSection === 'appearance' ? (
           <AppearanceSettings settings={settings} onChange={onChange} />
+        ) : (
+          <ProvidersSettings />
         )}
       </main>
     </div>

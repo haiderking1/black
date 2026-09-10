@@ -1,4 +1,6 @@
 export { SettingsPage } from './SettingsPage'
+export { ProvidersSettings } from './ProvidersSettings'
+export { useProviders } from './useProviders'
 export type { SettingsPageProps } from './SettingsPage'
 export { useSettings } from './useSettings'
 export type { UseSettingsResult } from './useSettings'

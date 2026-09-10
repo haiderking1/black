@@ -27,7 +27,9 @@ describe('settings persistence', () => {
     const selectedSettings = {
       theme: 'gruvbox' as const,
       openSidebarOnLaunch: false,
-      reduceMotion: true
+      reduceMotion: true,
+      selectedModelId: 'glm-5.3',
+      thinkingLevel: 'high' as const
     }
 
     expect(writeSettings(storage, selectedSettings)).toBe(true)
@@ -39,14 +41,48 @@ describe('settings persistence', () => {
       theme: 'dark',
       openSidebarOnLaunch: 'yes',
       reduceMotion: true,
+      selectedModelId: 'glm-5.3',
+      // Any non-empty string is valid now: levels are the vendor's vocabulary.
+      thinkingLevel: 'nonsense',
       unknownFutureField: 'ignored'
     })
 
     expect(parsed).toEqual({
       theme: 'dark',
       openSidebarOnLaunch: DEFAULT_SETTINGS.openSidebarOnLaunch,
-      reduceMotion: true
+      reduceMotion: true,
+      selectedModelId: 'glm-5.3',
+      thinkingLevel: 'nonsense'
     })
+  })
+
+  it('remembers the chosen model and thinking level across a reload', () => {
+    const storage = createMemoryStorage()
+
+    // The composer used to fall back to the provider's first model on every
+    // mount, so a choice was lost as soon as the component remounted.
+    writeSettings(storage, { ...DEFAULT_SETTINGS, selectedModelId: 'kimi-k3', thinkingLevel: 'max' })
+    const restored = readSettings(storage)
+
+    expect(restored.selectedModelId).toBe('kimi-k3')
+    expect(restored.thinkingLevel).toBe('max')
+  })
+
+  it('repairs an empty thinking level but keeps the vendor value otherwise', () => {
+    expect(parseSettings({ ...DEFAULT_SETTINGS, thinkingLevel: '' }).thinkingLevel).toBe(
+      DEFAULT_SETTINGS.thinkingLevel
+    )
+    // A level this build has never heard of is still kept: the vendor owns the
+    // vocabulary, so refusing unknown values would drop valid choices.
+    expect(parseSettings({ ...DEFAULT_SETTINGS, thinkingLevel: 'none' }).thinkingLevel).toBe('none')
+    expect(parseSettings({ ...DEFAULT_SETTINGS, thinkingLevel: 'xhigh' }).thinkingLevel).toBe('xhigh')
+  })
+
+  it('falls back to no model when the saved id is empty or not a string', () => {
+    for (const saved of ['', 42, null, { id: 'x' }]) {
+      const parsed = parseSettings({ ...DEFAULT_SETTINGS, selectedModelId: saved })
+      expect(parsed.selectedModelId).toBe(null)
+    }
   })
 
   it('accepts every available theme and rejects removed theme values', () => {

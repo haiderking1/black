@@ -5,7 +5,9 @@ export const SETTINGS_STORAGE_KEY = 'black_settings_v1'
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark',
   openSidebarOnLaunch: true,
-  reduceMotion: false
+  reduceMotion: false,
+  selectedModelId: null,
+  thinkingLevel: 'medium'
 }
 
 export interface SettingsStorage {
@@ -15,6 +17,11 @@ export interface SettingsStorage {
 
 function isThemePreference(value: unknown): value is ThemePreference {
   return typeof value === 'string' && (THEME_PREFERENCES as readonly string[]).includes(value)
+}
+
+/** Any non-empty string: the level is the vendor's own vocabulary. */
+function isThinkingLevel(value: unknown): value is string {
+  return typeof value === 'string' && value !== ''
 }
 
 export function parseSettings(value: unknown): AppSettings {
@@ -32,7 +39,16 @@ export function parseSettings(value: unknown): AppSettings {
     reduceMotion:
       typeof candidate['reduceMotion'] === 'boolean'
         ? candidate['reduceMotion']
-        : DEFAULT_SETTINGS.reduceMotion
+        : DEFAULT_SETTINGS.reduceMotion,
+    // A model id that is no longer served resolves to null rather than pinning a
+    // selection the provider cannot answer.
+    selectedModelId:
+      typeof candidate['selectedModelId'] === 'string' && candidate['selectedModelId'] !== ''
+        ? candidate['selectedModelId']
+        : DEFAULT_SETTINGS.selectedModelId,
+    thinkingLevel: isThinkingLevel(candidate['thinkingLevel'])
+      ? candidate['thinkingLevel']
+      : DEFAULT_SETTINGS.thinkingLevel
   }
 }
 
