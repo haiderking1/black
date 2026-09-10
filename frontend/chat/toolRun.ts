@@ -1,4 +1,4 @@
-import type { ToolCall } from '../../contracts/chat'
+import type { ToolCall, ToolImage } from '../../contracts/chat'
 
 /**
  * One tool call, as the transcript holds it.
@@ -22,6 +22,13 @@ export interface ToolRun {
   /** Present for an edit, which has a diff worth showing. */
   diff?: string
   path?: string
+  /**
+   * Images the call returned.
+   *
+   * Held as the base64 the server sent rather than a data url, so the same
+   * value can be measured or forwarded without unpicking a prefix.
+   */
+  images?: readonly ToolImage[]
 }
 
 function readArgs(args: string): Record<string, unknown> | undefined {
@@ -107,7 +114,8 @@ export function finishToolRun(
   run: ToolRun,
   result: string,
   isError: boolean,
-  details: unknown
+  details: unknown,
+  images?: readonly ToolImage[]
 ): ToolRun {
   const diff =
     details !== null && typeof details === 'object' && typeof (details as Record<string, unknown>)['diff'] === 'string'
@@ -124,8 +132,14 @@ export function finishToolRun(
     result,
     isError,
     ...(diff === undefined ? {} : { diff }),
-    ...(text === undefined ? {} : { path: text })
+    ...(text === undefined ? {} : { path: text }),
+    ...(images === undefined || images.length === 0 ? {} : { images })
   }
+}
+
+/** A data url for an image, which is what an img tag needs to display it. */
+export function imageDataUrl(image: ToolImage): string {
+  return 'data:' + image.mimeType + ';base64,' + image.data
 }
 
 /** Calls whose results have not arrived yet, for the running indicator. */
@@ -146,7 +160,8 @@ export function applyToolResult(
   callId: string,
   result: string,
   isError: boolean,
-  details: unknown
+  details: unknown,
+  images?: readonly ToolImage[]
 ): ToolRun[] {
   let matched = false
   const next = runs.map((run) => {
@@ -154,7 +169,7 @@ export function applyToolResult(
       return run
     }
     matched = true
-    return finishToolRun(run, result, isError, details)
+    return finishToolRun(run, result, isError, details, images)
   })
 
   if (matched) {
@@ -162,5 +177,5 @@ export function applyToolResult(
   }
 
   const orphan = startToolRun({ id: callId, name: 'tool', arguments: '' })
-  return [...next, finishToolRun(orphan, result, isError, details)]
+  return [...next, finishToolRun(orphan, result, isError, details, images)]
 }

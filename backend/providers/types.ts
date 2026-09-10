@@ -30,9 +30,24 @@ export interface ToolCall {
   arguments: string
 }
 
+/** An image carried with a message. */
+export interface ChatImage {
+  mimeType: string
+  /** Base64, without a data url prefix. */
+  data: string
+}
+
 export interface ChatMessage {
   role: 'system' | 'user' | 'assistant' | 'tool'
   content: string
+  /**
+   * Images to show alongside the text.
+   *
+   * Only ever set on a user message. A tool result is text on the wire and
+   * there is nowhere in it for an image, so a tool that returns one is followed
+   * by a user message carrying it.
+   */
+  images?: ChatImage[]
   /**
    * Opaque replay payload from a previous assistant turn. A reasoning model
    * needs its own earlier thinking handed back or it loses the thread across
@@ -160,6 +175,13 @@ export interface Provider {
    * 'unknown' rather than a guess, so no thinking parameter is sent for it.
    */
   thinkingFor(modelId: string): Promise<ThinkingSupport>
+  /**
+   * Whether a model can be shown an image. Unlisted models report false, since
+   * an image sent to a model that cannot take one fails the request.
+   */
+  supportsImages(modelId: string): Promise<boolean>
+  /** Whether a model can call tools. Unlisted models report false. */
+  supportsToolCalls(modelId: string): Promise<boolean>
   /** Drop the cached catalog so the next call refetches. */
   refreshModels(): Promise<ModelInfo[]>
   chat(request: ChatRequest): Promise<ChatResult>

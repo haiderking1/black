@@ -1,6 +1,13 @@
 export { createMessage } from './types'
 export type { Message, MessageRole } from './types'
-export { applyToolResult, describeToolRun, finishToolRun, isRunning, startToolRun } from './toolRun'
+export {
+  applyToolResult,
+  describeToolRun,
+  finishToolRun,
+  imageDataUrl,
+  isRunning,
+  startToolRun
+} from './toolRun'
 export type { ToolRun } from './toolRun'
 export { applyMessageUpdate, removeMessage, useConversations } from './useConversations'
 export type { UseConversationsResult } from './useConversations'

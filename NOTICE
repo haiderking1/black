@@ -15,4 +15,9 @@ Derived code:
                        implementations. The shell tool is deliberately not
                        among them.
 
+  backend/tools/image/ the image pipeline, adapted from pi: type detection by
+                       magic bytes, EXIF orientation, conversion and the resize
+                       ladder. Uses @silvia-odwyer/photon-node, which is
+                       Apache-2.0.
+
 Everything else in black is original work.

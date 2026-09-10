@@ -1,7 +1,7 @@
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
 
-import type { ChatStreamEvent, ToolCall } from '../../contracts/chat'
+import type { ChatStreamEvent, ToolCall, ToolImage } from '../../contracts/chat'
 
 export interface ReplyReport {
   /** Undefined when the turn ended without saying why. */
@@ -30,7 +30,13 @@ export interface ReplyHandlers {
    */
   onToolCalls(calls: readonly ToolCall[]): void
   /** One call finished, successfully or not. */
-  onToolResult(callId: string, result: string, isError: boolean, details: unknown): void
+  onToolResult(
+    callId: string,
+    result: string,
+    isError: boolean,
+    details: unknown,
+    images: readonly ToolImage[] | undefined
+  ): void
 }
 
 /**
@@ -98,7 +104,8 @@ export async function consumeReply<E>(
             event.toolCallId ?? '',
             event.toolResult ?? '',
             event.toolIsError === true,
-            event.toolDetails
+            event.toolDetails,
+            event.toolImages
           )
           return
         }

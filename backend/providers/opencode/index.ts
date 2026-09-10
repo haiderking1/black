@@ -72,6 +72,8 @@ export function createOpenCodeProvider(options: OpenCodeProviderOptions): OpenCo
     refreshModels: () => catalog.refresh(),
     contextWindowFor: (modelId) => limits.contextWindowFor(modelId),
     thinkingFor: (modelId) => limits.thinkingFor(modelId),
+    supportsImages: (modelId) => limits.imagesFor(modelId),
+    supportsToolCalls: (modelId) => limits.toolsFor(modelId),
     chat: (request) => client.chat(request),
     streamChat: (request) => streaming.stream(request),
   }

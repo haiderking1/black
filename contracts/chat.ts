@@ -13,6 +13,14 @@ import { THINKING_LEVELS } from './providers'
 export const ChatRole = Schema.Literals(['system', 'user', 'assistant', 'tool'])
 export type ChatRole = typeof ChatRole.Type
 
+/** An image a tool produced, for showing alongside its result. */
+export const ToolImage = Schema.Struct({
+  mimeType: Schema.String,
+  /** Base64, without a data url prefix. */
+  data: Schema.String,
+})
+export type ToolImage = typeof ToolImage.Type
+
 /** A tool the model asked to run. */
 export const ToolCall = Schema.Struct({
   id: Schema.String,
@@ -149,6 +157,8 @@ export const ChatStreamEvent = Schema.Struct({
   toolName: Schema.optional(Schema.String),
   toolResult: Schema.optional(Schema.String),
   toolIsError: Schema.optional(Schema.Boolean),
+  /** Present for 'tool_result', when a tool returned an image. */
+  toolImages: Schema.optional(Schema.Array(ToolImage)),
   /** Present for 'tool_result', when a tool produced something for the interface only. */
   toolDetails: Schema.optional(Schema.Unknown),
   /** Present for 'done'. */

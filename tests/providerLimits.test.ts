@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 
+import { isOnline } from './support/network'
 import { ProviderError } from '../backend/providers/errors'
 import {
   createLimitsSource,
@@ -18,6 +19,21 @@ const CATALOG = {
       'kimi-k3': { limit: { context: 262_144 } },
       nolimit: { id: 'nolimit' },
       zeroed: { limit: { context: 0 } },
+      // Lists vision and tools explicitly.
+      'vision-model': {
+        limit: { context: 128_000 },
+        tool_call: true,
+        modalities: { input: ['text', 'image'], output: ['text'] },
+      },
+      // Lists modalities without an image, so the coarse flag must not override it.
+      'text-only': {
+        limit: { context: 128_000 },
+        tool_call: true,
+        attachment: true,
+        modalities: { input: ['text', 'pdf'] },
+      },
+      // Predates the finer field, so the coarse flag is all there is.
+      'legacy-vision': { limit: { context: 128_000 }, attachment: true },
     },
   },
 }
@@ -29,8 +45,52 @@ describe('limits source', () => {
       context: 200_000,
       output: 64_000,
       thinking: { reasoning: false, kind: 'none', levels: [] },
+      images: false,
+      tools: false,
     })
     expect(await limits.contextWindowFor('kimi-k3')).toBe(262_144)
+  })
+
+  it('reads image and tool support from the catalog', async () => {
+    const limits = createLimitsSource({ fetchImpl: async () => jsonResponse(CATALOG) })
+    expect(await limits.imagesFor('vision-model')).toBe(true)
+    expect(await limits.toolsFor('vision-model')).toBe(true)
+    expect(await limits.imagesFor('glm-5.3')).toBe(false)
+  })
+
+  it('lets the detailed modalities list overrule the coarse attachment flag', async () => {
+    // The flag says yes and the list says text and pdf. The list is the one
+    // that knows.
+    const limits = createLimitsSource({ fetchImpl: async () => jsonResponse(CATALOG) })
+    expect(await limits.imagesFor('text-only')).toBe(false)
+  })
+
+  it('falls back to the coarse flag when there is no modalities list', async () => {
+    const limits = createLimitsSource({ fetchImpl: async () => jsonResponse(CATALOG) })
+    expect(await limits.imagesFor('legacy-vision')).toBe(true)
+  })
+
+  it('treats an unlisted model as unable to see images but able to call tools', async () => {
+    const limits = createLimitsSource({ fetchImpl: async () => jsonResponse(CATALOG) })
+    // An image sent to a model that cannot take one fails the whole request,
+    // so an unknown model fails closed.
+    expect(await limits.imagesFor('not-a-model')).toBe(false)
+    // Tools fail open. A model missing from the catalog is far more likely to
+    // be new than to be incapable, and failing closed would turn a lookup
+    // problem into a client that can only chat.
+    expect(await limits.toolsFor('not-a-model')).toBe(true)
+  })
+
+  it('keeps answering when the catalog cannot be fetched', async () => {
+    // A catalog outage must not fail a turn, so both lookups resolve rather
+    // than rejecting.
+    const limits = createLimitsSource({
+      fetchImpl: async () => {
+        throw new Error('offline')
+      },
+    })
+    expect(await limits.imagesFor('vision-model')).toBe(false)
+    expect(await limits.toolsFor('vision-model')).toBe(true)
   })
 
   it('falls back to a conservative window for an unknown model', async () => {
@@ -149,7 +209,9 @@ describe('limits source', () => {
   })
 })
 
-describe('limits source live', () => {
+// Reads a public file with no key, so it costs nothing, but it does need a
+// network. Skipped rather than failed when there is none.
+describe.skipIf(!(await isOnline()))('limits source live', () => {
   it('reads real context windows from models.dev', async () => {
     const limits = createLimitsSource()
     const glm = await limits.get('glm-5.3')

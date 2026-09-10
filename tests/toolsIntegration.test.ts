@@ -10,6 +10,19 @@ import { writeTool } from '../backend/tools/write'
 
 let dir: string
 
+/**
+ * A real eight by eight PNG.
+ *
+ * Generated rather than copied from a snippet, because a byte-perfect PNG is
+ * the only kind that proves the decoder ran. A near-miss constant is still
+ * enough to satisfy the signature check, so a bad one would pass detection and
+ * then panic inside the wasm decoder.
+ */
+const TINY_PNG = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAgAAAAICAYAAADED76LAAAAVUlEQVR4Ae3AA6AkWZbG8f937o3IzKdyS2Oubdu2bdu2bdu2bWmMnpZKr54yMyLu+Xa3anqmhztr1a/+MZgXjMoLR+WFo/LCUXnhqLxwVF44Ki8c/wjkGwHoDXNSPAAAAABJRU5ErkJggg==',
+  'base64'
+)
+
 beforeEach(async () => {
   dir = await mkdtemp(join(tmpdir(), 'black-tools-'))
 })
@@ -98,11 +111,60 @@ describe('read tool', () => {
     await expect(readTool.run({ path: 'a.ts', offset: '2' }, cwd())).rejects.toThrow(/must be a number/)
   })
 
-  it('notes an image instead of returning its bytes as text', async () => {
-    await writeFile(join(dir, 'shot.png'), Buffer.from([0x89, 0x50, 0x4e, 0x47]))
+  it('returns an image for the model to look at', async () => {
+    await writeFile(join(dir, 'shot.png'), TINY_PNG)
     const result = await readTool.run({ path: 'shot.png' }, cwd())
-    expect(result.content).toContain('image/png')
-    expect(result.content).toContain('cannot be returned')
+
+    expect(result.content).toContain('Read image file [image/png]')
+    expect(result.images?.length).toBe(1)
+    expect(result.images?.[0]?.mimeType).toBe('image/png')
+    expect((result.images?.[0]?.data.length ?? 0) > 0).toBe(true)
+  })
+
+  it('reports an image instead of sending it when the model cannot see one', async () => {
+    await writeFile(join(dir, 'shot.png'), TINY_PNG)
+    const result = await readTool.run({ path: 'shot.png' }, { cwd: dir, acceptsImages: false })
+    expect(result.images).toBeUndefined()
+    expect(result.content).toContain('cannot be shown images')
+  })
+
+  it('decides an image by its bytes rather than its name', async () => {
+    // A screenshot that was renamed on the way into the project is still an
+    // image, and reading it as text would return a page of noise.
+    await writeFile(join(dir, 'notes.txt'), TINY_PNG)
+    const result = await readTool.run({ path: 'notes.txt' }, cwd())
+    expect(result.images?.length).toBe(1)
+  })
+
+  it('reads a file named like an image as text when it is not one', async () => {
+    await writeFile(join(dir, 'fake.png'), 'const a = 1', 'utf-8')
+    const result = await readTool.run({ path: 'fake.png' }, cwd())
+    expect(result.images).toBeUndefined()
+    expect(result.content).toBe('const a = 1')
+  })
+
+  it('reports a binary it cannot decode rather than dumping it as text', async () => {
+    // Random bytes are not text and not a decodable image.
+    await writeFile(join(dir, 'blob.bin'), Buffer.from([0x00, 0x01, 0x02, 0xff, 0xfe]))
+    const result = await readTool.run({ path: 'blob.bin' }, cwd())
+    expect(result.images).toBeUndefined()
+  })
+
+  it('survives a file that claims to be a PNG and is not', async () => {
+    // The signature check passes and the decoder then panics inside the wasm
+    // module, which surfaces as a thrown trap rather than an error return. It
+    // has to be caught, and it has to leave the decoder usable.
+    const corrupted = Buffer.from(TINY_PNG)
+    corrupted.writeUInt8(0x00, 45)
+    await writeFile(join(dir, 'corrupt.png'), corrupted)
+
+    const result = await readTool.run({ path: 'corrupt.png' }, cwd())
+    expect(result.images).toBeUndefined()
+
+    // The next read still works, so one bad file does not poison the decoder.
+    await writeFile(join(dir, 'good.png'), TINY_PNG)
+    const after = await readTool.run({ path: 'good.png' }, cwd())
+    expect(after.images?.length).toBe(1)
   })
 
   it('reads utf-8 content without mangling it', async () => {

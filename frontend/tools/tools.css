@@ -77,6 +77,23 @@
   border-top: 1px solid var(--border-subtle);
 }
 
+/* An image the model was shown. Bounded so a large screenshot cannot push
+   the conversation off the screen. */
+.tool-image {
+  display: block;
+  max-width: min(100%, 420px);
+  max-height: 320px;
+  margin: 8px 10px 0;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  background: var(--preview-bg);
+  object-fit: contain;
+}
+
+.tool-image + .tool-output {
+  margin-top: 8px;
+}
+
 .tool-output,
 .tool-diff {
   max-height: 340px;

@@ -1,7 +1,7 @@
 import { toolByName } from '../tools/registry'
 import { parseToolArguments } from '../tools/parseArguments'
-import type { ChatMessage, ChatStreamEvent, ChatUsage, ToolCall } from '../providers/types'
-import type { ToolContext } from '../tools/types'
+import type { ChatImage, ChatMessage, ChatStreamEvent, ChatUsage, ToolCall } from '../providers/types'
+import type { ImageAttachment, ToolContext } from '../tools/types'
 
 /**
  * The turn, which is more than one request.
@@ -34,6 +34,7 @@ export const MAX_TOOL_ROUNDS = 25
 interface ToolRun {
   content: string
   isError: boolean
+  images?: ImageAttachment[]
   details?: unknown
 }
 
@@ -61,6 +62,7 @@ async function runOneTool(call: ToolCall, context: ToolContext): Promise<ToolRun
     return {
       content: outcome.content,
       isError: false,
+      ...(outcome.images === undefined || outcome.images.length === 0 ? {} : { images: outcome.images }),
       ...(outcome.details === undefined ? {} : { details: outcome.details })
     }
   } catch (error) {
@@ -82,6 +84,11 @@ export interface ToolLoopOptions {
   cwd: string
   signal?: AbortSignal
   maxRounds?: number
+  /**
+   * Whether the model can be shown an image. Passed down so a tool that reads
+   * one knows whether to decode it or report it.
+   */
+  acceptsImages?: boolean
 }
 
 export async function* runToolLoop(options: ToolLoopOptions): AsyncGenerator<ChatStreamEvent> {
@@ -89,7 +96,8 @@ export async function* runToolLoop(options: ToolLoopOptions): AsyncGenerator<Cha
   const messages = [...options.messages]
   const context: ToolContext = {
     cwd: options.cwd,
-    ...(options.signal === undefined ? {} : { signal: options.signal })
+    ...(options.signal === undefined ? {} : { signal: options.signal }),
+    ...(options.acceptsImages === undefined ? {} : { acceptsImages: options.acceptsImages })
   }
 
   // Read through a call rather than inline. A signal is aborted by something
@@ -166,6 +174,8 @@ export async function* runToolLoop(options: ToolLoopOptions): AsyncGenerator<Cha
     // results that follow answer questions the model has no record of asking.
     messages.push({ role: 'assistant', content: assistantText, toolCalls: requested })
 
+    const collected: ChatImage[] = []
+
     for (const call of requested) {
       if (isAborted()) {
         yield { type: 'done', stopReason: 'aborted' }
@@ -180,10 +190,23 @@ export async function* runToolLoop(options: ToolLoopOptions): AsyncGenerator<Cha
         toolName: call.name,
         toolResult: result.content,
         toolIsError: result.isError,
+        ...(result.images === undefined ? {} : { toolImages: result.images }),
         ...(result.details === undefined ? {} : { toolDetails: result.details })
       }
 
       messages.push({ role: 'tool', toolCallId: call.id, content: result.content })
+
+      for (const image of result.images ?? []) {
+        collected.push({ mimeType: image.mimeType, data: image.data })
+      }
+    }
+
+    // Images go in their own message rather than inside the tool results. A
+    // tool result is text as far as the wire is concerned, and there is no
+    // field in it for an image, so a read that returned one arrives as text
+    // followed by a user turn carrying the picture.
+    if (collected.length > 0) {
+      messages.push({ role: 'user', content: '', images: collected })
     }
   }
 

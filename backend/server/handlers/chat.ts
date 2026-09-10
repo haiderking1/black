@@ -220,11 +220,15 @@ export function chatHandlers() {
           const provider = resolved.provider
           const workingDirectory = payload.workingDirectory
 
-          // No directory means no tools. A relative path has nothing to resolve
-          // against, and a write with no root is a write that could land
-          // anywhere, so the model is offered nothing rather than something
-          // unbounded.
-          const tools = workingDirectory === undefined ? undefined : toolDefinitions()
+          // Two things have to hold before a tool is offered at all. There has
+          // to be a directory, because a relative path has nothing to resolve
+          // against and a write with no root could land anywhere. And the model
+          // has to accept tools, because offering them to one that does not
+          // fails the request rather than being ignored.
+          const canCallTools = await provider.supportsToolCalls(payload.model)
+          const acceptsImages = await provider.supportsImages(payload.model)
+          const tools =
+            workingDirectory === undefined || !canCallTools ? undefined : toolDefinitions()
 
           const history: ChatMessage[] = fitted.messages.map((message) => ({
             role: message.role,
@@ -299,6 +303,7 @@ export function chatHandlers() {
             messages: history,
             cwd: workingDirectory ?? '',
             stream: streamRound,
+            acceptsImages,
             ...(controller !== null ? { signal: controller.signal } : {}),
           })) {
             if (event.type === 'done' && fitted.contextWindow !== undefined) {

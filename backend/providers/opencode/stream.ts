@@ -128,9 +128,27 @@ function readUsage(value: unknown): ChatUsage {
  * null, so an empty body on a tool asking turn is sent as null.
  */
 function buildMessage(message: ChatMessage): Record<string, unknown> {
+  const images = message.images ?? []
+
+  // With an image present the content becomes a list of typed parts. The text
+  // part is dropped when there is no text, because an empty text part is
+  // rejected by some gateways.
+  const content =
+    images.length > 0
+      ? [
+          ...(message.content === '' ? [] : [{ type: 'text', text: message.content }]),
+          ...images.map((image) => ({
+            type: 'image_url',
+            image_url: { url: 'data:' + image.mimeType + ';base64,' + image.data },
+          })),
+        ]
+      : message.content === '' && message.toolCalls !== undefined
+        ? null
+        : message.content
+
   const out: Record<string, unknown> = {
     role: message.role,
-    content: message.content === '' && message.toolCalls !== undefined ? null : message.content,
+    content,
   }
   if (message.toolCalls !== undefined) {
     out['tool_calls'] = message.toolCalls.map((call) => ({

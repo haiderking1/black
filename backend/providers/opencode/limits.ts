@@ -33,6 +33,10 @@ export interface ModelLimits {
   output?: number
   /** How the model exposes reasoning control. */
   thinking: ThinkingSupport
+  /** Whether the model accepts images as input. */
+  images: boolean
+  /** Whether the model can call tools. */
+  tools: boolean
 }
 
 export type { ThinkingSupport } from '../types'
@@ -55,6 +59,19 @@ export interface LimitsSource {
    * 'unknown' rather than a guess, so nothing is sent for it.
    */
   thinkingFor(modelId: string): Promise<ThinkingSupport>
+  /**
+   * Whether a model can be shown an image.
+   *
+   * False for a model the catalog does not list. Sending an image to a model
+   * that cannot take one fails the whole request, so an unknown model is
+   * treated as unable rather than assumed able.
+   */
+  imagesFor(modelId: string): Promise<boolean>
+  /**
+   * Whether a model can call tools. False for an unlisted model, for the same
+   * reason: offering tools a model cannot take fails the request outright.
+   */
+  toolsFor(modelId: string): Promise<boolean>
   /** Every known limit, keyed by model id. */
   all(): Promise<Map<string, ModelLimits>>
   refresh(): Promise<Map<string, ModelLimits>>
@@ -104,6 +121,25 @@ function readThinking(value: Record<string, unknown>): ThinkingSupport {
   return { reasoning, kind, levels }
 }
 
+/**
+ * Whether a model takes images.
+ *
+ * modalities.input is the precise field and wins when it is present, because a
+ * model can list text and image and still not do video, and the coarse
+ * attachment flag cannot express that. attachment is the fallback for entries
+ * that predate the finer field.
+ */
+function readAcceptsImages(record: Record<string, unknown>): boolean {
+  const modalities = record['modalities']
+  if (typeof modalities === 'object' && modalities !== null) {
+    const input = (modalities as Record<string, unknown>)['input']
+    if (Array.isArray(input)) {
+      return input.includes('image')
+    }
+  }
+  return record['attachment'] === true
+}
+
 /** Read one provider's models into the flat map we care about. */
 function readProvider(entry: unknown, into: Map<string, ModelLimits>): void {
   if (typeof entry !== 'object' || entry === null) return
@@ -122,7 +158,12 @@ function readProvider(entry: unknown, into: Map<string, ModelLimits>): void {
 
     const output = positiveNumber((limit as { output?: unknown }).output)
     const thinking = readThinking(record)
-    into.set(modelId, output !== undefined ? { context, output, thinking } : { context, thinking })
+    const images = readAcceptsImages(record)
+    const tools = record['tool_call'] === true
+    into.set(
+      modelId,
+      output !== undefined ? { context, output, thinking, images, tools } : { context, thinking, images, tools }
+    )
   }
 }
 
@@ -173,11 +214,38 @@ export function createLimitsSource(options: LimitsOptions = {}): LimitsSource {
     ...(options.now !== undefined ? { now: options.now } : {}),
   })
 
+  /**
+   * Look a model up without letting a lookup failure become a failed turn.
+   *
+   * The catalog is a remote file. When it cannot be read the answer is not
+   * "unknown", it is "we could not find out", and the two callers below want
+   * different things from that.
+   */
+  const limitsFor = async (modelId: string): Promise<ModelLimits | undefined> => {
+    try {
+      return (await cache.get()).get(modelId)
+    } catch {
+      return undefined
+    }
+  }
+
   return {
     get: async (modelId) => (await cache.get()).get(modelId),
     contextWindowFor: async (modelId) => (await cache.get()).get(modelId)?.context ?? FALLBACK_CONTEXT_WINDOW,
     thinkingFor: async (modelId) =>
       (await cache.get()).get(modelId)?.thinking ?? { reasoning: false, kind: 'unknown', levels: [] },
+
+    // Fails closed. An image handed to a model that cannot take one fails the
+    // whole request, so an unverified model is treated as unable. The cost is a
+    // read that reports the file instead of showing it.
+    imagesFor: async (modelId) => (await limitsFor(modelId))?.images ?? false,
+
+    // Fails open, deliberately, and for the opposite reason. Tools are what
+    // this client is for, and a model absent from the catalog is far more
+    // likely to be a new coding model than one that cannot call tools. Failing
+    // closed here would turn a catalog outage into a client that can only chat.
+    toolsFor: async (modelId) => (await limitsFor(modelId))?.tools ?? true,
+
     all: () => cache.get(),
     refresh: () => cache.refresh(),
   }

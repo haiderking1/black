@@ -399,8 +399,11 @@ export function App(): React.JSX.Element {
           // work in progress rather than as a reply that has stopped moving.
           onToolCalls: (calls) =>
             patch((m) => ({ ...m, tools: [...(m.tools ?? []), ...calls.map(startToolRun)] })),
-          onToolResult: (callId, result, isError, details) =>
-            patch((m) => ({ ...m, tools: applyToolResult(m.tools ?? [], callId, result, isError, details) })),
+          onToolResult: (callId, result, isError, details, images) =>
+            patch((m) => ({
+              ...m,
+              tools: applyToolResult(m.tools ?? [], callId, result, isError, details, images)
+            })),
           onDone: (report) => {
             stopReason = report.stopReason
           }

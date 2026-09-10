@@ -1,6 +1,7 @@
 import { constants } from 'node:fs'
 import { access, readFile } from 'node:fs/promises'
 
+import { detectImageMimeTypeFromFile, processImage } from './image'
 import { resolveReadPath } from './paths'
 import { DEFAULT_MAX_BYTES, DEFAULT_MAX_LINES, formatSize, truncateHead } from './truncate'
 import type { Tool, ToolContext, ToolOutcome } from './types'
@@ -13,21 +14,6 @@ import type { Tool, ToolContext, ToolOutcome } from './types'
  * what number to pass next, so it can walk a large file in a few calls instead
  * of giving up and guessing at the contents.
  */
-
-/** Image types the tool recognises. It cannot return their contents. */
-const IMAGE_EXTENSIONS: Record<string, string> = {
-  jpg: 'image/jpeg',
-  jpeg: 'image/jpeg',
-  png: 'image/png',
-  gif: 'image/gif',
-  webp: 'image/webp',
-  bmp: 'image/bmp'
-}
-
-function imageMimeType(path: string): string | undefined {
-  const extension = path.slice(path.lastIndexOf('.') + 1).toLowerCase()
-  return IMAGE_EXTENSIONS[extension]
-}
 
 function requireNumber(value: unknown, field: string): number | undefined {
   if (value === undefined || value === null) {
@@ -64,6 +50,53 @@ function describeFileError(error: unknown, path: string): Error {
   return new Error('Could not read ' + path + '. ' + (error instanceof Error ? error.message : String(error)))
 }
 
+/**
+ * Decode an image and hand it back for the model to look at.
+ *
+ * Two things can still stop the image reaching the model, and both are reported
+ * rather than silent. A format that cannot be decoded or shrunk below the
+ * request limit becomes a sentence saying so. A model that cannot be shown
+ * images is told the file is an image and not sent its bytes, because sending
+ * them fails the whole request rather than that one read.
+ */
+async function readImage(
+  absolutePath: string,
+  mimeType: string,
+  requested: string,
+  context: ToolContext
+): Promise<ToolOutcome> {
+  let bytes: Buffer
+  try {
+    bytes = await readFile(absolutePath)
+  } catch (error) {
+    throw describeFileError(error, requested)
+  }
+
+  const processed = await processImage(bytes, mimeType)
+  if (!processed.ok) {
+    return {
+      content: 'Read image file [' + mimeType + ']. ' + processed.message,
+      details: { path: absolutePath, mimeType }
+    }
+  }
+
+  const lines = ['Read image file [' + processed.mimeType + ']', ...processed.hints]
+
+  if (context.acceptsImages === false) {
+    lines.push('[The current model cannot be shown images, so the image itself was not sent. Report this rather than guessing at what it contains.]')
+    return {
+      content: lines.join('\n'),
+      details: { path: absolutePath, mimeType: processed.mimeType, omitted: true }
+    }
+  }
+
+  return {
+    content: lines.join('\n'),
+    images: [{ data: processed.data, mimeType: processed.mimeType }],
+    details: { path: absolutePath, mimeType: processed.mimeType }
+  }
+}
+
 async function runRead(input: unknown, context: ToolContext): Promise<ToolOutcome> {
   const args = (input ?? {}) as Record<string, unknown>
   const requested = requireString(args.path, 'path')
@@ -85,17 +118,19 @@ async function runRead(input: unknown, context: ToolContext): Promise<ToolOutcom
     throw describeFileError(error, requested)
   }
 
-  const mimeType = imageMimeType(absolutePath)
-  if (mimeType !== undefined) {
-    // The contents are not returned. Saying so plainly is better than returning
-    // decoded bytes that would be meaningless as text.
-    return {
-      content:
-        'Read image file [' +
-        mimeType +
-        ']. Its pixel contents cannot be returned to you, so describe what you need from it or work with the surrounding code instead.',
-      details: { path: absolutePath, mimeType }
-    }
+  // Decided by the first bytes rather than the extension. A screenshot gets
+  // renamed, a .png can hold a JPEG, and a file with no extension at all is an
+  // ordinary thing to find in a project. Reading a binary as text produces a
+  // page of replacement characters either way, so the type has to be known.
+  let sniffed: string | null
+  try {
+    sniffed = await detectImageMimeTypeFromFile(absolutePath)
+  } catch (error) {
+    throw describeFileError(error, requested)
+  }
+
+  if (sniffed !== null) {
+    return readImage(absolutePath, sniffed, requested, context)
   }
 
   let text: string
@@ -207,7 +242,7 @@ async function runRead(input: unknown, context: ToolContext): Promise<ToolOutcom
 export const readTool: Tool = {
   name: 'read',
   description:
-    'Read the contents of a file. Output is truncated to ' +
+    'Read the contents of a file. Images (jpg, png, gif, webp) are returned to you as images. Text output is truncated to ' +
     String(DEFAULT_MAX_LINES) +
     ' lines or ' +
     String(DEFAULT_MAX_BYTES / 1024) +
