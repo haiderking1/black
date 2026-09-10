@@ -30,6 +30,7 @@ export const PROVIDER_METHODS = {
 export const CHAT_METHODS = {
   complete: 'chat.complete',
   stream: 'chat.stream',
+  cancel: 'chat.cancel',
 } as const
 
 /** Methods the main process answers. */

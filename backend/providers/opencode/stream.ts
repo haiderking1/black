@@ -215,6 +215,14 @@ export function createStreamingClient(options: StreamChatOptions): StreamingClie
           if (chunk.usage !== undefined) usage = chunk.usage
         }
       } catch (error) {
+        // Aborting rejects the read rather than the fetch, so a stop arrives
+        // here. It is not a failure: the caller asked for it, and reporting it
+        // as one would replace a partial answer with a complaint about a stream
+        // that ended exactly as instructed.
+        if (request.signal?.aborted === true) {
+          yield { type: 'done', stopReason: 'aborted', usage: readUsage(usage) }
+          return
+        }
         yield { type: 'error', message: error instanceof Error ? error.message : String(error) }
         return
       } finally {

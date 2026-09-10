@@ -54,6 +54,7 @@ function stubHandlers() {
         modelCount: null,
       }),
     [METHODS.listModels]: () => Effect.succeed([{ id: 'glm-5.3', ownedBy: 'opencode', created: 1 }]),
+    [METHODS.cancel]: () => Effect.succeed({ cancelled: true }),
     [METHODS.stream]: () =>
       Stream.make({ type: 'text' as const, text: 'stub ' }, { type: 'done' as const, stopReason: 'stop' }),
     [METHODS.complete]: () =>

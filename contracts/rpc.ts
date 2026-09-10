@@ -4,7 +4,7 @@ import * as RpcGroup from 'effect/unstable/rpc/RpcGroup'
 
 import { FsError, ProviderConfigError } from './errors'
 import { DirectoryResult, ListDirectoryInput, OpenInFilesInput } from './fs'
-import { ChatCompleteInput, ChatCompleteResult, ChatStreamEvent } from './chat'
+import { ChatCancelInput, ChatCancelResult, ChatCompleteInput, ChatCompleteResult, ChatStreamEvent } from './chat'
 import { METHODS } from './methods'
 import {
   ListModelsInput,
@@ -91,6 +91,14 @@ const ChatStreamRpc = Rpc.make(METHODS.stream, {
   stream: true,
 })
 
+// Separate from the stream because a stream cannot stop itself: the reader
+// dropping the socket does not stop the request upstream, which keeps
+// generating. Ending one takes a call from the other direction.
+const ChatCancelRpc = Rpc.make(METHODS.cancel, {
+  payload: ChatCancelInput,
+  success: ChatCancelResult,
+})
+
 export const ServerRpcs = RpcGroup.make(
   ListDirectoryRpc,
   OpenDirectoryDialogRpc,
@@ -104,4 +112,5 @@ export const ServerRpcs = RpcGroup.make(
   ListModelsRpc,
   ChatCompleteRpc,
   ChatStreamRpc,
+  ChatCancelRpc,
 )

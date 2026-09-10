@@ -43,8 +43,27 @@ export const ChatCompleteInput = Schema.Struct({
    * x-opencode-session header, and a turn without one is rejected.
    */
   sessionId: Schema.optional(Schema.String),
+  /**
+   * Identifies this turn so it can be stopped while it streams.
+   *
+   * Optional: a caller that never cancels does not need one. A stream started
+   * without an id cannot be reached once it has begun.
+   */
+  requestId: Schema.optional(Schema.String),
 })
 export type ChatCompleteInput = typeof ChatCompleteInput.Type
+
+export const ChatCancelInput = Schema.Struct({
+  /** The id the streaming call was made under. */
+  requestId: Schema.NonEmptyString,
+})
+export type ChatCancelInput = typeof ChatCancelInput.Type
+
+export const ChatCancelResult = Schema.Struct({
+  /** False when the turn had already finished, or was never found. */
+  cancelled: Schema.Boolean,
+})
+export type ChatCancelResult = typeof ChatCancelResult.Type
 
 /**
  * One event on a streamed reply.
