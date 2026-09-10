@@ -62,9 +62,41 @@ export function removeConversationsBySessionIds(
   return changed ? next : conversations
 }
 
+/**
+ * Rewrite one message's text.
+ *
+ * Returns the previous object when nothing changed, so a streaming reply does
+ * not re-render on every event that carries no text.
+ */
+export function applyMessageUpdate(
+  conversations: Record<string, Message[]>,
+  sessionId: string,
+  messageId: string,
+  update: (previous: string) => string
+): Record<string, Message[]> {
+  const existing = conversations[sessionId]
+  if (existing === undefined) return conversations
+
+  let changed = false
+  const next = existing.map((message) => {
+    if (message.id !== messageId) return message
+    const content = update(message.content)
+    if (content === message.content) return message
+    changed = true
+    return { ...message, content }
+  })
+
+  return changed ? { ...conversations, [sessionId]: next } : conversations
+}
+
 export interface UseConversationsResult {
   getMessages: (sessionId: string) => Message[]
   appendMessage: (sessionId: string, message: Message) => void
+  /**
+   * Rewrite one message's text. Used to grow a streaming reply in place, and to
+   * replace it with an error without leaving a blank bubble behind.
+   */
+  updateMessage: (sessionId: string, messageId: string, update: (previous: string) => string) => void
   deleteConversations: (sessionIds: string[]) => void
 }
 
@@ -87,9 +119,16 @@ export function useConversations(): UseConversationsResult {
     })
   }, [])
 
+  const updateMessage = useCallback(
+    (sessionId: string, messageId: string, update: (previous: string) => string): void => {
+      setConversations((prev) => applyMessageUpdate(prev, sessionId, messageId, update))
+    },
+    []
+  )
+
   const deleteConversations = useCallback((sessionIds: string[]): void => {
     setConversations((prev) => removeConversationsBySessionIds(prev, sessionIds))
   }, [])
 
-  return { getMessages, appendMessage, deleteConversations }
+  return { getMessages, appendMessage, updateMessage, deleteConversations }
 }
