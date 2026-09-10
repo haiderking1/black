@@ -36,7 +36,6 @@ export function generateDiffString(
 
   let oldLineNum = 1
   let newLineNum = 1
-  let lastWasChange = false
   let firstChangedLine: number | undefined
 
   for (let index = 0; index < parts.length; index++) {
@@ -50,20 +49,22 @@ export function generateDiffString(
     }
 
     if (part.added || part.removed) {
+      // Recorded for a removal as well as an addition. A pure deletion changed
+      // the file at this line, and leaving this undefined tells the reader
+      // nothing about where the change landed.
+      if (firstChangedLine === undefined) {
+        firstChangedLine = newLineNum
+      }
+
       for (const line of raw) {
-        if (firstChangedLine === undefined && part.added) {
-          firstChangedLine = newLineNum
-        }
-        const marker = part.added ? '+' : '-'
-        const lineNum = part.added ? newLineNum : oldLineNum
-        output.push(marker + ' ' + String(lineNum).padStart(lineNumWidth, ' ') + ' ' + line)
         if (part.added) {
+          output.push('+' + String(newLineNum).padStart(lineNumWidth, ' ') + ' ' + line)
           newLineNum++
         } else {
+          output.push('-' + String(oldLineNum).padStart(lineNumWidth, ' ') + ' ' + line)
           oldLineNum++
         }
       }
-      lastWasChange = true
       continue
     }
 
@@ -74,12 +75,11 @@ export function generateDiffString(
     const hasLeadingChange =
       previous !== undefined && (previous.added === true || previous.removed === true)
     const hasTrailingChange = next !== undefined && (next.added === true || next.removed === true)
-    void lastWasChange
 
     if (hasLeadingChange && hasTrailingChange) {
       if (raw.length <= contextLines * 2) {
         for (const line of raw) {
-          output.push('  ' + String(oldLineNum).padStart(lineNumWidth, ' ') + ' ' + line)
+          output.push(' ' + String(oldLineNum).padStart(lineNumWidth, ' ') + ' ' + line)
           oldLineNum++
           newLineNum++
         }
@@ -89,17 +89,17 @@ export function generateDiffString(
         const skipped = raw.length - leading.length - trailing.length
 
         for (const line of leading) {
-          output.push('  ' + String(oldLineNum).padStart(lineNumWidth, ' ') + ' ' + line)
+          output.push(' ' + String(oldLineNum).padStart(lineNumWidth, ' ') + ' ' + line)
           oldLineNum++
           newLineNum++
         }
 
-        output.push('  ' + ''.padStart(lineNumWidth, ' ') + ' ...')
+        output.push(' ' + ''.padStart(lineNumWidth, ' ') + ' ...')
         oldLineNum += skipped
         newLineNum += skipped
 
         for (const line of trailing) {
-          output.push('  ' + String(oldLineNum).padStart(lineNumWidth, ' ') + ' ' + line)
+          output.push(' ' + String(oldLineNum).padStart(lineNumWidth, ' ') + ' ' + line)
           oldLineNum++
           newLineNum++
         }
@@ -109,26 +109,26 @@ export function generateDiffString(
       const skipped = raw.length - shown.length
 
       for (const line of shown) {
-        output.push('  ' + String(oldLineNum).padStart(lineNumWidth, ' ') + ' ' + line)
+        output.push(' ' + String(oldLineNum).padStart(lineNumWidth, ' ') + ' ' + line)
         oldLineNum++
         newLineNum++
       }
 
       if (skipped > 0) {
-        output.push('  ' + ''.padStart(lineNumWidth, ' ') + ' ...')
+        output.push(' ' + ''.padStart(lineNumWidth, ' ') + ' ...')
         oldLineNum += skipped
         newLineNum += skipped
       }
     } else if (hasTrailingChange) {
       const skipped = Math.max(0, raw.length - contextLines)
       if (skipped > 0) {
-        output.push('  ' + ''.padStart(lineNumWidth, ' ') + ' ...')
+        output.push(' ' + ''.padStart(lineNumWidth, ' ') + ' ...')
         oldLineNum += skipped
         newLineNum += skipped
       }
 
       for (const line of raw.slice(skipped)) {
-        output.push('  ' + String(oldLineNum).padStart(lineNumWidth, ' ') + ' ' + line)
+        output.push(' ' + String(oldLineNum).padStart(lineNumWidth, ' ') + ' ' + line)
         oldLineNum++
         newLineNum++
       }

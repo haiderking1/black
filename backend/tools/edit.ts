@@ -145,11 +145,10 @@ async function runEdit(input: unknown, context: ToolContext): Promise<ToolOutcom
     const { diff, firstChangedLine } = generateDiffString(baseContent, newContent)
     const patch = generateUnifiedPatch(requested, baseContent, newContent)
 
-    const subject = edits.length === 1 ? '1 edit' : String(edits.length) + ' edits'
-    const where = firstChangedLine === undefined ? '' : ' First changed line: ' + String(firstChangedLine) + '.'
+    const subject = edits.length === 1 ? '1 block' : String(edits.length) + ' blocks'
 
     return {
-      content: 'Applied ' + subject + ' to ' + requested + '.' + where,
+      content: 'Replaced ' + subject + ' in ' + requested + '.',
       details: {
         path: absolutePath,
         diff,

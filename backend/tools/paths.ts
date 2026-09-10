@@ -1,6 +1,7 @@
 import { access } from 'node:fs/promises'
 import { homedir } from 'node:os'
-import { isAbsolute, resolve } from 'node:path'
+import { isAbsolute, join, resolve } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g
 
@@ -13,24 +14,63 @@ const UNICODE_SPACES = /[\u00A0\u2000-\u200A\u202F\u205F\u3000]/g
  * expects it to mean something. None of those are valid paths, all of them are
  * what actually arrives.
  */
+/**
+ * A drive path as a shell on Windows would write it.
+ *
+ * Git Bash, MSYS, Cygwin and WSL all spell a Windows path as /c/Users/... or
+ * /mnt/c/Users/..., and the Windows filesystem APIs accept neither.
+ */
+function normalizeWindowsShellPath(filePath: string): string {
+  if (!filePath.startsWith('/') || filePath.startsWith('//') || filePath.includes('\\')) {
+    return filePath
+  }
+  const match = filePath.match(/^\/(?:mnt\/|cygdrive\/)?([a-z])(?:\/(.*))?$/i)
+  if (match === null) {
+    return filePath
+  }
+  const suffix = match[2]?.replaceAll('/', '\\')
+  return (match[1] ?? '').toUpperCase() + ':' + '\\' + (suffix ?? '')
+}
+
 export function normalizePath(input: string, homeDir: string = homedir()): string {
   let path = input.replace(UNICODE_SPACES, ' ')
   if (path.startsWith('@')) {
     path = path.slice(1)
   }
+  if (process.platform === 'win32') {
+    path = normalizeWindowsShellPath(path)
+  }
   if (path === '~') {
     return homeDir
   }
-  if (path.startsWith('~/')) {
-    return homeDir + path.slice(1)
+  if (path.startsWith('~/') || (process.platform === 'win32' && path.startsWith('~\\'))) {
+    return join(homeDir, path.slice(2))
+  }
+  if (/^file:\/\//.test(path)) {
+    try {
+      return fileURLToPath(path)
+    } catch {
+      // A malformed file url is not worth failing a whole tool call over. It is
+      // returned as written so the error names what the model actually sent.
+      return path
+    }
   }
   return path
 }
 
-/** Resolve a path a tool was handed against the directory it should be relative to. */
+/**
+ * Resolve a path a tool was handed against the directory it should be relative
+ * to.
+ *
+ * The base directory is normalized too, not just the path. A working directory
+ * pasted from a document carries the same invisible characters a path does, and
+ * resolving a clean path against a dirty base produces a path that does not
+ * exist.
+ */
 export function resolveToCwd(path: string, cwd: string, homeDir: string = homedir()): string {
   const normalized = normalizePath(path, homeDir)
-  return isAbsolute(normalized) ? resolve(normalized) : resolve(cwd, normalized)
+  const base = normalizePath(cwd, homeDir)
+  return isAbsolute(normalized) ? resolve(normalized) : resolve(base, normalized)
 }
 
 /** macOS hands out one space in these names and users type another. */

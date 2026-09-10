@@ -116,18 +116,17 @@ async function runRead(input: unknown, context: ToolContext): Promise<ToolOutcom
   const startLine = offset === undefined ? 0 : Math.max(0, offset - 1)
   const startLineDisplay = startLine + 1
 
-  // Asking for a line past the end returns nothing at all unless it is said out
-  // loud, and an empty result reads to a model like an empty file.
+  // A bad offset is a bad request rather than file content, so it fails and
+  // names the real line count. Returning an empty result instead reads to a
+  // model like it successfully read a file that happens to be blank.
   if (startLine >= allLines.length) {
-    return {
-      content:
-        'offset ' +
+    throw new Error(
+      'Offset ' +
         String(startLineDisplay) +
-        ' is past the end of the file. It has ' +
+        ' is beyond end of file (' +
         String(allLines.length) +
-        ' lines.',
-      details: { path: absolutePath, totalLines: allLines.length }
-    }
+        ' lines total)'
+    )
   }
 
   let selected: string

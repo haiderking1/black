@@ -68,11 +68,13 @@ describe('read tool', () => {
     expect(result.content).toBe('File is empty.')
   })
 
-  it('says when an offset is past the end instead of returning nothing', async () => {
+  it('fails an offset past the end rather than returning nothing', async () => {
+    // An empty result reads as a file that was read successfully and happens to
+    // be blank, so a bad offset has to fail and name the real line count.
     await writeFile(join(dir, 'a.ts'), 'one\ntwo', 'utf-8')
-    const result = await readTool.run({ path: 'a.ts', offset: 99 }, cwd())
-    expect(result.content).toContain('past the end')
-    expect(result.content).toContain('2 lines')
+    await expect(readTool.run({ path: 'a.ts', offset: 99 }, cwd())).rejects.toThrow(
+      /beyond end of file \(2 lines total\)/
+    )
   })
 
   it('names a missing file as missing', async () => {
@@ -166,7 +168,7 @@ describe('edit tool', () => {
     const name = await setup('const a = 1')
     const result = await editTool.run({ path: name, edits: [{ oldText: 'a = 1', newText: 'a = 2' }] }, cwd())
     expect(await readFile(join(dir, name), 'utf-8')).toBe('const a = 2')
-    expect(result.content).toContain('Applied 1 edit')
+    expect(result.content).toBe('Replaced 1 block in a.ts.')
   })
 
   it('makes several replacements in one call', async () => {
@@ -280,6 +282,30 @@ describe('edit tool', () => {
     expect(result.details?.firstChangedLine).toBe(3)
     expect(String(result.details?.diff)).toContain('C')
     expect(String(result.details?.patch)).toContain('+C')
+  })
+
+  it('reports a changed line for a pure deletion too', async () => {
+    // Nothing was added, so a line number taken from the new file's additions
+    // would never be set and the reader would be told nothing.
+    const name = await setup('a\nb\nc\nd')
+    const result = await editTool.run({ path: name, edits: [{ oldText: 'c\n', newText: '' }] }, cwd())
+    expect(result.details?.firstChangedLine).toBe(3)
+  })
+
+  it('formats diff lines the way a patch reads', async () => {
+    const name = await setup('one\ntwo\nthree')
+    const result = await editTool.run({ path: name, edits: [{ oldText: 'two', newText: 'TWO' }] }, cwd())
+    const lines = String(result.details?.diff).split('\n')
+
+    const removed = lines.find((line) => line.startsWith('-'))
+    const added = lines.find((line) => line.startsWith('+'))
+    expect(removed).toBe('-2 two')
+    expect(added).toBe('+2 TWO')
+
+    // A context line has one leading space, not two. An extra column would
+    // shift every line against the patch it is meant to illustrate.
+    const context = lines.find((line) => line.startsWith(' '))
+    expect(context).toBe(' 1 one')
   })
 
   it('returns a diff that does not paste a huge file for a tiny change', async () => {

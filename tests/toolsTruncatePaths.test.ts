@@ -45,6 +45,36 @@ describe('resolveToCwd', () => {
     // A model that emits "" meant the project root, not a crash.
     expect(resolveToCwd('', '/work/project')).toBe('/work/project')
   })
+
+  it('cleans the base directory as well as the path', () => {
+    // A working directory pasted from a document carries the same invisible
+    // characters a path does, and a clean path against a dirty base is a path
+    // that does not exist.
+    expect(resolveToCwd('a.ts', '/work/my\u00A0project')).toBe('/work/my project/a.ts')
+  })
+
+  it('resolves an empty path against a normalized base', () => {
+    expect(resolveToCwd('', '/work/my\u00A0project')).toBe('/work/my project')
+  })
+
+  it('leaves a posix path under /mnt alone on a non-windows host', () => {
+    // The windows drive-letter conversion must not fire here. On linux that
+    // path is a real directory, and rewriting it to C: would be nonsense.
+    if (process.platform !== 'win32') {
+      expect(resolveToCwd('/mnt/c/code/a.ts', '/work')).toBe('/mnt/c/code/a.ts')
+    }
+  })
+
+  it('turns a file url into a path', () => {
+    expect(normalizePath('file:///home/me/a.ts', '/home/me')).toBe('/home/me/a.ts')
+  })
+
+  it('leaves a file url it cannot read as written rather than throwing', () => {
+    // A host other than localhost is not a path on this platform, and failing
+    // the whole call over it would hide what the model actually sent.
+    const unreadable = process.platform === 'win32' ? 'file://%' : 'file://example.com/a.ts'
+    expect(normalizePath(unreadable, '/home/me')).toBe(unreadable)
+  })
 })
 
 describe('formatSize', () => {
