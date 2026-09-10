@@ -1,0 +1,10 @@
+black
+Copyright (c) 2026 haiderking1
+
+This product includes software derived from pi
+(https://github.com/earendil-works/pi), Copyright (c) Mario Zechner,
+licensed under the MIT License.
+
+The compaction implementation under backend/compaction/ is adapted from pi's
+compaction module and reworked against black's session types. The rest of black
+is original work.
