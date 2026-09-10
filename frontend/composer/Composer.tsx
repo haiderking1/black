@@ -1,10 +1,19 @@
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { ComposerInput } from './ComposerInput'
 import { ComposerActions } from './ComposerActions'
+import { ModelPicker } from './ModelPicker'
 import { SendButton } from './SendButton'
+import { ThinkingPicker } from './ThinkingPicker'
+import { useModels } from './useModels'
+import { clampThinkingLevel, thinkingOptionsFor } from './thinkingOptions'
 import './composer.css'
+import './pickers.css'
 
 export interface ComposerSubmitOptions {
+  /** Model the message was composed for. */
+  model?: string
+  /** Reasoning effort chosen alongside it. */
+  thinkingLevel?: string
   [key: string]: unknown
 }
 
@@ -13,22 +22,61 @@ export interface ComposerProps {
   disabled?: boolean
   placeholder?: string
   onAttachClick?: () => void
+  /** Which provider's catalog to offer. */
+  providerId?: string
+  /**
+   * Selected model, or null to fall back to the provider's first. Controlled so
+   * the choice survives a remount, which it did not when held locally.
+   */
+  model: string | null
+  onSelectModel: (modelId: string) => void
+  thinkingLevel: string
+  onSelectThinkingLevel: (level: string) => void
 }
 
 export function Composer({
   onSendMessage,
   disabled = false,
   placeholder = 'Message Black...',
-  onAttachClick
+  onAttachClick,
+  providerId = 'opencode-go',
+  model,
+  onSelectModel,
+  thinkingLevel,
+  onSelectThinkingLevel
 }: ComposerProps): React.JSX.Element {
   const [text, setText] = useState('')
 
+  const { models, isLoading, error } = useModels(providerId)
+
+  // Fall back to the first model the provider serves until one is chosen, so
+  // the picker never shows a choice that does not exist.
+  const activeModelId = model ?? models[0]?.id ?? null
+  const activeModel = useMemo(
+    () => models.find((candidate) => candidate.id === activeModelId) ?? null,
+    [models, activeModelId]
+  )
+
+  // Options come from the model, since vendors disagree on which levels exist.
+  const thinking = useMemo(() => thinkingOptionsFor(activeModel), [activeModel])
+
+  // A level valid for the previous model is usually invalid for the next one.
+  // Without this, switching from a model that takes 'max' to one that does not
+  // would keep sending 'max' until the user noticed.
+  useEffect(() => {
+    const clamped = clampThinkingLevel(thinkingLevel, thinking.choices)
+    if (clamped !== thinkingLevel) onSelectThinkingLevel(clamped)
+  }, [thinkingLevel, thinking.choices, onSelectThinkingLevel])
+
   const canSend = text.trim().length > 0 && !disabled
 
-  const handleSend = () => {
+  const handleSend = (): void => {
     if (!canSend) return
     const content = text.trim()
-    onSendMessage?.(content)
+    onSendMessage?.(content, {
+      ...(activeModelId !== null ? { model: activeModelId } : {}),
+      thinkingLevel
+    })
     setText('')
   }
 
@@ -47,6 +95,20 @@ export function Composer({
           <ComposerActions onAttachClick={onAttachClick} />
 
           <div className="composer-actions-right">
+            <ModelPicker
+              models={models}
+              selectedModelId={activeModelId}
+              onSelect={onSelectModel}
+              isLoading={isLoading}
+              error={error}
+            />
+            <ThinkingPicker
+              value={thinkingLevel}
+              choices={thinking.choices}
+              onSelect={onSelectThinkingLevel}
+              disabled={thinking.disabled}
+              note={thinking.note}
+            />
             <SendButton disabled={!canSend} onClick={handleSend} />
           </div>
         </div>

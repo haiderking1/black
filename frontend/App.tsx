@@ -3,7 +3,13 @@ import { PanelLeft } from 'lucide-react'
 import { Sidebar, useSessions, DEFAULT_SESSION_TITLE } from './sidebar'
 import { Composer } from './composer'
 import { SpotlightModal, type ProjectItemData } from './spotlight'
-import { createMessage, useConversations } from './chat'
+import * as Effect from 'effect/Effect'
+import * as Stream from 'effect/Stream'
+import { createMessage, JumpToLatest, useConversations, useStickToBottom } from './chat'
+import { describeRpcError, useRpcClient } from './rpc'
+import type { ComposerSubmitOptions } from './composer'
+import { Markdown } from './markdown'
+import './chat/chat-scroll.css'
 import { SettingsPage, useSettings } from './settings'
 
 const DEFAULT_PROJECTS: ProjectItemData[] = [
@@ -64,7 +70,11 @@ export function App(): React.JSX.Element {
     deleteSessionsForProject
   } = useSessions(projects, activeProjectId)
 
-  const { getMessages, appendMessage, deleteConversations } = useConversations()
+  const { getMessages, appendMessage, updateMessage, deleteConversations } = useConversations()
+
+  // Follows new content, and releases the moment the reader scrolls up.
+  const { scrollRef, contentRef, handleScroll, isPinned, jumpToBottom } = useStickToBottom(activeSessionId)
+  const client = useRpcClient()
 
   useEffect(() => {
     try {
@@ -159,7 +169,10 @@ export function App(): React.JSX.Element {
     }
   }
 
-  const handleSendMessage = (content: string) => {
+  const handleSendMessage = async (
+    content: string,
+    options?: ComposerSubmitOptions
+  ): Promise<void> => {
     if (!activeProject) return
 
     let sessionId = activeSessionId
@@ -174,14 +187,68 @@ export function App(): React.JSX.Element {
     }
     touchSession(sessionId)
 
+    // Captured before the append: state has not re-rendered yet, so reading the
+    // conversation afterwards would miss the message just added.
+    const priorTurns = getMessages(sessionId).map((message) => ({
+      role: message.role,
+      content: message.content
+    }))
+
     appendMessage(sessionId, createMessage('user', content))
-    appendMessage(
-      sessionId,
-      createMessage(
-        'assistant',
-        `Received: "${content}". Active project: ${activeProject.name}.`
+
+    const model = options?.model
+    if (client === null || model === undefined || model === '') {
+      appendMessage(
+        sessionId,
+        createMessage(
+          'assistant',
+          'No model is available. Add an API key in Settings, then choose a model in the composer.'
+        )
       )
-    )
+      return
+    }
+
+    // Captured as a const so the stream callbacks below keep the narrowing.
+    const threadId = sessionId
+    const stream = client
+
+    // The reply is appended empty and filled in as events arrive, so the answer
+    // renders while it is still being written rather than after the last token.
+    const reply = createMessage('assistant', '')
+    appendMessage(threadId, reply)
+
+    const appendText = (text: string): void => {
+      updateMessage(threadId, reply.id, (previous) => previous + text)
+    }
+
+    try {
+      const events = stream['chat.stream']({
+        providerId: 'opencode-go',
+        model,
+        messages: [...priorTurns, { role: 'user', content }],
+        // The conversation id doubles as the provider's routing key, so a whole
+        // thread stays on one upstream.
+        ...(sessionId !== undefined ? { sessionId } : {}),
+        ...(options?.thinkingLevel !== undefined ? { thinkingLevel: options.thinkingLevel } : {})
+      })
+
+      await Effect.runPromise(
+        Stream.runForEach(events, (event) =>
+          Effect.sync(() => {
+            if (event.type === 'text' && event.text !== undefined) {
+              appendText(event.text)
+            } else if (event.type === 'error') {
+              updateMessage(threadId, reply.id, () => event.message ?? 'The stream failed.')
+            }
+          })
+        )
+      )
+
+      // An empty bubble reads as a bug; say what happened instead.
+      updateMessage(threadId, reply.id, (previous) => (previous === '' ? '(empty reply)' : previous))
+    } catch (error) {
+      updateMessage(threadId, reply.id, () => describeRpcError(error))
+    }
   }
 
   const messages = activeSessionId !== undefined ? getMessages(activeSessionId) : []
@@ -270,7 +337,18 @@ export function App(): React.JSX.Element {
         </header>
 
         {/* Chat / Content Flow */}
+        <div
+          style={{
+            position: 'relative',
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0
+          }}
+        >
         <main
+          ref={scrollRef}
+          onScroll={handleScroll}
           style={{
             flex: 1,
             display: 'flex',
@@ -309,12 +387,18 @@ export function App(): React.JSX.Element {
           ) : (
             /* Conversation Messages Stream */
             <div
+              ref={contentRef}
               style={{
                 maxWidth: '800px',
                 width: '100%',
                 margin: '0 auto',
                 display: 'flex',
                 flexDirection: 'column',
+                // Must not shrink. A flex item that shrinks to fit stays one
+                // viewport tall however long the transcript gets, so the
+                // ResizeObserver watching it never sees content arrive and the
+                // follow never fires.
+                flexShrink: 0,
                 gap: '24px',
                 paddingTop: '20px',
                 paddingBottom: '32px'
@@ -342,17 +426,28 @@ export function App(): React.JSX.Element {
                       lineHeight: '1.6'
                     }}
                   >
-                    {m.content}
+                    {/* Assistant turns are markdown. User text is left exactly as
+                        typed, so a stray asterisk is not silently emphasis. */}
+                    {m.role === 'assistant' ? <Markdown>{m.content}</Markdown> : m.content}
                   </div>
                 </div>
               ))}
             </div>
           )}
         </main>
+        <JumpToLatest visible={!isPinned} onClick={() => jumpToBottom()} />
+        </div>
 
         {/* ChatGPT Composer Footer */}
         <div style={{ flexShrink: 0, width: '100%' }}>
-          <Composer onSendMessage={handleSendMessage} disabled={!activeProject} />
+          <Composer
+            onSendMessage={handleSendMessage}
+            disabled={!activeProject}
+            model={settings.selectedModelId}
+            onSelectModel={(modelId) => updateSetting('selectedModelId', modelId)}
+            thinkingLevel={settings.thinkingLevel}
+            onSelectThinkingLevel={(level) => updateSetting('thinkingLevel', level)}
+          />
         </div>
       </div>
 
