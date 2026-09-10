@@ -1,33 +1,17 @@
 import type { ToolCall, ImageAttachment } from '../../contracts/chat'
 
-/**
- * One tool call, as the transcript holds it.
- *
- * The arguments arrive as the text the model wrote, so they are read
- * defensively here: a summary is for a human glancing at the row, and it must
- * not be the thing that throws when a model sends something malformed. The raw
- * text is kept either way, because a call that failed to parse is exactly the
- * call worth being able to look at.
- */
 export interface ToolRun {
   id: string
   name: string
-  /** One line naming what the call touches. */
-  summary: string
-  /** The arguments exactly as the model sent them. */
   args: string
-  /** Set once the call finished. */
   result?: string
+  interrupted?: boolean
   isError?: boolean
-  /** Present for an edit, which has a diff worth showing. */
   diff?: string
   path?: string
-  /**
-   * Images the call returned.
-   *
-   * Held as the base64 the server sent rather than a data url, so the same
-   * value can be measured or forwarded without unpicking a prefix.
-   */
+  offset?: number
+  limit?: number
+  lines?: number
   images?: readonly ImageAttachment[]
 }
 
@@ -52,64 +36,55 @@ function stringField(source: Record<string, unknown> | undefined, key: string): 
   return typeof value === 'string' && value.length > 0 ? value : undefined
 }
 
-/** What this call touches, in as few words as the arguments allow. */
-export function describeToolRun(name: string, args: string): { summary: string; path?: string } {
-  const parsed = readArgs(args)
+function numberField(source: Record<string, unknown>, key: string): number | undefined {
+  const value = source[key]
+  return typeof value === 'number' && Number.isSafeInteger(value) && value > 0 ? value : undefined
+}
 
+export interface ToolArguments {
+  path?: string
+  offset?: number
+  limit?: number
+  lines?: number
+}
+
+export function readToolArguments(name: string, args: string): ToolArguments {
+  const parsed = readArgs(args)
   if (parsed === undefined) {
-    // The model sent something unreadable, so the row says that rather than
-    // pretending to know what it was for.
-    return { summary: 'unreadable arguments' }
+    return {}
   }
 
   const path = stringField(parsed, 'path')
+  const facts: ToolArguments = path === undefined ? {} : { path }
 
   if (name === 'read') {
-    const offset = typeof parsed['offset'] === 'number' ? parsed['offset'] : undefined
-    const limit = typeof parsed['limit'] === 'number' ? parsed['limit'] : undefined
-    const range =
-      offset === undefined && limit === undefined
-        ? ''
-        : offset === undefined
-          ? ' first ' + String(limit) + ' lines'
-          : ' from line ' + String(offset) + (limit === undefined ? '' : ' (' + String(limit) + ')')
-    return { summary: (path ?? 'no path given') + range, ...(path === undefined ? {} : { path }) }
+    const offset = numberField(parsed, 'offset')
+    const limit = numberField(parsed, 'limit')
+    return {
+      ...facts,
+      ...(offset === undefined ? {} : { offset }),
+      ...(limit === undefined ? {} : { limit })
+    }
   }
 
   if (name === 'write') {
-    const content = typeof parsed['content'] === 'string' ? parsed['content'] : ''
-    const lines = content === '' ? 0 : content.split('\n').length
-    return {
-      summary: (path ?? 'no path given') + ' (' + String(lines) + ' lines)',
-      ...(path === undefined ? {} : { path })
-    }
+    const content = parsed['content']
+    if (typeof content !== 'string') return facts
+    return { ...facts, lines: content === '' ? 0 : content.split('\n').length - (content.endsWith('\n') ? 1 : 0) }
   }
 
-  if (name === 'edit') {
-    const edits = parsed['edits']
-    const count = Array.isArray(edits) ? edits.length : 0
-    const label = count === 1 ? '1 edit' : String(count) + ' edits'
-    return {
-      summary: (path ?? 'no path given') + ' (' + label + ')',
-      ...(path === undefined ? {} : { path })
-    }
-  }
-
-  return { summary: path ?? 'no arguments', ...(path === undefined ? {} : { path }) }
+  return facts
 }
 
 export function startToolRun(call: ToolCall): ToolRun {
-  const described = describeToolRun(call.name, call.arguments)
   return {
     id: call.id,
     name: call.name,
-    summary: described.summary,
     args: call.arguments,
-    ...(described.path === undefined ? {} : { path: described.path })
+    ...readToolArguments(call.name, call.arguments)
   }
 }
 
-/** Fold a result into the run that was waiting for it. */
 export function finishToolRun(
   run: ToolRun,
   result: string,
@@ -137,24 +112,14 @@ export function finishToolRun(
   }
 }
 
-/** A data url for an image, which is what an img tag needs to display it. */
 export function imageDataUrl(image: ImageAttachment): string {
   return 'data:' + image.mimeType + ';base64,' + image.data
 }
 
-/** Calls whose results have not arrived yet, for the running indicator. */
 export function isRunning(run: ToolRun): boolean {
-  return run.result === undefined
+  return run.result === undefined && run.interrupted !== true
 }
 
-/**
- * Fold one result into the list it belongs to.
- *
- * A result whose call is not in the list would otherwise disappear. This
- * client's own loop always announces a call before running it, so that pairing
- * is not something to rely on quietly: losing a result leaves a row spinning
- * forever and nothing on screen saying why.
- */
 export function applyToolResult(
   runs: readonly ToolRun[],
   callId: string,

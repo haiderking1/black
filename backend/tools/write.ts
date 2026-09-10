@@ -68,7 +68,7 @@ async function runWrite(input: unknown, context: ToolContext): Promise<ToolOutco
     }
     throwIfAborted()
 
-    const lines = content === '' ? 0 : content.split('\n').length
+    const lines = content === '' ? 0 : content.split('\n').length - (content.endsWith('\n') ? 1 : 0)
     return {
       content: 'Wrote ' + requested + ' (' + String(lines) + ' lines).',
       details: { path: absolutePath, lines }

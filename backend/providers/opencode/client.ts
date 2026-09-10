@@ -1,3 +1,4 @@
+import { buildMessage } from './message'
 /**
  * Inference calls.
  *
@@ -93,19 +94,7 @@ export function createChatClient(options: ChatClientOptions) {
     async chat(request: ChatRequest): Promise<ChatResult> {
       const body: Record<string, unknown> = {
         model: request.model,
-        messages: request.messages.map((message) => {
-          const wire: Record<string, unknown> = { role: message.role, content: message.content }
-          // Hand an earlier turn's reasoning back, or the model re-derives
-          // context it already produced and paid for.
-          if (message.role === 'assistant' && message.thinkingSignature !== undefined) {
-            try {
-              wire['reasoning_details'] = JSON.parse(message.thinkingSignature)
-            } catch {
-              // An unreadable signature is dropped rather than sent as garbage.
-            }
-          }
-          return wire
-        }),
+        messages: request.messages.map(buildMessage),
       }
       if (request.maxTokens !== undefined) body['max_tokens'] = request.maxTokens
       if (request.temperature !== undefined) body['temperature'] = request.temperature

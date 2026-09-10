@@ -47,7 +47,7 @@ async function runOneTool(call: ToolCall, context: ToolContext): Promise<ToolRun
       content:
         'There is no tool named ' +
         call.name +
-        '. The tools available are read, write and edit. There is no shell tool.',
+        '. The only available tool is compute. Provider methods are called inside its JavaScript plan.',
       isError: true
     }
   }
@@ -61,7 +61,7 @@ async function runOneTool(call: ToolCall, context: ToolContext): Promise<ToolRun
     const outcome = await tool.run(parsed.value, context)
     return {
       content: outcome.content,
-      isError: false,
+      isError: outcome.isError ?? false,
       ...(outcome.images === undefined || outcome.images.length === 0 ? {} : { images: outcome.images }),
       ...(outcome.details === undefined ? {} : { details: outcome.details })
     }
@@ -113,17 +113,19 @@ export async function* runToolLoop(options: ToolLoopOptions): AsyncGenerator<Cha
 
     const requested: ToolCall[] = []
     let assistantText = ''
+    let thinkingSignature: string | undefined
     let usage: ChatUsage | undefined
     let stopReason: string | undefined
 
     for await (const event of options.stream(messages)) {
       if (event.type === 'text') {
         assistantText += event.text ?? ''
-        yield event
+        yield { ...event, round }
         continue
       }
+      if (event.thinkingSignature !== undefined) thinkingSignature = event.thinkingSignature
       if (event.type === 'thinking') {
-        yield event
+        yield { ...event, round }
         continue
       }
       if (event.type === 'tool_calls') {
@@ -148,6 +150,11 @@ export async function* runToolLoop(options: ToolLoopOptions): AsyncGenerator<Cha
       yield event
     }
 
+    if (stopReason === undefined) {
+      yield { type: 'error', message: 'Provider connection ended before the round finished.' }
+      return
+    }
+
     if (stopReason === 'aborted') {
       yield { type: 'done', stopReason: 'aborted', ...(usage === undefined ? {} : { usage }) }
       return
@@ -168,11 +175,12 @@ export async function* runToolLoop(options: ToolLoopOptions): AsyncGenerator<Cha
 
     // The interface is told what is about to run, before it runs, so a slow
     // tool shows up as a wait rather than as a frozen reply.
-    yield { type: 'tool_calls', toolCalls: requested }
+    yield { type: 'tool_calls', toolCalls: requested, round }
 
     // The assistant turn that asked is kept with its calls. Without it the
     // results that follow answer questions the model has no record of asking.
-    messages.push({ role: 'assistant', content: assistantText, toolCalls: requested })
+    messages.push({ role: 'assistant', content: assistantText, toolCalls: requested,
+      ...(thinkingSignature === undefined ? {} : { thinkingSignature }) })
 
     const collected: ChatImage[] = []
 
@@ -186,6 +194,7 @@ export async function* runToolLoop(options: ToolLoopOptions): AsyncGenerator<Cha
 
       yield {
         type: 'tool_result',
+        round,
         toolCallId: call.id,
         toolName: call.name,
         toolResult: result.content,

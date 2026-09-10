@@ -5,6 +5,7 @@ import { App } from './App'
 import { PreviewProvider } from './lightbox'
 import { ConnectionProvider } from './rpc'
 import './index.css'
+import './shimmer.css'
 
 const queryClient = new QueryClient({
   defaultOptions: {

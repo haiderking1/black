@@ -1,35 +1,28 @@
-/* Tool calls in the transcript. */
-
 .tool-runs {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  margin: 6px 0 2px;
+  margin: 4px 0 2px;
 }
 
 .tool-row {
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-  background: var(--bg-surface);
-  overflow: hidden;
-}
-
-.tool-row-failed {
-  border-color: var(--border-medium);
+  display: flex;
+  flex-direction: column;
 }
 
 .tool-row-head {
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 6px;
   width: 100%;
-  padding: 5px 9px;
+  min-height: 24px;
+  padding: 2px 0;
   border: 0;
-  background: none;
-  color: inherit;
-  font: inherit;
-  font-size: 12.5px;
-  line-height: 1.6;
+  background: transparent;
+  border-radius: 0;
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: 13px;
+  line-height: 20px;
   text-align: left;
   cursor: pointer;
 }
@@ -39,71 +32,141 @@
 }
 
 .tool-row-head:not(:disabled):hover {
-  background: var(--bg-surface-hover);
+  background: var(--bg-surface);
 }
 
-.tool-row-chevron {
-  width: 8px;
-  color: var(--text-dim);
-  font-size: 10px;
+.tool-row-head:focus-visible {
+  outline: 1px solid var(--border-medium);
+  outline-offset: -1px;
 }
 
-.tool-row-name {
-  color: var(--text-secondary);
-  font-weight: 500;
-}
-
-.tool-row-summary {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
+.tool-mark {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 16px;
+  height: 16px;
   color: var(--text-muted);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  text-overflow: ellipsis;
+}
+
+.tool-mark-glyph {
+  width: 24px;
+  height: 24px;
+  max-width: none;
+}
+
+.tool-row-label {
+  flex: 0 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  overflow: hidden;
   white-space: nowrap;
 }
 
-.tool-row-failed .tool-row-summary {
+.tool-row-verb {
+  flex: none;
   color: var(--text-secondary);
 }
 
-.tool-row-state {
+.tool-row-file {
+  flex: 0 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  color: inherit;
+  font-weight: 400;
+  text-overflow: ellipsis;
+}
+
+.tool-row-note {
+  flex: none;
   color: var(--text-muted);
-  font-size: 11.5px;
+  font-family: inherit;
+  font-size: 12px;
+}
+
+.tool-row-count {
+  flex: none;
+  color: var(--text-muted);
+  font-family: inherit;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+.tool-row-count-added { color: var(--diff-added); }
+.tool-row-count-removed { color: var(--diff-removed); }
+
+.tool-row-failed .tool-row-verb {
+  color: var(--diff-removed);
+}
+
+.tool-row-state {
+  flex: none;
+  color: var(--diff-removed);
+  font-family: var(--font-mono);
+  font-size: 11px;
+}
+
+.tool-row-caret {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 12px;
+  opacity: 0;
+  color: var(--text-dim);
+}
+
+.tool-caret {
+  transition: transform 0.12s ease;
+}
+
+.tool-caret-open {
+  transform: rotate(90deg);
+}
+
+.tool-row-head:focus-visible .tool-row-caret,
+.tool-row-head:not(:disabled):hover .tool-row-caret,
+.tool-row-head[aria-expanded="true"] .tool-row-caret {
+  color: var(--text-muted);
+  opacity: 1;
 }
 
 .tool-row-body {
-  border-top: 1px solid var(--border-subtle);
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  margin: 3px 0 8px 6px;
+  padding-left: 24px;
+  border-left: 1px solid var(--border-subtle);
 }
 
-/* An image the model was shown. Bounded so a large screenshot cannot push
-   the conversation off the screen. */
+.tool-row-body > .preview-trigger {
+  align-self: flex-start;
+}
+
 .tool-image {
   display: block;
   max-width: min(100%, 420px);
   max-height: 320px;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-sm);
-  background: var(--preview-bg);
+  background: var(--bg-app);
   object-fit: contain;
 }
 
-/* The spacing sits on the wrapper rather than the image, because the image is
-   inside a button now and a margin on it would not separate it from whatever
-   the row renders next. */
-.tool-row-body > .preview-trigger {
-  margin: 8px 10px;
-}
-
-.tool-output,
-.tool-diff {
+.tool-output {
   max-height: 340px;
   margin: 0;
-  padding: 8px 10px;
+  padding: 9px 11px;
   overflow: auto;
-  background: var(--preview-bg);
-  color: var(--preview-text);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-app);
+  color: var(--text-primary);
   font-family: var(--font-mono);
   font-size: 12px;
   line-height: 1.55;
@@ -111,21 +174,76 @@
   tab-size: 2;
 }
 
+.tool-diff {
+  max-height: 340px;
+  margin: 0;
+  padding: 5px 0;
+  overflow: auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--bg-app);
+  color: var(--text-primary);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.6;
+  tab-size: 2;
+}
+
 .tool-diff-line {
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  padding: 0 10px 0 6px;
   white-space: pre;
 }
 
+.tool-diff-marker {
+  flex: none;
+  width: 1ch;
+  font-weight: 700;
+  text-align: center;
+}
+
+.tool-diff-number {
+  flex: none;
+  margin-left: 1ch;
+  color: var(--text-dim);
+  font-variant-numeric: tabular-nums;
+}
+
+.tool-diff-text {
+  flex: none;
+  padding-left: 1ch;
+}
+
 .tool-diff-added {
-  color: var(--text-primary);
-  background: color-mix(in srgb, currentColor 8%, transparent);
+  background: color-mix(in srgb, var(--diff-added) 13%, transparent);
+  box-shadow: inset 2px 0 0 var(--diff-added);
 }
 
 .tool-diff-removed {
-  color: var(--text-dim);
-  text-decoration: line-through;
-  text-decoration-color: var(--border-medium);
+  background: color-mix(in srgb, var(--diff-removed) 12%, transparent);
+  box-shadow: inset 2px 0 0 var(--diff-removed);
 }
 
-.tool-diff-context {
-  color: var(--text-muted);
+.tool-diff-added .tool-diff-marker,
+.tool-diff-added .tool-diff-number {
+  color: var(--diff-added);
+}
+
+.tool-diff-removed .tool-diff-marker,
+.tool-diff-removed .tool-diff-number {
+  color: var(--diff-removed);
+}
+
+.tool-diff-context .tool-diff-marker {
+  color: transparent;
+}
+
+.tool-diff-gap .tool-diff-number {
+  color: transparent;
+}
+
+.tool-diff-gap .tool-diff-text {
+  color: var(--text-dim);
 }

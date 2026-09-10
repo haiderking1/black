@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import * as Effect from 'effect/Effect'
 
 import type { Message } from './types'
+import { conversationHistory } from '../working/history'
 import { useRpcClient } from '../rpc'
 
 export interface ContextUsage {
@@ -37,7 +38,8 @@ export function useContextUsage(
 
   // Identity of the transcript, so the effect runs when it changes rather than
   // on every render.
-  const signature = messages.map((message) => message.id + ':' + String(message.content.length)).join('|')
+  const history = conversationHistory(messages)
+  const signature = JSON.stringify(history)
 
   useEffect(() => {
     if (client === null || model === null || model === '') return
@@ -51,11 +53,7 @@ export function useContextUsage(
             client['chat.contextUsage']({
               providerId,
               model,
-              messages: messages.map((message) => ({
-                id: message.id,
-                role: message.role,
-                content: message.content
-              }))
+              messages: history
             })
           )
 

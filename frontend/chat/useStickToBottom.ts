@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import type { RefObject } from 'react'
 
 import { decideFollow } from './scrollGeometry'
+import { isInspectingWork } from '../working/inspection'
 
 export interface UseStickToBottomResult {
   /** The scrollable element. */
@@ -110,15 +111,24 @@ export function useStickToBottom(resetKey: string | undefined): UseStickToBottom
     const observer = new ResizeObserver(() => {
       // (3) Released: leave the reader where they are, even as content grows
       // beneath them.
-      if (!pinnedRef.current) return
+      if (!pinnedRef.current || isInspectingWork(contentElement)) return
       const element = scrollRef.current
       if (element === null) return
       element.scrollTop = element.scrollHeight
     })
 
+    const inspect = (event: Event): void => {
+      if (event.target instanceof Element && event.target.closest('[data-working]')) pin(false)
+    }
+    contentElement.addEventListener('pointerdown', inspect)
+    contentElement.addEventListener('focusin', inspect)
     observer.observe(contentElement)
-    return () => observer.disconnect()
-  }, [contentElement])
+    return () => {
+      observer.disconnect()
+      contentElement.removeEventListener('pointerdown', inspect)
+      contentElement.removeEventListener('focusin', inspect)
+    }
+  }, [contentElement, pin])
 
   return { scrollRef, contentRef, handleScroll, isPinned, jumpToBottom }
 }

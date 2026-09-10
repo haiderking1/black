@@ -9,6 +9,7 @@ import { fitContext, measureContext } from '../../chat/fitContext'
 import type { TranscriptMessage } from '../../chat/transcript'
 import { withSystemPrompt } from '../../chat/systemPrompt'
 import { runToolLoop } from '../../chat/toolLoop'
+import { wireTranscript, providerHistory } from '../../chat/history'
 import { toolDefinitions } from '../../tools/registry'
 import type { ChatImage, ChatMessage, ChatStreamEvent as ProviderStreamEvent } from '../../providers/types'
 import { processImage } from '../../tools/image'
@@ -143,15 +144,10 @@ async function fitRequest(
   compacted: boolean
   tokensBefore: number
   tokensAfter: number
+  summary?: string
+  firstKeptId?: string
 }> {
-  const transcript: TranscriptMessage[] = payload.messages.map((message, index) => ({
-    // Position stands in when the wire carried no id, which happens for turns
-    // recorded before this existed.
-    id: message.id ?? 'turn-' + String(index),
-    role: message.role,
-    content: message.content,
-    ...(message.images === undefined || message.images.length === 0 ? {} : { images: message.images })
-  }))
+  const transcript = wireTranscript(payload.messages)
 
   let contextWindow: number
   try {
@@ -179,7 +175,9 @@ async function fitRequest(
     contextWindow,
     compacted: fitted.compacted,
     tokensBefore: fitted.tokensBefore,
-    tokensAfter: fitted.tokensAfter
+    tokensAfter: fitted.tokensAfter,
+    summary: fitted.summary,
+    firstKeptId: fitted.firstKeptId
   }
 }
 
@@ -239,13 +237,13 @@ async function normalizeImages(messages: readonly TranscriptMessage[]): Promise<
       const content = message.content === '' ? note : message.content + '\n\n' + note
       out.push(
         kept.length === 0
-          ? { id: message.id, role: message.role, content }
-          : { id: message.id, role: message.role, content, images: kept }
+          ? { ...message, content, images: undefined }
+          : { ...message, content, images: kept }
       )
       continue
     }
 
-    out.push({ id: message.id, role: message.role, content: message.content, images: kept })
+    out.push({ ...message, images: kept })
   }
 
   return out
@@ -300,13 +298,7 @@ export function chatHandlers() {
           const tools =
             workingDirectory === undefined || !canCallTools ? undefined : toolDefinitions()
 
-          const history: ChatMessage[] = fitted.messages.map((message) => ({
-            role: message.role,
-            content: message.content,
-            ...(message.images === undefined || message.images.length === 0
-              ? {}
-              : { images: [...message.images] }),
-          }))
+          const history = providerHistory(fitted.messages)
 
           // The budget a round must stay under. Undefined when the model's
           // window is unknown, in which case growth is not guessed at.
@@ -324,11 +316,7 @@ export function chatHandlers() {
             // tool call produced the giant result.
             if (budget !== undefined) {
               const used = measureContext(
-                prepared.map((message, index) => ({
-                  id: 'round-' + String(index),
-                  role: message.role,
-                  content: message.content,
-                }))
+                prepared.map((message, index) => ({ ...message, id: 'round-' + index }))
               )
               if (used > budget) {
                 yield {
@@ -365,7 +353,9 @@ export function chatHandlers() {
             yield {
               type: 'compacted',
               tokensBefore: fitted.tokensBefore,
-              tokensAfter: fitted.tokensAfter
+              tokensAfter: fitted.tokensAfter,
+              summary: fitted.summary,
+              firstKeptMessageId: fitted.firstKeptId
             }
           }
 
@@ -424,11 +414,7 @@ export function chatHandlers() {
           const provider = buildProvider(payload.providerId, apiKey)
           if (provider === undefined) throw new Error('Unknown provider: ' + payload.providerId)
 
-          const transcript: TranscriptMessage[] = payload.messages.map((message, index) => ({
-            id: message.id ?? 'turn-' + String(index),
-            role: message.role,
-            content: message.content
-          }))
+          const transcript = wireTranscript(payload.messages)
 
           const nothing = {
             compacted: false,
@@ -494,11 +480,7 @@ export function chatHandlers() {
           const provider = buildProvider(payload.providerId, apiKey)
           if (provider === undefined) throw new Error('Unknown provider: ' + payload.providerId)
 
-          const transcript: TranscriptMessage[] = payload.messages.map((message, index) => ({
-            id: message.id ?? 'turn-' + String(index),
-            role: message.role,
-            content: message.content
-          }))
+          const transcript = wireTranscript(payload.messages)
 
           const tokens = measureContext(transcript)
 
@@ -546,7 +528,7 @@ export function chatHandlers() {
           const result = await provider.chat({
             model: payload.model,
             messages: withSystemPrompt(
-              fitted.messages.map((message) => ({ role: message.role, content: message.content })),
+              providerHistory(fitted.messages),
               payload.workingDirectory
             ),
             ...(payload.maxTokens !== undefined ? { maxTokens: payload.maxTokens } : {}),

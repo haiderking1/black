@@ -1,23 +1,33 @@
 import React from 'react'
 
-/**
- * The change an edit made, line by line.
- *
- * Colouring comes from the leading marker the server already put there, so the
- * two cannot disagree about which lines were added. The first character is the
- * whole signal; everything after it is the line as it appears in the file.
- */
+interface DiffLine {
+  marker: string
+  number: string
+  content: string
+  tone: 'added' | 'removed' | 'context' | 'gap'
+}
+
+export function readLine(line: string): DiffLine {
+  const match = /^([+ -])( *\d+) (.*)$/.exec(line)
+  if (match !== null) {
+    const marker = match[1]!
+    return { marker, number: match[2]!, content: match[3]!, tone: marker === '+' ? 'added' : marker === '-' ? 'removed' : 'context' }
+  }
+  return { marker: '', number: '', content: line, tone: 'gap' }
+}
+
 export function DiffView({ diff }: { diff: string }): React.JSX.Element {
-  const lines = diff.split('\n')
+  const lines = diff.split('\n').filter((line) => line.length > 0)
 
   return (
     <pre className="tool-diff">
       {lines.map((line, index) => {
-        const marker = line.slice(0, 1)
-        const tone = marker === '+' ? 'added' : marker === '-' ? 'removed' : 'context'
+        const parsed = readLine(line)
         return (
-          <div className={'tool-diff-line tool-diff-' + tone} key={index}>
-            {line}
+          <div className={'tool-diff-line tool-diff-' + parsed.tone} key={index}>
+            <span className="tool-diff-marker">{parsed.marker.trim()}</span>
+            <span className="tool-diff-number">{parsed.number}</span>
+            <span className="tool-diff-text">{parsed.content}</span>
           </div>
         )
       })}

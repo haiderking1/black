@@ -1,10 +1,19 @@
 import { resolve } from 'node:path'
+import { readFileSync } from 'node:fs'
 import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
 import react from '@vitejs/plugin-react'
 
 export default defineConfig({
   main: {
-    plugins: [externalizeDepsPlugin()],
+    plugins: [externalizeDepsPlugin(), {
+      name: 'compute-worker-assets',
+      generateBundle() {
+        for (const file of ['worker.mjs', 'runtime/errors.mjs']) {
+          this.emitFile({ type: 'asset', fileName: 'compute/' + file,
+            source: readFileSync(resolve(__dirname, 'backend/tools/compute', file)) })
+        }
+      }
+    }],
     build: {
       rollupOptions: {
         // `ws` is a transitive dependency of @effect/platform-node, so

@@ -1,5 +1,6 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import type { Message } from './types'
+import { hydrateMessage } from '../working/hydrate'
 
 const CONVERSATIONS_KEY = 'black_conversations_v1'
 const MAX_MESSAGES_PER_SESSION = 200
@@ -25,7 +26,7 @@ export function loadConversations(): Record<string, Message[]> {
     const restored: Record<string, Message[]> = {}
     for (const [sessionId, messages] of Object.entries(parsed as Record<string, unknown>)) {
       if (sessionId === '' || !Array.isArray(messages)) continue
-      const valid = messages.filter(isMessage).slice(-MAX_MESSAGES_PER_SESSION)
+      const valid = messages.filter(isMessage).slice(-MAX_MESSAGES_PER_SESSION).map(hydrateMessage)
       if (valid.length === 0) continue
       restored[sessionId] = valid
     }
@@ -133,40 +134,50 @@ export interface UseConversationsResult {
 export function useConversations(): UseConversationsResult {
   const [conversations, setConversations] = useState<Record<string, Message[]>>(loadConversations)
 
+  // Stream callbacks and queue draining can share one React batch. The next
+  // request must see the last event now, not after the next render's effect.
+  const current = useRef(conversations)
+  const publish = useCallback((update: (previous: Record<string, Message[]>) => Record<string, Message[]>): void => {
+    const next = update(current.current)
+    if (next === current.current) return
+    current.current = next
+    setConversations(next)
+  }, [])
+
   useEffect(() => {
     saveConversations(conversations)
   }, [conversations])
 
   const getMessages = useCallback(
-    (sessionId: string): Message[] => conversations[sessionId] ?? [],
-    [conversations]
-  )
-
-  const appendMessage = useCallback((sessionId: string, message: Message): void => {
-    setConversations((prev) => {
-      const existing = prev[sessionId] ?? []
-      return { ...prev, [sessionId]: [...existing, message] }
-    })
-  }, [])
-
-  const updateMessage = useCallback(
-    (sessionId: string, messageId: string, update: (previous: Message) => Message): void => {
-      setConversations((prev) => applyMessageUpdate(prev, sessionId, messageId, update))
-    },
+    (sessionId: string): Message[] => current.current[sessionId] ?? [],
     []
   )
 
+  const appendMessage = useCallback((sessionId: string, message: Message): void => {
+    publish((prev) => {
+      const existing = prev[sessionId] ?? []
+      return { ...prev, [sessionId]: [...existing, message] }
+    })
+  }, [publish])
+
+  const updateMessage = useCallback(
+    (sessionId: string, messageId: string, update: (previous: Message) => Message): void => {
+      publish((prev) => applyMessageUpdate(prev, sessionId, messageId, update))
+    },
+    [publish]
+  )
+
   const replaceMessages = useCallback((sessionId: string, messages: Message[]): void => {
-    setConversations((prev) => ({ ...prev, [sessionId]: messages }))
-  }, [])
+    publish((prev) => ({ ...prev, [sessionId]: messages }))
+  }, [publish])
 
   const deleteMessage = useCallback((sessionId: string, messageId: string): void => {
-    setConversations((prev) => removeMessage(prev, sessionId, messageId))
-  }, [])
+    publish((prev) => removeMessage(prev, sessionId, messageId))
+  }, [publish])
 
   const deleteConversations = useCallback((sessionIds: string[]): void => {
-    setConversations((prev) => removeConversationsBySessionIds(prev, sessionIds))
-  }, [])
+    publish((prev) => removeConversationsBySessionIds(prev, sessionIds))
+  }, [publish])
 
   return {
     getMessages,

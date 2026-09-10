@@ -189,7 +189,7 @@ describe('runToolLoop', () => {
           scripted(
             [
               [
-                { type: 'tool_calls', toolCalls: [{ id: 'c1', name: 'read', arguments: '{"path":"a.ts"}' }] },
+                { type: 'tool_calls', toolCalls: [{ id: 'c1', name: 'compute', arguments: "{\"title\": \"Read test file\", \"code\": \"async () => await workspace.read({\\\"path\\\":\\\"a.ts\\\"})\"}" }] },
                 { type: 'done', stopReason: 'stop' }
               ],
               [{ type: 'text', text: 'It contains a constant.' }, { type: 'done', stopReason: 'stop' }]
@@ -222,7 +222,7 @@ describe('runToolLoop', () => {
         base(
           scripted([
             [
-              { type: 'tool_calls', toolCalls: [{ id: 'c1', name: 'read', arguments: '{"path":"a.ts"}' }] },
+              { type: 'tool_calls', toolCalls: [{ id: 'c1', name: 'compute', arguments: "{\"title\": \"Read test file\", \"code\": \"async () => await workspace.read({\\\"path\\\":\\\"a.ts\\\"})\"}" }] },
               { type: 'done', stopReason: 'stop' }
             ],
             [{ type: 'text', text: 'done now' }, { type: 'done', stopReason: 'stop' }]
@@ -252,7 +252,7 @@ describe('runToolLoop', () => {
     const result = events.find((event) => event.type === 'tool_result')
     expect(result?.toolIsError).toBe(true)
     expect(result?.toolResult).toContain('no tool named bash')
-    expect(result?.toolResult).toContain('read, write and edit')
+    expect(result?.toolResult).toContain('only available tool is compute')
     expect(events.some((event) => event.type === 'text')).toBe(true)
   })
 
@@ -262,7 +262,7 @@ describe('runToolLoop', () => {
         base(
           scripted([
             [
-              { type: 'tool_calls', toolCalls: [{ id: 'c1', name: 'read', arguments: '{oops' }] },
+              { type: 'tool_calls', toolCalls: [{ id: 'c1', name: 'compute', arguments: '{oops' }] },
               { type: 'done', stopReason: 'stop' }
             ],
             [{ type: 'done', stopReason: 'stop' }]
@@ -282,7 +282,7 @@ describe('runToolLoop', () => {
         base(
           scripted([
             [
-              { type: 'tool_calls', toolCalls: [{ id: 'c1', name: 'read', arguments: '{"path":"missing.ts"}' }] },
+              { type: 'tool_calls', toolCalls: [{ id: 'c1', name: 'compute', arguments: "{\"title\": \"Read test file\", \"code\": \"async () => await workspace.read({\\\"path\\\":\\\"missing.ts\\\"})\"}" }] },
               { type: 'done', stopReason: 'stop' }
             ],
             [{ type: 'text', text: 'That file is not there.' }, { type: 'done', stopReason: 'stop' }]
@@ -292,7 +292,7 @@ describe('runToolLoop', () => {
     )
     const result = events.find((event) => event.type === 'tool_result')
     expect(result?.toolIsError).toBe(true)
-    expect(result?.toolResult).toContain('No such file')
+    expect(result?.toolResult).toContain('ENOENT')
     expect(events.some((event) => event.type === 'text')).toBe(true)
   })
 
@@ -317,7 +317,7 @@ describe('runToolLoop', () => {
     const events = await collect(runToolLoop({ ...base(stream), signal: controller.signal }))
 
     expect(events).toEqual([
-      { type: 'text', text: 'partial' },
+      { type: 'text', text: 'partial', round: 0 },
       { type: 'done', stopReason: 'aborted' }
     ])
     // Nothing was written.
@@ -355,7 +355,7 @@ describe('runToolLoop', () => {
 
   it('gives up rather than looping forever when the model keeps asking', async () => {
     const forever = async function* (): AsyncGenerator<ChatStreamEvent> {
-      yield { type: 'tool_calls', toolCalls: [{ id: 'c', name: 'read', arguments: '{"path":"missing"}' }] }
+      yield { type: 'tool_calls', toolCalls: [{ id: 'c', name: 'compute', arguments: "{\"title\": \"Read test file\", \"code\": \"async () => await workspace.read({\\\"path\\\":\\\"missing\\\"})\"}" }] }
       yield { type: 'done', stopReason: 'stop' }
     }
     const events = await collect(runToolLoop({ ...base(forever), maxRounds: 3 }))

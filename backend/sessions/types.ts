@@ -193,6 +193,8 @@ export interface SessionEntryBase {
 }
 
 export interface SessionMessageEntry extends SessionEntryBase {
+  /** Expanded provider messages belonging to one indivisible UI turn. */
+  turnId?: string
   type: 'message'
   message: AgentMessage
 }

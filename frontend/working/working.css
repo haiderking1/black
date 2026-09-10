@@ -1,0 +1,27 @@
+.assistant-turn { min-width: 0; width: 100%; }
+.working-section { margin: 0 0 8px; }
+.working-header {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  flex-wrap: wrap;
+  padding: 2px 0;
+  color: var(--text-muted);
+  font-size: 12.5px;
+  line-height: 1.6;
+  text-align: left;
+  cursor: pointer;
+}
+.working-header:hover { color: var(--text-secondary); }
+.working-header:focus-visible { outline: 1px solid var(--text-secondary); outline-offset: 3px; }
+.working-caret { flex: none; }
+.working-caret-open { transform: rotate(90deg); }
+.working-body { padding-top: 4px; }
+.working-body[hidden] { display: none; }
+.working-text { margin: 4px 0 8px; }
+.working-text .markdown { color: var(--text-secondary); font-size: 14px; }
+.working-body .tool-runs { margin-bottom: 8px; }
+.working-status { color: var(--text-muted); font-size: 12.5px; }
+.working-error { margin-top: 8px; color: var(--text-secondary); white-space: pre-wrap; overflow-wrap: anywhere; }
+
+.working-answer:not(:last-child) { margin-bottom: 8px; }

@@ -12,8 +12,9 @@
 import { messageFromBody } from '../errors'
 import type { ChatMessage, ChatStopReason, ChatStreamEvent, ChatUsage, FetchLike } from '../types'
 import { CHAT_COMPLETIONS_PATH, joinUrl } from './endpoints'
-import { extractContent } from './reasoning'
+import { extractStreamParts } from './reasoning'
 import { ToolCallAccumulator } from './toolCalls'
+import { buildMessage } from './message'
 
 export type { ChatStreamEvent } from '../types'
 
@@ -62,8 +63,7 @@ function parseDataLine(line: string): unknown | null {
 }
 
 interface Chunk {
-  text: string
-  thinking: string
+  parts: ReturnType<typeof extractStreamParts>
   finishReason: unknown
   usage: unknown
   /** The raw `delta.tool_calls` array, accumulated by the caller. */
@@ -74,8 +74,7 @@ interface Chunk {
 /** Pull the delta, finish reason, and usage out of one decoded chunk. */
 function readChunk(body: unknown): Chunk {
   const empty: Chunk = {
-    text: '',
-    thinking: '',
+    parts: [],
     finishReason: undefined,
     usage: undefined,
     toolCallsDelta: undefined,
@@ -97,13 +96,12 @@ function readChunk(body: unknown): Chunk {
 
   const first = choices[0] as { delta?: unknown; finish_reason?: unknown }
   const delta = first.delta
-  const extracted = extractContent(delta)
+  const parts = extractStreamParts(delta)
 
   const deltaRecord = typeof delta === 'object' && delta !== null ? (delta as Record<string, unknown>) : undefined
 
   return {
-    text: extracted.text,
-    thinking: extracted.thinking,
+    parts,
     finishReason: first.finish_reason,
     usage: candidate['usage'],
     toolCallsDelta: deltaRecord?.['tool_calls'],
@@ -120,48 +118,6 @@ function readUsage(value: unknown): ChatUsage {
   return { input, output, total }
 }
 
-/**
- * One message, in the shape the completions API expects.
- *
- * An assistant message that stops to call a tool has content it may not have
- * written anything for. Some gateways reject an empty string there and want
- * null, so an empty body on a tool asking turn is sent as null.
- */
-function buildMessage(message: ChatMessage): Record<string, unknown> {
-  const images = message.images ?? []
-
-  // With an image present the content becomes a list of typed parts. The text
-  // part is dropped when there is no text, because an empty text part is
-  // rejected by some gateways.
-  const content =
-    images.length > 0
-      ? [
-          ...(message.content === '' ? [] : [{ type: 'text', text: message.content }]),
-          ...images.map((image) => ({
-            type: 'image_url',
-            image_url: { url: 'data:' + image.mimeType + ';base64,' + image.data },
-          })),
-        ]
-      : message.content === '' && message.toolCalls !== undefined
-        ? null
-        : message.content
-
-  const out: Record<string, unknown> = {
-    role: message.role,
-    content,
-  }
-  if (message.toolCalls !== undefined) {
-    out['tool_calls'] = message.toolCalls.map((call) => ({
-      id: call.id,
-      type: 'function',
-      function: { name: call.name, arguments: call.arguments },
-    }))
-  }
-  if (message.toolCallId !== undefined) {
-    out['tool_call_id'] = message.toolCallId
-  }
-  return out
-}
 
 function buildBody(request: StreamChatRequest): Record<string, unknown> {
   const body: Record<string, unknown> = {
@@ -232,6 +188,7 @@ export function createStreamingClient(options: StreamChatOptions): StreamingClie
       const decoder = new TextDecoder()
       const accumulator = new ToolCallAccumulator()
       let buffer = ''
+      let sawDone = false
       let finishReason: unknown
       let usage: unknown
 
@@ -248,6 +205,7 @@ export function createStreamingClient(options: StreamChatOptions): StreamingClie
             buffer = buffer.slice(newline + 1)
             newline = buffer.indexOf('\n')
 
+            if (line.trim() === 'data: [DONE]') sawDone = true
             const parsed = parseDataLine(line)
             if (parsed === null) continue
 
@@ -256,15 +214,15 @@ export function createStreamingClient(options: StreamChatOptions): StreamingClie
               yield { type: 'error', message: chunk.error }
               return
             }
-            if (chunk.text !== '') yield { type: 'text', text: chunk.text }
-            if (chunk.thinking !== '') yield { type: 'thinking', text: chunk.thinking }
+            yield* chunk.parts
             accumulator.add(chunk.toolCallsDelta)
-            if (chunk.finishReason !== undefined) finishReason = chunk.finishReason
+            if (chunk.finishReason != null) finishReason = chunk.finishReason
             if (chunk.usage !== undefined) usage = chunk.usage
           }
         }
 
         // A final line without a trailing newline still counts.
+        if (buffer.trim() === 'data: [DONE]') sawDone = true
         const tail = parseDataLine(buffer)
         if (tail !== null) {
           const chunk = readChunk(tail)
@@ -272,10 +230,9 @@ export function createStreamingClient(options: StreamChatOptions): StreamingClie
             yield { type: 'error', message: chunk.error }
             return
           }
-          if (chunk.text !== '') yield { type: 'text', text: chunk.text }
-          if (chunk.thinking !== '') yield { type: 'thinking', text: chunk.thinking }
+          yield* chunk.parts
           accumulator.add(chunk.toolCallsDelta)
-          if (chunk.finishReason !== undefined) finishReason = chunk.finishReason
+          if (chunk.finishReason != null) finishReason = chunk.finishReason
           if (chunk.usage !== undefined) usage = chunk.usage
         }
       } catch (error) {
@@ -291,6 +248,11 @@ export function createStreamingClient(options: StreamChatOptions): StreamingClie
         return
       } finally {
         reader.releaseLock()
+      }
+
+      if (!sawDone && finishReason == null) {
+        yield { type: 'error', message: 'Provider connection ended before the reply finished.' }
+        return
       }
 
       // Emitted only once the turn is over. A tool call is unusable until its

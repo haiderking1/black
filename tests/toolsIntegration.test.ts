@@ -399,13 +399,13 @@ describe('edit tool', () => {
 })
 
 describe('tool registry', () => {
-  it('exposes exactly the three tools, and no shell', () => {
+  it('exposes compute only, without direct provider or shell tools', () => {
     const names = toolDefinitions().map((definition) => definition.function.name)
-    expect(names).toEqual(['read', 'write', 'edit'])
+    expect(names).toEqual(['compute'])
   })
 
   it('resolves a tool by name', () => {
-    expect(toolByName('edit')?.name).toBe('edit')
+    expect(toolByName('compute')?.name).toBe('compute')
     expect(toolByName('bash')).toBeUndefined()
   })
 

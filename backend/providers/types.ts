@@ -63,6 +63,10 @@ export interface ChatMessage {
 /** One event on a streamed reply. */
 export interface ChatStreamEvent {
   type: 'text' | 'thinking' | 'tool_calls' | 'tool_result' | 'done' | 'error'
+  /** Provider request within a tool turn, assigned by the loop. */
+  round?: number
+  thinkingSignature?: string
+  toolImages?: ChatImage[]
   /** Present for 'text' and 'thinking'. */
   text?: string
   /** Present for 'tool_calls', emitted once the turn ends and the calls are complete. */

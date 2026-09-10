@@ -4,16 +4,18 @@ import { Sidebar, useSessions, DEFAULT_SESSION_TITLE } from './sidebar'
 import { Composer, QueuedMessages, commandFor } from './composer'
 import { SpotlightModal, type ProjectItemData } from './spotlight'
 import * as Effect from 'effect/Effect'
-import { applyToolResult, consumeReply, createMessage, historyBefore, JumpToLatest, newRequestId, startToolRun, useContextUsage, useConversations, useStickToBottom } from './chat'
+import { createMessage, historyBefore, JumpToLatest, newRequestId, useContextUsage, useConversations, useStickToBottom } from './chat'
 import type { Message } from './chat'
-import { ToolRunList } from './tools'
+import { WorkingSection } from './working/WorkingSection'
+import { startWork } from './working/model'
+import { consumeWork } from './working/consume'
+import { finishWork } from './working/reducer'
+import { conversationHistory } from './working/history'
 import { PreviewImage } from './lightbox'
 import { describeRpcError, useRpcClient } from './rpc'
 import type { ComposerSubmitOptions } from './composer'
-import { Markdown } from './markdown'
-import { CompactionNotice } from './compaction'
-import { ThinkingBlock } from './thinking'
 import './chat/chat-scroll.css'
+import { useFloatingComposer } from './chat/floating-composer/useFloatingComposer'
 import './chat/message-images.css'
 import { SettingsPage, useSettings } from './settings'
 import { useProviders } from './settings/useProviders'
@@ -99,6 +101,7 @@ export function App(): React.JSX.Element {
 
   // Follows new content, and releases the moment the reader scrolls up.
   const { scrollRef, contentRef, handleScroll, isPinned, jumpToBottom } = useStickToBottom(activeSessionId)
+  const { frameRef, footerRef } = useFloatingComposer(scrollRef, isPinned)
   const client = useRpcClient()
 
   // Only for the provider's display name, which the picker labels its rows with.
@@ -241,11 +244,7 @@ export function App(): React.JSX.Element {
         client['chat.compact']({
           providerId: 'opencode-go',
           model,
-          messages: existing.map((message) => ({
-            id: message.id,
-            role: message.role,
-            content: message.content
-          })),
+          messages: conversationHistory(existing),
           sessionId
         })
       )
@@ -265,7 +264,8 @@ export function App(): React.JSX.Element {
       }
 
       const cut = existing.findIndex((message) => message.id === result.firstKeptMessageId)
-      const kept = cut === -1 ? [] : existing.slice(cut)
+      if (cut === -1) throw new Error('The compaction cut no longer exists. The conversation was kept unchanged.')
+      const kept = existing.slice(cut)
 
       replaceMessages(sessionId, [createMessage('assistant', result.summary), ...kept])
     } catch (error) {
@@ -358,18 +358,11 @@ export function App(): React.JSX.Element {
       // Images travel with their turn. A screenshot is part of the question, so
       // dropping it from the history would leave the model answering about a
       // picture it can no longer see.
-      const priorTurns = historyBefore(messagesRef.current(threadId), send.messageId).map((message) => ({
-        id: message.id,
-        role: message.role,
-        content: message.content,
-        ...(message.images === undefined || message.images.length === 0
-          ? {}
-          : { images: message.images })
-      }))
+      const priorTurns = conversationHistory(historyBefore(messagesRef.current(threadId), send.messageId))
 
       // The reply is appended empty and filled in as events arrive, so the answer
       // renders while it is still being written rather than after the last token.
-      const reply = createMessage('assistant', '')
+      const reply = { ...createMessage('assistant', ''), work: startWork() }
       appendMessage(threadId, reply)
 
       setActiveReplyId(reply.id)
@@ -378,8 +371,6 @@ export function App(): React.JSX.Element {
       const patch = (update: (previous: Message) => Message): void => {
         updateMessage(threadId, reply.id, update)
       }
-
-      let stopReason: string | undefined
 
       try {
         const events = stream['chat.stream']({
@@ -408,39 +399,10 @@ export function App(): React.JSX.Element {
             : {})
         })
 
-        await consumeReply(events, {
-          onThinking: (delta) => patch((m) => ({ ...m, thinking: (m.thinking ?? '') + delta })),
-          onThinkingDone: (elapsedMs) => patch((m) => ({ ...m, thinkingMs: elapsedMs })),
-          onText: (delta) => patch((m) => ({ ...m, content: m.content + delta })),
-          onFailure: (message) => patch((m) => ({ ...m, content: message })),
-          onCompacted: (before, after) =>
-            patch((m) => ({
-              ...m,
-              compacted: after === undefined ? { before } : { before, after }
-            })),
-          // Rows appear as the model asks for them, so a slow read shows up as
-          // work in progress rather than as a reply that has stopped moving.
-          onToolCalls: (calls) =>
-            patch((m) => ({ ...m, tools: [...(m.tools ?? []), ...calls.map(startToolRun)] })),
-          onToolResult: (callId, result, isError, details, images) =>
-            patch((m) => ({
-              ...m,
-              tools: applyToolResult(m.tools ?? [], callId, result, isError, details, images)
-            })),
-          onDone: (report) => {
-            stopReason = report.stopReason
-          }
-        })
-
-        // An empty bubble reads as a bug; say what happened instead. A stopped
-        // turn is its own case: nothing was answered because nothing was asked
-        // to finish.
-        patch((m) => {
-          if (m.content !== '') return m
-          return { ...m, content: stopReason === 'aborted' ? '(stopped)' : '(empty reply)' }
-        })
+        await consumeWork(events, patch)
       } catch (error) {
-        patch((m) => ({ ...m, content: describeRpcError(error) }))
+        const at = Date.now()
+        patch(m => finishWork(m, 'interrupted', at, describeRpcError(error)))
       }
     } finally {
       busyRef.current = false
@@ -590,25 +552,16 @@ export function App(): React.JSX.Element {
           </div>
         </header>
 
-        {/* Chat / Content Flow */}
-        <div
-          style={{
-            position: 'relative',
-            flex: 1,
-            display: 'flex',
-            flexDirection: 'column',
-            minHeight: 0
-          }}
-        >
+        <div className="floating-chat" ref={frameRef}>
         <main
           ref={scrollRef}
+          className="floating-chat-scroll"
           onScroll={handleScroll}
           style={{
             flex: 1,
             display: 'flex',
             flexDirection: 'column',
-            overflowY: 'auto',
-            padding: '0 16px'
+            overflowY: 'auto'
           }}
         >
           {messages.length === 0 ? (
@@ -683,31 +636,14 @@ export function App(): React.JSX.Element {
                     {/* Assistant turns are markdown. User text is left exactly as
                         typed, so a stray asterisk is not silently emphasis. */}
                     {m.role === 'assistant' ? (
-                      <>
-                        {m.compacted !== undefined ? (
-                          <CompactionNotice
-                            tokensBefore={m.compacted.before}
-                            tokensAfter={m.compacted.after}
-                            /* Still working until the answer starts, which is
-                               when the label stops sweeping. */
-                            isStreaming={m.id === activeReplyId && m.content === ''}
-                          />
-                        ) : null}
-                        {m.thinking !== undefined && m.thinking !== '' ? (
-                          <ThinkingBlock
-                            thinking={m.thinking}
-                            isStreaming={m.id === activeReplyId && m.thinkingMs === undefined}
-                            durationMs={m.thinkingMs}
-                          />
-                        ) : null}
-                        {/* Before the answer, because that is the order they
-                            happened in: the model read and edited first, then
-                            said what it found. */}
-                        <ToolRunList runs={m.tools ?? []} />
-                        {/* Nothing until text arrives, so an answer that has not
-                            started leaves no gap under the reasoning. */}
-                        {m.content === '' ? null : <Markdown>{m.content}</Markdown>}
-                      </>
+                      <WorkingSection message={m} active={m.id === activeReplyId}
+                        onExpandedChange={(expanded, blockKey) => {
+                          if (activeSessionId === undefined) return
+                          updateMessage(activeSessionId, m.id, previous => previous.work === undefined
+                            ? { ...previous, workExpanded: expanded }
+                            : { ...previous, work: { ...previous.work, ...(blockKey === undefined ? { expanded }
+                              : { expandedBlocks: { ...previous.work.expandedBlocks, [blockKey]: expanded } }) } })
+                        }} />
                     ) : (
                       <>
                         {/* Above the text, in the order the message reads: the
@@ -735,10 +671,8 @@ export function App(): React.JSX.Element {
           )}
         </main>
         <JumpToLatest visible={!isPinned} onClick={() => jumpToBottom()} />
-        </div>
 
-        {/* ChatGPT Composer Footer */}
-        <div style={{ flexShrink: 0, width: '100%' }}>
+        <div className="floating-composer" ref={footerRef}>
           <QueuedMessages
             messages={queuedSends}
             onDismiss={handleDismissQueued}
@@ -756,6 +690,7 @@ export function App(): React.JSX.Element {
             onSelectThinkingLevel={(level) => updateSetting('thinkingLevel', level)}
             {...(providerName !== undefined ? { providerName } : {})}
           />
+        </div>
         </div>
       </div>
 

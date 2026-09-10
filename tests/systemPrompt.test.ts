@@ -43,8 +43,17 @@ describe('withSystemPrompt', () => {
   })
 
   it('states the limits honestly, so the model does not promise what it cannot do', () => {
-    expect(SYSTEM_PROMPT).toContain('no filesystem access')
-    expect(SYSTEM_PROMPT).toContain('no shell')
+    expect(SYSTEM_PROMPT).toContain('compute is the only callable tool')
+    expect(SYSTEM_PROMPT).toContain('When no tool is supplied')
+  })
+
+  it('includes concise prose guidance without applying it to code or quotations', () => {
+    const prompt = withSystemPrompt([{ role: 'user' as const, content: 'hi' }])[0]!.content
+    expect(prompt).toContain('Write plainly and directly.')
+    expect(prompt).toContain('Sound natural and conversational, not scripted or corporate.')
+    expect(prompt).toContain('Lead with the point, keep sentences easy to follow, and explain unfamiliar jargon when needed.')
+    expect(prompt).toContain('Keep technical terms precise.')
+    expect(prompt).toContain('Apply these style rules to prose, not code or quoted text.')
   })
 
   it('carries no directory when none was given', () => {

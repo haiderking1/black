@@ -1,16 +1,14 @@
-import { editTool } from './edit'
-import { readTool } from './read'
+import { computeTool } from './compute/tool/adapter'
 import type { Tool } from './types'
-import { writeTool } from './write'
 
 /**
  * The tools a run gets.
  *
  * Named as a set rather than assembled at each call site, so the list the model
- * is offered and the list that can actually run cannot drift apart. shell is
- * deliberately absent: this client does not offer it.
+ * is offered and the list that can actually run cannot drift apart. Provider
+ * methods are available only inside compute plans, not as separate tools.
  */
-export const TOOLS: readonly Tool[] = [readTool, writeTool, editTool]
+export const TOOLS: readonly Tool[] = [computeTool]
 
 export function toolByName(name: string): Tool | undefined {
   return TOOLS.find((tool) => tool.name === name)

@@ -1,0 +1,32 @@
+.floating-chat {
+  position: relative;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  --composer-inset: 110px;
+}
+
+.floating-chat-scroll {
+  padding: 0 16px calc(var(--composer-inset) + 16px);
+  scroll-padding-bottom: calc(var(--composer-inset) + 16px);
+}
+
+.floating-composer {
+  position: absolute;
+  inset: auto 0 0;
+  z-index: 4;
+  background: transparent;
+  pointer-events: none;
+}
+
+/* Empty space around the capsule still belongs to the transcript. */
+.floating-composer .composer-capsule,
+.floating-composer .queued-card,
+.floating-composer .slash-card {
+  pointer-events: auto;
+}
+
+.floating-chat > .jump-to-latest {
+  bottom: calc(var(--composer-inset) + 8px);
+}

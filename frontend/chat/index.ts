@@ -2,7 +2,7 @@ export { createMessage } from './types'
 export type { Message, MessageRole } from './types'
 export {
   applyToolResult,
-  describeToolRun,
+  readToolArguments,
   finishToolRun,
   imageDataUrl,
   isRunning,

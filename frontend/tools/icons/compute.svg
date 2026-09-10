@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64" fill="none">
+  <defs>
+    <linearGradient id="tile" x1="10" y1="2" x2="49" y2="64" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#343637"/><stop offset=".52" stop-color="#1b1d1e"/><stop offset="1" stop-color="#0c0d0e"/>
+    </linearGradient>
+    <linearGradient id="metal" x1="39" y1="11" x2="23" y2="54" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#c0c1c2"/><stop offset=".22" stop-color="#8a8c8d"/><stop offset=".53" stop-color="#4b4e50"/><stop offset="1" stop-color="#646769"/>
+    </linearGradient>
+    <linearGradient id="edge" x1="29" y1="10" x2="35" y2="54" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#ededed"/><stop offset=".42" stop-color="#777a7c"/><stop offset="1" stop-color="#303334"/>
+    </linearGradient>
+    <linearGradient id="core" x1="36" y1="24" x2="30" y2="42" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#b7b9ba"/><stop offset=".3" stop-color="#777a7c"/><stop offset="1" stop-color="#373b3d"/>
+    </linearGradient>
+    <filter id="shadow" x="-30%" y="-20%" width="160%" height="160%">
+      <feDropShadow dx="0" dy="1.8" stdDeviation="1.5" flood-color="#000" flood-opacity=".85"/>
+    </filter>
+  </defs>
+  <rect x=".75" y=".75" width="62.5" height="62.5" rx="15" fill="url(#tile)" stroke="#454748" stroke-width=".7"/>
+  <g filter="url(#shadow)" stroke="url(#edge)" stroke-width=".6">
+    <path d="M47 10.3H28.6C18.9 10.3 12.5 16.6 12.5 25.4V38.6C12.5 48 18.3 52.4 27.6 52.4H46.4C49.7 52.4 50.2 50.4 50.2 47.5V46.5C50.2 45.3 49.6 44.9 48.2 44.9H28.4C23.1 44.9 20.8 42.2 20.8 37.7V25.8C20.8 20.7 23.7 17.8 28.8 17.8H48.5C49.8 17.8 50.2 17.4 50.2 16V14.5C50.2 11.6 49.2 10.3 47 10.3Z" fill="url(#metal)"/>
+    <rect x="26.2" y="24.1" width="16" height="15.6" rx="3.5" fill="url(#core)"/>
+  </g>
+</svg>

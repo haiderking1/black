@@ -1,3 +1,6 @@
+import type { ChatStreamEvent } from '../contracts/chat'
+import { consumeWork } from '../frontend/working/consume'
+import { fresh, rounds } from './working/fixtures'
 import { describe, expect, it } from 'bun:test'
 import * as Effect from 'effect/Effect'
 import * as Stream from 'effect/Stream'
@@ -20,7 +23,7 @@ import { connect } from '../frontend/rpc/client'
  * request, so every call hung with nothing on the wire.
  */
 
-function stubHandlers() {
+function stubHandlers(events: readonly ChatStreamEvent[] = [{ type: 'text', text: 'stub ' }, { type: 'done', stopReason: 'stop' }]) {
   return ServerRpcs.toLayer({
     // A non-empty listing on purpose: an empty array decodes fine whatever the
     // entry schema is, which is how a class schema slipped through unnoticed.
@@ -65,7 +68,7 @@ function stubHandlers() {
         tokensAfter: 0
       }),
     [METHODS.stream]: () =>
-      Stream.make({ type: 'text' as const, text: 'stub ' }, { type: 'done' as const, stopReason: 'stop' }),
+      Stream.fromIterable(events),
     [METHODS.complete]: () =>
       Effect.succeed({
         text: 'stub reply',
@@ -124,6 +127,24 @@ function probeSocket(url: string): Promise<'open' | 'closed' | 'timeout'> {
 }
 
 describe('rpc wire', () => {
+  it('preserves ordered rounds and checkpoint metadata through the real socket', async () => {
+    const server = await startServer({ port: await findFreePort(), handlers: stubHandlers([
+      { type: 'compacted', tokensBefore: 100, tokensAfter: 50, summary: 'checkpoint', firstKeptMessageId: 'user' }, ...rounds
+    ]) })
+    const connection = await connect({ url: urlFor(server, server.endpoint.token) })
+    try {
+      let message = fresh()
+      await consumeWork(connection.client[METHODS.stream]({ providerId: 'fixture', model: 'offline', messages: [] }),
+        update => { message = update(message) }, () => 2000)
+      expect(message.content).toBe('Final answer.')
+      expect(message.work?.parts.map(p => p.round)).toEqual([0, 0, 0, 0, 1, 1, 1, 2, 2])
+      expect(message.compacted).toMatchObject({ summary: 'checkpoint', firstKeptMessageId: 'user' })
+    } finally {
+      await connection.dispose()
+      await server.stop()
+    }
+  })
+
   it('answers a call over a real socket', async () => {
     const server = await startServer({ port: await findFreePort(), handlers: stubHandlers() })
     const connection = await connect({ url: urlFor(server, server.endpoint.token) })

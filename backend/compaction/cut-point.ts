@@ -52,6 +52,8 @@ function findValidCutPoints(entries: SessionEntry[], startIndex: number, endInde
   for (let i = startIndex; i < endIndex; i++) {
     const entry = entries[i]
     if (!isPresent(entry) || entry.type === 'compaction') continue
+    const previous = entries[i - 1]
+    if (entry.type === 'message' && entry.turnId !== undefined && previous?.type === 'message' && previous.turnId === entry.turnId) continue
     if (sessionEntryToContextMessages(entry).some(isCutPointMessage)) cutPoints.push(i)
   }
   return cutPoints

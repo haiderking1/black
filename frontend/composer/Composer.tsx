@@ -253,6 +253,9 @@ export function Composer({
               with the control that shapes it, at the opposite end from the one
               that fires it. */}
           <div className="composer-actions-left">
+            {/* First in the row and flush with the left edge, so it lines up
+                under the thumbnails it added. */}
+            <AttachButton onFiles={(files) => void addFiles(files)} disabled={disabled} />
             <ModelPicker
               models={models}
               selectedModelId={activeModelId}
@@ -276,7 +279,6 @@ export function Composer({
               tokens={contextUsage?.tokens ?? null}
               contextWindow={contextUsage?.window ?? null}
             />
-            <AttachButton onFiles={(files) => void addFiles(files)} disabled={disabled} />
             <SendButton
               streaming={streaming}
               disabled={!canSend}

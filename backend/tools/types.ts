@@ -29,6 +29,7 @@ export interface ToolContext {
 }
 
 export interface ToolOutcome {
+  isError?: boolean
   /** The text that becomes the tool result the model reads on its next turn. */
   content: string
   /**

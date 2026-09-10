@@ -5,6 +5,8 @@ import { startServer, type ServerHandle } from './server/host'
 import { registerServerIpc } from './server/ipc'
 import { createWindow } from './window'
 
+import { discoverMcpTools } from './tools/compute/providers/mcp/discovery'
+
 nativeTheme.themeSource = 'dark'
 
 const gotSingleInstanceLock = app.requestSingleInstanceLock()
@@ -38,6 +40,7 @@ if (!gotSingleInstanceLock) {
   })
 
   app.whenReady().then(async () => {
+    void discoverMcpTools().catch(error => console.warn("Compute web discovery unavailable:", error.message))
     // The server binds before the window loads, so the renderer's first
     // connection attempt has something to reach. A failure is reported rather
     // than thrown: the window still opens and says the backend is unavailable.

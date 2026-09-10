@@ -50,6 +50,8 @@ export const ChatMessage = Schema.Struct({
    * changed between turns would make a cut unresolvable.
    */
   id: Schema.optional(Schema.String),
+  /** UI turn owning expanded provider rounds; compaction keeps it together. */
+  turnId: Schema.optional(Schema.String),
   role: ChatRole,
   content: Schema.String,
   /** Opaque reasoning replay payload from a previous assistant turn. */
@@ -170,6 +172,9 @@ export const ChatStreamEvent = Schema.Struct({
     'tool_calls',
     'tool_result',
   ]),
+  /** Explicit provider request within this assistant turn. */
+  round: Schema.optional(Schema.Int),
+  thinkingSignature: Schema.optional(Schema.String),
   /** Present for 'text' and 'thinking'. */
   text: Schema.optional(Schema.String),
   /** Present for 'tool_calls': every call the model asked for this round. */
@@ -199,6 +204,9 @@ export const ChatStreamEvent = Schema.Struct({
   /** Present for 'compacted': what the transcript measured before and after. */
   tokensBefore: Schema.optional(Schema.Int),
   tokensAfter: Schema.optional(Schema.Int),
+  /** Automatic checkpoint, applied to later provider history without erasing the UI. */
+  summary: Schema.optional(Schema.String),
+  firstKeptMessageId: Schema.optional(Schema.String),
   /** Present for 'error'. */
   message: Schema.optional(Schema.String),
 })

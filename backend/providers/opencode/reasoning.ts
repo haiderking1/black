@@ -125,3 +125,28 @@ function signatureOf(candidate: Record<string, unknown>): string | undefined {
     return undefined
   }
 }
+
+/** Content arrays have an order; sibling channels do not. Reasoning siblings precede content. */
+export function extractStreamParts(message: unknown): Array<{ type: 'text' | 'thinking'; text: string; thinkingSignature?: string }> {
+  if (typeof message === 'string') return message ? [{ type: 'text', text: message }] : []
+  if (typeof message !== 'object' || message === null) return []
+  const candidate = message as Record<string, unknown>
+  const parts: Array<{ type: 'text' | 'thinking'; text: string; thinkingSignature?: string }> = []
+  for (const field of REASONING_TEXT_FIELDS) {
+    const text = asNonEmptyString(candidate[field])
+    if (text !== undefined) { parts.push({ type: 'thinking', text }); break }
+  }
+  if (typeof candidate.thinking === 'string' && candidate.thinking) parts.push({ type: 'thinking', text: candidate.thinking })
+  if (typeof candidate.content === 'string' && candidate.content) parts.push({ type: 'text', text: candidate.content })
+  else if (Array.isArray(candidate.content)) {
+    for (const block of candidate.content) {
+      const read = readBlock(block)
+      if (read.thinking !== undefined || read.signature !== undefined) parts.push({ type: 'thinking', text: read.thinking ?? '',
+        ...(read.signature === undefined ? {} : { thinkingSignature: read.signature }) })
+      if (read.text !== undefined) parts.push({ type: 'text', text: read.text })
+    }
+  }
+  const signature = signatureOf(candidate)
+  if (signature !== undefined) parts.push({ type: 'thinking', text: '', thinkingSignature: signature })
+  return parts
+}

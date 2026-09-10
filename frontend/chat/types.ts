@@ -1,5 +1,6 @@
 import type { ImageAttachment } from '../../contracts/chat'
 import type { ToolRun } from './toolRun'
+import type { TurnWork } from '../working/model'
 
 export type MessageRole = 'user' | 'assistant'
 
@@ -8,6 +9,9 @@ export interface Message {
   role: MessageRole
   content: string
   timestamp: string
+  work?: TurnWork
+  /** Disclosure choice for pre-part-model saved turns. */
+  workExpanded?: boolean
   /**
    * The model's reasoning, kept apart from the answer.
    *
@@ -23,7 +27,7 @@ export interface Message {
    * Stored rather than transient so the explanation is still there when the
    * reader scrolls back to the point where the model stopped remembering.
    */
-  compacted?: { before: number; after?: number }
+  compacted?: { before: number; after?: number; summary?: string; firstKeptMessageId?: string }
   /**
    * Tools the model asked for during this turn, in the order it asked.
    *

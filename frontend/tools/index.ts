@@ -1,2 +1,3 @@
 export { DiffView } from './DiffView'
-export { ToolRow, ToolRunList } from './ToolRow'
+export { ToolRow } from './ToolRow'
+export { ToolRunList } from './ToolRunList'
