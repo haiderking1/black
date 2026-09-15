@@ -12,6 +12,7 @@ import type { ChatStreamEvent } from '../../../contracts/chat'
 import '../../../frontend/index.css'
 import '../../../frontend/shimmer.css'
 import { runScenarios } from './scenarios'
+import { runStreamingScenarios } from './streaming/scenarios'
 
 export interface BrowserHarness {
   patch(event: ChatStreamEvent): void
@@ -33,7 +34,7 @@ function Fixture() {
     current: () => message,
     remount: () => flushSync(() => { setMessage(m => hydrateMessage(JSON.parse(JSON.stringify(m)))); setKey(k => k + 1) }),
     jump: () => jumpToBottom('auto'),
-    scenarios: runScenarios
+    scenarios: async () => [...await runScenarios(), ...await runStreamingScenarios()]
   }
   return <PreviewProvider>
     <main id="scroll" ref={scrollRef} onScroll={handleScroll} style={{ height: 480, overflowY: 'auto', width: 'min(800px, 100%)', margin: '0 auto', padding: 16 }}>

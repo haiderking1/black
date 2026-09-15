@@ -7,6 +7,7 @@
  */
 
 import type { FetchLike, Provider } from '../types'
+import { verifiedThinkingRequest } from '../thinking/validate'
 import { createCatalog, type Catalog } from './catalog'
 import { createChatClient } from './client'
 import { createStreamingClient } from './stream'
@@ -74,7 +75,9 @@ export function createOpenCodeProvider(options: OpenCodeProviderOptions): OpenCo
     thinkingFor: (modelId) => limits.thinkingFor(modelId),
     supportsImages: (modelId) => limits.imagesFor(modelId),
     supportsToolCalls: (modelId) => limits.toolsFor(modelId),
-    chat: (request) => client.chat(request),
-    streamChat: (request) => streaming.stream(request),
+    chat: async (request) => client.chat(await verifiedThinkingRequest(request, model => limits.thinkingFor(model))),
+    streamChat: async function* (request) {
+      yield* streaming.stream(await verifiedThinkingRequest(request, model => limits.thinkingFor(model)))
+    },
   }
 }

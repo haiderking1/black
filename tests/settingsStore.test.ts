@@ -26,6 +26,7 @@ describe('settings persistence', () => {
     const storage = createMemoryStorage()
     const selectedSettings = {
       theme: 'gruvbox' as const,
+      workflow: 'standard' as const,
       openSidebarOnLaunch: false,
       reduceMotion: true,
       selectedModelId: 'glm-5.3',
@@ -49,6 +50,7 @@ describe('settings persistence', () => {
 
     expect(parsed).toEqual({
       theme: 'dark',
+      workflow: 'compute',
       openSidebarOnLaunch: DEFAULT_SETTINGS.openSidebarOnLaunch,
       reduceMotion: true,
       selectedModelId: 'glm-5.3',

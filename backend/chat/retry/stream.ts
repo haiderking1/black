@@ -1,4 +1,4 @@
-import { retryDelayMs } from './reference/retry'
+import { retryDelayMs } from './policy'
 import { setTimeout as delay } from 'node:timers/promises'
 import { modelErrorEvent, retryableModelError } from './classify'
 import type { ChatStreamEvent } from '../../providers/types'

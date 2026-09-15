@@ -5,6 +5,7 @@ export interface ToolRowLabel {
   verb: string
   name: string
   note?: string
+  command?: string
   added?: number
   removed?: number
 }
@@ -34,6 +35,16 @@ export function rowLabel(run: ToolRun): ToolRowLabel {
       if (typeof args?.title === 'string' && args.title.trim()) return { verb: args.title.trim(), name: '' }
     } catch { /* Arguments can still be streaming. */ }
     return { verb: 'Compute', name: '' }
+  }
+  if (run.name === 'bash') {
+    try {
+      const args = JSON.parse(run.args)
+      if (typeof args?.command === 'string') {
+        const compact = args.command.replace(/\s+/g, ' ').trim()
+        return { verb: 'Bash', name: '', command: args.command, note: compact.length > 72 ? compact.slice(0, 71) + '…' : compact }
+      }
+    } catch { /* Arguments can still be streaming. */ }
+    return { verb: 'Bash', name: '' }
   }
   const verb = run.name === 'read' ? 'Read' : run.name === 'write' ? 'Wrote' : run.name === 'edit' ? 'Edited' : run.name
   if (run.path === undefined) {

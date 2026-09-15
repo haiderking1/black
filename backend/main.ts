@@ -4,6 +4,7 @@ import { findFreePort } from './server/port'
 import { startServer, type ServerHandle } from './server/host'
 import { registerServerIpc } from './server/ipc'
 import { createWindow } from './window'
+import { installShellShutdownHandlers, killTrackedChildren } from './tools/bash/processes'
 
 import { discoverMcpTools } from './tools/compute/providers/mcp/discovery'
 
@@ -13,6 +14,7 @@ const gotSingleInstanceLock = app.requestSingleInstanceLock()
 if (!gotSingleInstanceLock) {
   app.quit()
 } else {
+  installShellShutdownHandlers()
   let mainWindow: BrowserWindow | null = null
   let server: ServerHandle | null = null
 
@@ -74,6 +76,7 @@ if (!gotSingleInstanceLock) {
   // The port is released on the way out, so a restart is not blocked by a
   // lingering listener.
   app.on('before-quit', (event) => {
+    killTrackedChildren()
     if (server === null) return
     const pending = server
     server = null

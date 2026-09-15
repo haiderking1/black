@@ -1,6 +1,7 @@
 import React from 'react'
 import { RotateCcw } from 'lucide-react'
 import type { AppSettings } from './types'
+import { WorkflowSettings } from './workflow/WorkflowSettings'
 
 interface GeneralSettingsProps {
   settings: AppSettings
@@ -41,6 +42,8 @@ export function GeneralSettings({
         <h1>General</h1>
         <p>Control how Black behaves on this device.</p>
       </header>
+
+      <WorkflowSettings value={settings.workflow} onChange={value => onChange('workflow', value)} />
 
       <section className="settings-section" aria-labelledby="behavior-heading">
         <div className="settings-section-heading">

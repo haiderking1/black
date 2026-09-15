@@ -25,6 +25,8 @@ import { connect } from '../frontend/rpc/client'
 
 function stubHandlers(events: readonly ChatStreamEvent[] = [{ type: 'text', text: 'stub ' }, { type: 'done', stopReason: 'stop' }]) {
   return ServerRpcs.toLayer({
+    [METHODS.listInstructions]: () => Effect.succeed({ files: [], globalExcluded: false }),
+    [METHODS.saveInstruction]: () => Effect.succeed({ files: [], globalExcluded: false }),
     // A non-empty listing on purpose: an empty array decodes fine whatever the
     // entry schema is, which is how a class schema slipped through unnoticed.
     [METHODS.listDirectory]: () =>
@@ -68,7 +70,9 @@ function stubHandlers(events: readonly ChatStreamEvent[] = [{ type: 'text', text
         tokensAfter: 0
       }),
     [METHODS.stream]: () =>
-      Stream.fromIterable(events),
+      Stream.fromAsyncIterable((async function* () { yield* events })(), error => { throw error }).pipe(
+        Stream.buffer({ capacity: 64 })
+      ),
     [METHODS.title]: () => Effect.succeed({ title: 'Stub title' }),
     [METHODS.complete]: () =>
       Effect.succeed({
@@ -128,6 +132,22 @@ function probeSocket(url: string): Promise<'open' | 'closed' | 'timeout'> {
 }
 
 describe('rpc wire', () => {
+  it('delivers a buffered burst without dropping or reordering events', async () => {
+    const events: ChatStreamEvent[] = [
+      ...Array.from({ length: 1024 }, (_, index): ChatStreamEvent => ({ type: 'text', text: String(index) + ',', round: 0 })),
+      { type: 'done', stopReason: 'stop' },
+    ]
+    const server = await startServer({ port: await findFreePort(), handlers: stubHandlers(events) })
+    const connection = await connect({ url: urlFor(server, server.endpoint.token) })
+    try {
+      const received = await Effect.runPromise(Stream.runCollect(connection.client[METHODS.stream]({ providerId: 'fixture', model: 'offline', messages: [] })))
+      expect([...received]).toEqual(events)
+    } finally {
+      await connection.dispose()
+      await server.stop()
+    }
+  })
+
   it('preserves ordered rounds and checkpoint metadata through the real socket', async () => {
     const server = await startServer({ port: await findFreePort(), handlers: stubHandlers([
       { type: 'compacted', tokensBefore: 100, tokensAfter: 50, summary: 'checkpoint', firstKeptMessageId: 'user' }, ...rounds

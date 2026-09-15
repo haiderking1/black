@@ -1,4 +1,3 @@
-import { THINKING_LEVELS } from '../../contracts/providers'
 import type { ModelInfo } from '../../contracts/providers'
 
 /**
@@ -50,18 +49,14 @@ function labelFor(value: string): string {
 /** The levels offered when a model is not in the catalog and nothing is known. */
 export function fallbackChoices(): ThinkingChoice[] {
   const defaultChoice: ThinkingChoice = { value: THINKING_DEFAULT, label: 'Default' }
-  const levels = THINKING_LEVELS.filter((value) => value !== 'off').map((value) => ({
-    value,
-    label: labelFor(value),
-  }))
-  return [defaultChoice, ...levels]
+  return [defaultChoice]
 }
 
 export function thinkingOptionsFor(model: ModelInfo | null): ThinkingOptions {
   const defaultChoice: ThinkingChoice = { value: THINKING_DEFAULT, label: 'Default' }
 
   if (model === null) {
-    return { choices: fallbackChoices(), disabled: false, note: null }
+    return { choices: fallbackChoices(), disabled: true, note: 'Supported thinking levels are unavailable. Using the model default.' }
   }
 
   switch (model.thinkingKind) {
@@ -97,23 +92,21 @@ export function thinkingOptionsFor(model: ModelInfo | null): ThinkingOptions {
       return {
         choices: [defaultChoice],
         disabled: true,
-        note: model.id + ' reasons, but exposes no level to set.'
+        note: model.id + ' has no published effort levels to set.'
       }
 
     case 'unknown':
-      // Unlisted models: the real support is not published anywhere we can read,
-      // so the full set is offered with a warning rather than silently blocked.
       return {
         choices: fallbackChoices(),
-        disabled: false,
-        note: 'Thinking support is unknown for ' + model.id + '. The value is sent unchecked.'
+        disabled: true,
+        note: 'Supported thinking levels are unknown for ' + model.id + '. Using the model default.'
       }
 
     default:
       if (model.reasoning === false) {
         return { choices: [defaultChoice], disabled: true, note: model.id + ' does not reason.' }
       }
-      return { choices: fallbackChoices(), disabled: false, note: null }
+      return { choices: fallbackChoices(), disabled: true, note: 'Supported thinking levels are unavailable. Using the model default.' }
   }
 }
 

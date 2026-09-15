@@ -1,6 +1,7 @@
 import * as Schema from 'effect/Schema'
 
 import { THINKING_LEVELS } from './providers'
+import { Workflow } from './workflow'
 
 /**
  * Chat contracts.
@@ -105,6 +106,8 @@ export const ChatCompleteInput = Schema.Struct({
    * its system prompt, so it stops guessing where it is running.
    */
   workingDirectory: Schema.optional(Schema.String),
+  /** Tool set captured when the turn starts. Older clients default to compute. */
+  workflow: Schema.optional(Workflow),
 })
 export type ChatCompleteInput = typeof ChatCompleteInput.Type
 

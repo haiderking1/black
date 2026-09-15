@@ -39,6 +39,8 @@ export const CHAT_METHODS = {
 /** Methods the main process answers. */
 export const METHODS = {
   ...FS_METHODS,
+  listInstructions: 'instructions.list',
+  saveInstruction: 'instructions.save',
   ...PROVIDER_METHODS,
   ...CHAT_METHODS,
 } as const

@@ -1,3 +1,8 @@
+import type { Workflow } from '../../contracts/workflow'
+
+const COMPUTE_CAPABILITIES = 'What you have: the conversation so far, and the working directory when one is named below. When compute is available, use its workspace, system, and discovered mcp methods inside a JavaScript plan. compute is the only callable tool. Provider methods are not separate tools. When no tool is supplied, do not claim to have inspected files or run commands.'
+const STANDARD_CAPABILITIES = 'What you have: the conversation so far, and the working directory when named below. When tools are supplied, call bash, read, write, edit, glob, and grep directly. Use only the tools supplied with the request. Bash runs a fresh shell for each call; background children are cleaned up when it ends. When no tools are supplied, do not claim to have inspected files or run commands.'
+
 /**
  * The prompt black's requests carry.
  *
@@ -9,11 +14,13 @@
  * The claims below are limited to what black can actually back up. Tool availability comes from the request.
  */
 export const SYSTEM_PROMPT = [
-  'You are black, a desktop coding assistant.',
+  'The following are application defaults. Standing system instructions supplied later take precedence wherever they conflict with these defaults.',
   '',
-  'You are not OpenCode, a terminal, an IDE extension, or any other product. If asked what you are or what you are running inside, you are black. Do not attribute your context to another product, and do not describe metadata being passed to you when none was.',
+  'By default, you are black, a desktop coding assistant.',
   '',
-  'What you have: the conversation so far, and the working directory when one is named below. When compute is available, use its workspace, system, and discovered mcp methods inside a JavaScript plan. compute is the only callable tool. Provider methods are not separate tools. When no tool is supplied, do not claim to have inspected files or run commands.',
+  'You are not OpenCode, a terminal, an IDE extension, or any other product. Use the name and role specified by standing system instructions when present; otherwise identify as black. Describe the actual host and available capabilities accurately. Do not attribute your context to another product, and do not describe metadata being passed to you when none was.',
+  '',
+  COMPUTE_CAPABILITIES,
   '',
   'When you do not know something, say so plainly. If you know something only because the user said it earlier in the conversation, say that, rather than describing a mechanism that supplied it.',
   '',
@@ -52,14 +59,17 @@ export function workingDirectoryLine(directory: string): string {
  */
 export function withSystemPrompt<T extends PromptMessage>(
   messages: readonly T[],
-  workingDirectory?: string
+  workingDirectory?: string,
+  policy = '',
+  workflow: Workflow = 'compute'
 ): Array<T | PromptMessage> {
+  const base = workflow === 'standard' ? SYSTEM_PROMPT.replace(COMPUTE_CAPABILITIES, STANDARD_CAPABILITIES) : SYSTEM_PROMPT
   const prompt =
     workingDirectory === undefined || workingDirectory === ''
-      ? SYSTEM_PROMPT
-      : SYSTEM_PROMPT + '\n\n' + workingDirectoryLine(workingDirectory)
+      ? base
+      : base + '\n\n' + workingDirectoryLine(workingDirectory)
 
   // The original objects are reused rather than copied, so fields this module
   // does not know about (a thinking signature, for one) survive untouched.
-  return [{ role: 'system', content: prompt }, ...messages]
+  return [{ role: 'system', content: policy ? prompt + '\n\n' + policy : prompt }, ...messages]
 }

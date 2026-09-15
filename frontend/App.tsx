@@ -42,6 +42,8 @@ type AppView = 'chat' | 'settings'
 
 export function App(): React.JSX.Element {
   const { settings, updateSetting, resetSettings } = useSettings()
+  const workflowRef = useRef(settings.workflow)
+  workflowRef.current = settings.workflow
   const [sidebarOpen, setSidebarOpen] = useState(() => settings.openSidebarOnLaunch)
   const [spotlightOpen, setSpotlightOpen] = useState(false)
   const [appView, setAppView] = useState<AppView>('chat')
@@ -98,7 +100,8 @@ export function App(): React.JSX.Element {
     updateMessage,
     replaceMessages,
     deleteMessage,
-    deleteConversations
+    deleteConversations,
+    flushConversations
   } = useConversations()
 
   // Follows new content, and releases the moment the reader scrolls up.
@@ -347,6 +350,8 @@ export function App(): React.JSX.Element {
   /** Runs one turn to completion, then releases whatever waited behind it. */
   const runSend = async (send: QueuedSend): Promise<void> => {
     const threadId = send.sessionId
+    // Capture once, including turns drained by an older queue closure.
+    const workflow = workflowRef.current
     const model = send.options?.model
     const stream = client
 
@@ -398,6 +403,7 @@ export function App(): React.JSX.Element {
             }
           ],
           requestId: send.requestId,
+          workflow,
           // The conversation id doubles as the provider's routing key, so a whole
           // thread stays on one upstream.
           sessionId: send.sessionId,
@@ -417,6 +423,7 @@ export function App(): React.JSX.Element {
         patch(m => finishWork(m, 'interrupted', at, describeRpcError(error)))
       }
     } finally {
+      flushConversations()
       busyRef.current = false
       setActiveReplyId(null)
       setActiveRequestId(null)
@@ -484,6 +491,7 @@ export function App(): React.JSX.Element {
   if (appView === 'settings') {
     return (
       <SettingsPage
+        projects={projects}
         settings={settings}
         onChange={updateSetting}
         onReset={resetSettings}

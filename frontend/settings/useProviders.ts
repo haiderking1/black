@@ -3,6 +3,7 @@ import * as Effect from 'effect/Effect'
 
 import type { ProviderStatus } from '../../contracts/providers'
 import { describeRpcError, useRpcClient } from '../rpc'
+import { invalidateModelCache } from '../composer/models/cache'
 
 export interface UseProvidersResult {
   /** Readonly because the decoded wire value is readonly. */
@@ -77,6 +78,7 @@ export function useProviders(): UseProvidersResult {
   /** Replace one row with the status the server returns after a change. */
   const applyStatus = useCallback(
     (status: ProviderStatus): void => {
+      invalidateModelCache(status.id)
       setProviders(cachedProviders.map((entry) => (entry.id === status.id ? status : entry)))
     },
     [setProviders],

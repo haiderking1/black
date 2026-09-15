@@ -15,6 +15,7 @@ export interface ContextUsage {
  * enough that the gauge keeps up with the turn.
  */
 const SETTLE_MS = 400
+const EMPTY_MESSAGES: readonly Message[] = []
 
 /**
  * How full the model's context is.
@@ -35,11 +36,7 @@ export function useContextUsage(
 ): ContextUsage | null {
   const client = useRpcClient()
   const [usage, setUsage] = useState<ContextUsage | null>(null)
-
-  // Identity of the transcript, so the effect runs when it changes rather than
-  // on every render.
-  const history = conversationHistory(messages)
-  const signature = JSON.stringify(history)
+  const settledInput = messages.length === 0 ? EMPTY_MESSAGES : messages
 
   useEffect(() => {
     if (client === null || model === null || model === '') return
@@ -53,7 +50,7 @@ export function useContextUsage(
             client['chat.contextUsage']({
               providerId,
               model,
-              messages: history
+              messages: conversationHistory(settledInput)
             })
           )
 
@@ -76,9 +73,8 @@ export function useContextUsage(
       cancelled = true
       clearTimeout(timer)
     }
-    // `messages` is read through the signature, which changes with its contents.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [client, providerId, model, signature])
+    // Build history only after settling, not during every streamed render.
+  }, [client, providerId, model, settledInput])
 
   return usage
 }

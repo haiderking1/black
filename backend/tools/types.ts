@@ -1,3 +1,5 @@
+import type { Workflow } from '../../contracts/workflow'
+
 /** A JSON Schema object, shaped the way the chat completions API expects it. */
 export interface JsonSchema {
   type: 'object'
@@ -18,6 +20,7 @@ export interface ToolContext {
   /** The directory relative paths resolve against. */
   cwd: string
   signal?: AbortSignal
+  workflow?: Workflow
   /**
    * Whether the model being asked can be shown an image.
    *

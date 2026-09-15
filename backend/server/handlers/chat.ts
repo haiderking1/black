@@ -1,3 +1,4 @@
+import type { Workflow } from '../../../contracts/workflow'
 import * as Effect from 'effect/Effect'
 import { generateSessionTitle } from '../../sessions/title/generate'
 import * as Stream from 'effect/Stream'
@@ -9,7 +10,10 @@ import { abortRequest, beginRequest, endRequest } from '../../chat/inflight'
 import { fitContext, measureContext } from '../../chat/fitContext'
 import type { TranscriptMessage } from '../../chat/transcript'
 import { withSystemPrompt } from '../../chat/systemPrompt'
+import { loadAgentInstructions } from '../../instructions/agents/load'
+import { agentPolicy } from '../../instructions/agents/policy'
 import { runToolLoop } from '../../chat/toolLoop'
+import { abortableEvents } from '../../chat/streaming/lifecycle'
 import { wireTranscript, providerHistory } from '../../chat/history'
 import { toolDefinitions } from '../../tools/registry'
 import type { ChatImage, ChatMessage, ChatStreamEvent as ProviderStreamEvent } from '../../providers/types'
@@ -263,9 +267,11 @@ export function chatHandlers() {
       sessionId?: string
       requestId?: string
       workingDirectory?: string
+      workflow?: Workflow
     }) => {
       const resolved = resolveProvider(payload.providerId)
 
+      let activeController: AbortController | undefined
       // One generator either way, so both paths produce the same stream type.
       const events = (async function* (): AsyncGenerator<ChatStreamEvent> {
         if (resolved.provider === null) {
@@ -276,7 +282,8 @@ export function chatHandlers() {
         // Registered before the first byte is asked for, so a cancel that
         // arrives while the connection is still opening finds something to
         // abort rather than nothing.
-        const controller = payload.requestId === undefined ? null : beginRequest(payload.requestId)
+        const controller = payload.requestId === undefined ? new AbortController() : beginRequest(payload.requestId)
+        activeController = controller
 
         try {
           const fitted = await fitRequest(
@@ -288,6 +295,7 @@ export function chatHandlers() {
 
           const provider = resolved.provider
           const workingDirectory = payload.workingDirectory
+          const workflow = payload.workflow ?? 'compute'
 
           // Two things have to hold before a tool is offered at all. There has
           // to be a directory, because a relative path has nothing to resolve
@@ -296,8 +304,6 @@ export function chatHandlers() {
           // fails the request rather than being ignored.
           const canCallTools = await provider.supportsToolCalls(payload.model)
           const acceptsImages = await provider.supportsImages(payload.model)
-          const tools =
-            workingDirectory === undefined || !canCallTools ? undefined : toolDefinitions()
 
           const history = providerHistory(fitted.messages)
 
@@ -309,7 +315,10 @@ export function chatHandlers() {
               : fitted.contextWindow - Math.round(fitted.contextWindow * RESERVE_SHARE)
 
           const streamRound = async function* (round: ChatMessage[]): AsyncGenerator<ProviderStreamEvent> {
-            const prepared = withSystemPrompt(round, workingDirectory)
+            const policy = agentPolicy(await loadAgentInstructions(workingDirectory), workingDirectory)
+            const prepared = withSystemPrompt(round, workingDirectory, policy, workflow)
+            const tools = workingDirectory === undefined || !canCallTools
+              ? undefined : toolDefinitions(policy, workflow)
 
             // Checked before the request rather than after it fails. A round
             // that grew past the window would otherwise be rejected by the
@@ -366,6 +375,7 @@ export function chatHandlers() {
           for await (const event of runToolLoop({
             messages: history,
             cwd: workingDirectory ?? '',
+            workflow,
             stream: streamRound,
             acceptsImages,
             ...(controller !== null ? { signal: controller.signal } : {}),
@@ -388,9 +398,14 @@ export function chatHandlers() {
       // The generator reports failures as events, so a throw escaping it is a
       // bug rather than an expected error. It defects instead of widening the
       // stream's error channel, which the contract declares as never.
-      return Stream.fromAsyncIterable(events, (error: unknown): never => {
+      return Stream.fromAsyncIterable(abortableEvents(events, () => activeController?.abort()), (error: unknown): never => {
         throw error
-      })
+      }).pipe(
+        // Drain available events together instead of waiting for a renderer ACK
+        // after every delta. Bounded backpressure preserves order without drops
+        // or a timer that holds back the first event.
+        Stream.buffer({ capacity: 64 })
+      )
     },
 
     // Forces a checkpoint now, and hands back what should replace the older
@@ -520,6 +535,7 @@ export function chatHandlers() {
       thinkingLevel?: string
       sessionId?: string
       workingDirectory?: string
+      workflow?: Workflow
     }) =>
       Effect.tryPromise({
         try: async () => {
@@ -540,7 +556,9 @@ export function chatHandlers() {
             model: payload.model,
             messages: withSystemPrompt(
               providerHistory(fitted.messages),
-              payload.workingDirectory
+              payload.workingDirectory,
+              agentPolicy(await loadAgentInstructions(payload.workingDirectory), payload.workingDirectory),
+              payload.workflow
             ),
             ...(payload.maxTokens !== undefined ? { maxTokens: payload.maxTokens } : {}),
             ...(payload.thinkingLevel !== undefined ? { reasoningEffort: payload.thinkingLevel } : {}),

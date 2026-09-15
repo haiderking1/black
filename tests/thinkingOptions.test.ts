@@ -3,7 +3,6 @@ import { describe, expect, it } from 'bun:test'
 import type { ModelInfo } from '../contracts/providers'
 import {
   clampThinkingLevel,
-  fallbackChoices,
   thinkingOptionsFor,
   THINKING_DEFAULT,
 } from '../frontend/composer/thinkingOptions'
@@ -55,15 +54,20 @@ describe('thinkingOptionsFor', () => {
     expect(thinkingOptionsFor(plain).disabled).toBe(true)
   })
 
-  it('offers the full set for an unlisted model, with a warning', () => {
+  it('uses only Default for an unlisted model', () => {
     const unknown = model({ id: 'deepseek-flash', thinkingKind: 'unknown' })
-    expect(valuesFor(unknown)).toEqual(fallbackChoices().map((choice) => choice.value))
-    expect(thinkingOptionsFor(unknown).disabled).toBe(false)
+    expect(valuesFor(unknown)).toEqual([THINKING_DEFAULT])
+    expect(thinkingOptionsFor(unknown).disabled).toBe(true)
     expect(thinkingOptionsFor(unknown).note).toContain('unknown')
   })
 
-  it('offers the full set before any model is known', () => {
-    expect(valuesFor(null)).toEqual(fallbackChoices().map((choice) => choice.value))
+  it('uses only Default before any model is known', () => {
+    expect(valuesFor(null)).toEqual([THINKING_DEFAULT])
+  })
+
+  it('uses Default when capability metadata is missing', () => {
+    expect(valuesFor(model())).toEqual([THINKING_DEFAULT])
+    expect(thinkingOptionsFor(model()).disabled).toBe(true)
   })
 
   it('falls back rather than emptying when effort is declared with no values', () => {

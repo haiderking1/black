@@ -1,5 +1,5 @@
 // Adapted from pi-mono packages/ai/src/utils/retry.ts. See LICENSE.
-import type { ChatResult as AssistantMessage } from "../../../providers/types";
+import type { ChatResult as AssistantMessage } from "../../providers/types";
 
 function buildProviderErrorPattern(patterns: readonly string[]): RegExp {
 	return new RegExp(patterns.join("|"), "i");

@@ -1,4 +1,5 @@
-import { toolByName } from '../tools/registry'
+import { toolByName, toolsForWorkflow } from '../tools/registry'
+import type { Workflow } from '../../contracts/workflow'
 import { retryModelStream } from './retry/stream'
 import { parseToolArguments } from '../tools/parseArguments'
 import type { ChatImage, ChatMessage, ChatStreamEvent, ChatUsage, ToolCall } from '../providers/types'
@@ -35,7 +36,7 @@ interface ToolRun {
 }
 
 async function runOneTool(call: ToolCall, context: ToolContext): Promise<ToolRun> {
-  const tool = toolByName(call.name)
+  const tool = toolByName(call.name, context.workflow)
   if (tool === undefined) {
     // Naming the tools that do exist is what lets the model correct itself
     // rather than guess at another name.
@@ -43,7 +44,9 @@ async function runOneTool(call: ToolCall, context: ToolContext): Promise<ToolRun
       content:
         'There is no tool named ' +
         call.name +
-        '. The only available tool is compute. Provider methods are called inside its JavaScript plan.',
+        (context.workflow === 'standard'
+          ? '. Available tools: ' + toolsForWorkflow('standard').map(tool => tool.name).join(', ') + '.'
+          : '. The only available tool is compute. Provider methods are called inside its JavaScript plan.'),
       isError: true
     }
   }
@@ -79,6 +82,7 @@ export interface ToolLoopOptions {
   /** Directory relative paths resolve against. */
   cwd: string
   signal?: AbortSignal
+  workflow?: Workflow
   /**
    * Whether the model can be shown an image. Passed down so a tool that reads
    * one knows whether to decode it or report it.
@@ -90,6 +94,7 @@ export async function* runToolLoop(options: ToolLoopOptions): AsyncGenerator<Cha
   const messages = [...options.messages]
   const context: ToolContext = {
     cwd: options.cwd,
+    workflow: options.workflow ?? 'compute',
     ...(options.signal === undefined ? {} : { signal: options.signal }),
     ...(options.acceptsImages === undefined ? {} : { acceptsImages: options.acceptsImages })
   }

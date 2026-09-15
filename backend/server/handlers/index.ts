@@ -2,6 +2,7 @@ import type { BrowserWindow } from 'electron'
 
 import { ServerRpcs } from '../../../contracts/rpc'
 import { chatHandlers } from './chat'
+import { instructionHandlers } from './instructions'
 import { fsHandlers } from './fs'
 import { providerHandlers } from './providers'
 
@@ -21,5 +22,6 @@ export function buildHandlers(context: HandlerContext) {
     ...fsHandlers(context),
     ...providerHandlers(),
     ...chatHandlers(),
+    ...instructionHandlers(),
   })
 }

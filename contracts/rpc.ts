@@ -16,6 +16,7 @@ import {
   ChatStreamEvent,
 } from './chat'
 import { METHODS } from './methods'
+import { InstructionsInput, InstructionsResult, SaveInstructionInput } from './instructions'
 import {
   ListModelsInput,
   ModelInfo,
@@ -132,6 +133,8 @@ const ChatCompactRpc = Rpc.make(METHODS.compact, {
 })
 
 export const ServerRpcs = RpcGroup.make(
+  Rpc.make(METHODS.listInstructions, { payload: InstructionsInput, success: InstructionsResult, error: FsError }),
+  Rpc.make(METHODS.saveInstruction, { payload: SaveInstructionInput, success: InstructionsResult, error: FsError }),
   ListDirectoryRpc,
   OpenDirectoryDialogRpc,
   OpenInFilesRpc,

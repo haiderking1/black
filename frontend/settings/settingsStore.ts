@@ -4,6 +4,7 @@ export const SETTINGS_STORAGE_KEY = 'black_settings_v1'
 
 export const DEFAULT_SETTINGS: AppSettings = {
   theme: 'dark',
+  workflow: 'compute',
   openSidebarOnLaunch: true,
   reduceMotion: false,
   selectedModelId: null,
@@ -32,6 +33,7 @@ export function parseSettings(value: unknown): AppSettings {
   const candidate = value as Record<string, unknown>
   return {
     theme: isThemePreference(candidate['theme']) ? candidate['theme'] : DEFAULT_SETTINGS.theme,
+    workflow: candidate['workflow'] === 'standard' ? 'standard' : 'compute',
     openSidebarOnLaunch:
       typeof candidate['openSidebarOnLaunch'] === 'boolean'
         ? candidate['openSidebarOnLaunch']

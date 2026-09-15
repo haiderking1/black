@@ -1,4 +1,4 @@
-import { isRetryableAssistantError } from './reference/retry'
+import { isRetryableAssistantError } from './policy'
 import { ProviderError } from '../../providers/errors'
 import type { ChatStreamEvent } from '../../providers/types'
 

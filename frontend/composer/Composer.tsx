@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import React, { useMemo, useState } from 'react'
 import { AttachButton } from './AttachButton'
 import { AttachmentStrip } from './AttachmentStrip'
 import { attachmentsFromFiles, imageFilesFrom, isFileDrag, type Attachment } from './attachments'
@@ -81,13 +81,10 @@ export function Composer({
   // Options come from the model, since vendors disagree on which levels exist.
   const thinking = useMemo(() => thinkingOptionsFor(activeModel), [activeModel])
 
-  // A level valid for the previous model is usually invalid for the next one.
-  // Without this, switching from a model that takes 'max' to one that does not
-  // would keep sending 'max' until the user noticed.
-  useEffect(() => {
-    const clamped = clampThinkingLevel(thinkingLevel, thinking.choices)
-    if (clamped !== thinkingLevel) onSelectThinkingLevel(clamped)
-  }, [thinkingLevel, thinking.choices, onSelectThinkingLevel])
+  // Derive a usable level without rewriting the saved preference. The catalog
+  // starts empty on launch and can temporarily lose capability metadata. Only
+  // an explicit picker selection should replace the user's stored choice.
+  const activeThinkingLevel = clampThinkingLevel(thinkingLevel, thinking.choices)
 
   // An image on its own is a complete message. Screenshots are often sent
   // with nothing typed beside them.
@@ -106,7 +103,7 @@ export function Composer({
   const submit = (content: string): void => {
     onSendMessage?.(content, {
       ...(activeModelId !== null ? { model: activeModelId } : {}),
-      thinkingLevel,
+      thinkingLevel: activeThinkingLevel,
       ...(attachments.length > 0
         ? {
             images: attachments.map((item) => ({
@@ -266,7 +263,7 @@ export function Composer({
               error={error}
             />
             <ThinkingPicker
-              value={thinkingLevel}
+              value={activeThinkingLevel}
               choices={thinking.choices}
               onSelect={onSelectThinkingLevel}
               disabled={thinking.disabled}

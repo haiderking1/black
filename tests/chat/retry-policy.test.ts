@@ -1,6 +1,6 @@
 import { expect, test } from 'bun:test'
 import { retryableModelError } from '../../backend/chat/retry/classify'
-import { retryAssistantCall, retryDelayMs } from '../../backend/chat/retry/reference/retry'
+import { retryAssistantCall, retryDelayMs } from '../../backend/chat/retry/policy'
 import type { ChatResult } from '../../backend/providers/types'
 
 test('uses the reference catalog for previously missing provider failures', () => {

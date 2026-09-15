@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import { Terminal } from 'lucide-react'
 
 import { imageDataUrl, isRunning, type ToolRun } from '../chat/toolRun'
 import { PreviewImage } from '../lightbox'
@@ -37,7 +38,8 @@ export function ToolRow({ run }: { run: ToolRun }): React.JSX.Element {
 
   const label = rowLabel(run)
   const detail = failed ? run.result ?? run.diff : run.diff ?? run.result
-  const hasBody = detail !== undefined || images.length > 0
+  const input = label.command ?? (run.result === undefined ? run.args : undefined)
+  const hasBody = detail !== undefined || images.length > 0 || input !== undefined
   const expanded = failed || images.length > 0 || open
 
   return (
@@ -55,7 +57,7 @@ export function ToolRow({ run }: { run: ToolRun }): React.JSX.Element {
           <span className="tool-mark" aria-hidden="true">
             <img src={computeIcon} alt="" width="16" height="16" />
           </span>
-        ) : <FileMark path={run.path ?? ''} />}
+        ) : run.name === 'bash' ? <span className="tool-mark" aria-hidden="true"><Terminal size={16} /></span> : <FileMark path={run.path ?? ''} />}
         <span className={'tool-row-label' + (running ? ' shimmer-text' : '')}>
           <span className="tool-row-verb">{label.verb}</span>
           {label.name === '' ? null : <span className="tool-row-file">{label.name}</span>}
@@ -73,6 +75,7 @@ export function ToolRow({ run }: { run: ToolRun }): React.JSX.Element {
 
       {expanded && hasBody ? (
         <div className="tool-row-body">
+          {input === undefined ? null : <pre className="tool-output">{input}</pre>}
           {images.map((image, index) => (
             <PreviewImage
               key={String(index) + image.mimeType}
