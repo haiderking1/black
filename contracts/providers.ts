@@ -33,6 +33,8 @@ export const ModelInfo = Schema.Struct({
   id: Schema.String,
   ownedBy: Schema.String,
   created: Schema.Number,
+  /** Display name when the vendor publishes one distinct from the id. */
+  name: Schema.optional(Schema.String),
   /** Omitted when the model is not in the limits catalog. */
   reasoning: Schema.optional(Schema.Boolean),
   /**
@@ -60,6 +62,28 @@ export type ThinkingLevel = (typeof THINKING_LEVELS)[number]
 export const ListModelsInput = Schema.Struct({
   providerId: Schema.NonEmptyString,
 })
+
+export const ListEndpointsInput = Schema.Struct({
+  providerId: Schema.NonEmptyString,
+  model: Schema.NonEmptyString,
+})
+
+export const ModelEndpoint = Schema.Struct({
+  tag: Schema.String,
+  providerName: Schema.String,
+  contextLength: Schema.Int,
+  latencyMs: Schema.optional(Schema.Number),
+  throughput: Schema.optional(Schema.Number),
+  uptime: Schema.optional(Schema.Number),
+  status: Schema.Number,
+  promptPrice: Schema.optional(Schema.Number),
+  completionPrice: Schema.optional(Schema.Number),
+  discount: Schema.optional(Schema.Number),
+  quantization: Schema.optional(Schema.String),
+})
+
+export type ModelEndpoint = typeof ModelEndpoint.Type
+export type ListEndpointsInput = typeof ListEndpointsInput.Type
 
 export const SetApiKeyInput = Schema.Struct({
   providerId: Schema.NonEmptyString,

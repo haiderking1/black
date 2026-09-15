@@ -81,6 +81,12 @@ export type ChatMessage = typeof ChatMessage.Type
 export const ThinkingLevelSchema = Schema.String
 export type ThinkingLevelValue = typeof ThinkingLevelSchema.Type
 
+export const ChatRoute = Schema.Struct({
+  sort: Schema.optional(Schema.Literals(['latency', 'throughput'])),
+  only: Schema.optional(Schema.String),
+})
+export type ChatRoute = typeof ChatRoute.Type
+
 export const ChatCompleteInput = Schema.Struct({
   providerId: Schema.NonEmptyString,
   model: Schema.NonEmptyString,
@@ -108,6 +114,8 @@ export const ChatCompleteInput = Schema.Struct({
   workingDirectory: Schema.optional(Schema.String),
   /** Tool set captured when the turn starts. Older clients default to compute. */
   workflow: Schema.optional(Workflow),
+  /** OpenRouter host selection. Ignored by providers that do not route. */
+  route: Schema.optional(ChatRoute),
 })
 export type ChatCompleteInput = typeof ChatCompleteInput.Type
 
@@ -115,6 +123,7 @@ export const ChatContextUsageInput = Schema.Struct({
   providerId: Schema.NonEmptyString,
   model: Schema.NonEmptyString,
   messages: Schema.Array(ChatMessage),
+  route: Schema.optional(ChatRoute),
 })
 export type ChatContextUsageInput = typeof ChatContextUsageInput.Type
 
@@ -131,6 +140,7 @@ export const ChatCompactInput = Schema.Struct({
   model: Schema.NonEmptyString,
   messages: Schema.Array(ChatMessage),
   sessionId: Schema.optional(Schema.String),
+  route: Schema.optional(ChatRoute),
 })
 export type ChatCompactInput = typeof ChatCompactInput.Type
 

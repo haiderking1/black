@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react'
+import React, { useEffect, useMemo, useState } from 'react'
 import { AttachButton } from './AttachButton'
 import { AttachmentStrip } from './AttachmentStrip'
 import { attachmentsFromFiles, imageFilesFrom, isFileDrag, type Attachment } from './attachments'
@@ -11,6 +11,10 @@ import { SendButton } from './SendButton'
 import { ThinkingPicker } from './ThinkingPicker'
 import { useModels } from './useModels'
 import { clampThinkingLevel, thinkingOptionsFor } from './thinkingOptions'
+import { RoutePicker, resolvedRoute } from './routing/RoutePicker'
+import { readRoute, toChatRoute, writeRoute, type StoredRoute } from './routing/storage'
+import { useEndpoints } from './routing/useEndpoints'
+import type { ChatRoute } from '../../contracts/chat'
 import './composer.css'
 import './pickers.css'
 import './attachments.css'
@@ -20,6 +24,8 @@ export interface ComposerSubmitOptions {
   model?: string
   /** Reasoning effort chosen alongside it. */
   thinkingLevel?: string
+  /** OpenRouter host selection, when that provider is active. */
+  route?: ChatRoute
   /** Images sent with the message, already base64. */
   images?: Array<{ mimeType: string; data: string }>
   [key: string]: unknown
@@ -33,6 +39,8 @@ export interface ComposerProps {
   providerId?: string
   /** Display name of that provider, from its descriptor. */
   providerName?: string
+  providers?: readonly { id: string; name: string }[]
+  onSelectProvider?: (providerId: string) => void
   /**
    * Selected model, or null to fall back to the provider's first. Controlled so
    * the choice survives a remount, which it did not when held locally.
@@ -55,6 +63,8 @@ export function Composer({
   placeholder = 'Message Black, or attach an image',
   providerId = 'opencode-go',
   providerName,
+  providers = [],
+  onSelectProvider,
   model,
   onSelectModel,
   thinkingLevel,
@@ -70,13 +80,33 @@ export function Composer({
 
   const { models, isLoading, error } = useModels(providerId)
 
-  // Fall back to the first model the provider serves until one is chosen, so
-  // the picker never shows a choice that does not exist.
-  const activeModelId = model ?? models[0]?.id ?? null
   const activeModel = useMemo(
-    () => models.find((candidate) => candidate.id === activeModelId) ?? null,
-    [models, activeModelId]
+    () => models.find((candidate) => candidate.id === model) ?? models[0] ?? null,
+    [models, model]
   )
+  const activeModelId = activeModel?.id ?? null
+
+  useEffect(() => {
+    if (isLoading || models.length === 0) return
+    if (activeModelId === null || activeModelId === model) return
+    onSelectModel(activeModelId)
+  }, [activeModelId, isLoading, model, models.length, onSelectModel])
+
+  const { endpoints, error: routeError, ready: endpointsReady } = useEndpoints(providerId, activeModelId)
+  const [route, setRoute] = useState<StoredRoute>(() => readRoute(activeModelId ?? ''))
+
+  useEffect(() => {
+    setRoute(readRoute(activeModelId ?? ''))
+  }, [activeModelId])
+
+  const activeRoute = resolvedRoute(route, endpoints, endpointsReady)
+  useEffect(() => {
+    if (activeModelId === null || providerId !== 'openrouter') return
+    const next = resolvedRoute(route, endpoints, endpointsReady)
+    if (JSON.stringify(next) === JSON.stringify(route)) return
+    writeRoute(activeModelId, next)
+    setRoute(next)
+  }, [activeModelId, endpoints, endpointsReady, providerId, route])
 
   // Options come from the model, since vendors disagree on which levels exist.
   const thinking = useMemo(() => thinkingOptionsFor(activeModel), [activeModel])
@@ -104,6 +134,7 @@ export function Composer({
     onSendMessage?.(content, {
       ...(activeModelId !== null ? { model: activeModelId } : {}),
       thinkingLevel: activeThinkingLevel,
+      ...(providerId === 'openrouter' ? { route: toChatRoute(activeRoute) } : {}),
       ...(attachments.length > 0
         ? {
             images: attachments.map((item) => ({
@@ -259,9 +290,22 @@ export function Composer({
               onSelect={onSelectModel}
               providerId={providerId}
               {...(providerName !== undefined ? { providerName } : {})}
+              providers={providers}
+              {...(onSelectProvider !== undefined ? { onSelectProvider } : {})}
               isLoading={isLoading}
               error={error}
             />
+            {providerId === 'openrouter' ? (
+              <RoutePicker
+                value={activeRoute}
+                endpoints={endpoints}
+                onSelect={(next) => {
+                  if (activeModelId !== null) writeRoute(activeModelId, next)
+                  setRoute(next)
+                }}
+                error={routeError}
+              />
+            ) : null}
             <ThinkingPicker
               value={activeThinkingLevel}
               choices={thinking.choices}

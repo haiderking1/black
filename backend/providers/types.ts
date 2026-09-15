@@ -16,6 +16,8 @@ export interface ModelInfo {
   ownedBy: string
   /** Unix seconds the catalog entry was created. */
   created: number
+  /** Display name when the vendor publishes one distinct from the id. */
+  name?: string
 }
 
 /** A tool the model asked to run. */
@@ -86,6 +88,35 @@ export interface ChatStreamEvent {
   message?: string
 }
 
+/** How OpenRouter should pick an upstream host for one request. */
+export type ProviderSort = 'latency' | 'throughput'
+
+export interface ChatRoute {
+  sort?: ProviderSort
+  /** OpenRouter endpoint tag. When set, this host is used and sort is ignored. */
+  only?: string
+}
+
+/** One upstream host serving an OpenRouter model. */
+export interface ModelEndpoint {
+  tag: string
+  providerName: string
+  contextLength: number
+  latencyMs?: number
+  throughput?: number
+  uptime?: number
+  status: number
+  /** USD per token, as OpenRouter publishes it. */
+  promptPrice?: number
+  completionPrice?: number
+  /**
+   * Fraction off the listed price. 0.2 is 20% off. 1 is free.
+   * Omitted when there is no discount.
+   */
+  discount?: number
+  quantization?: string
+}
+
 export interface ChatRequest {
   model: string
   messages: ChatMessage[]
@@ -102,6 +133,12 @@ export interface ChatRequest {
    * upstream, so a stable value per conversation matters more than uniqueness.
    */
   sessionId?: string
+  /**
+   * OpenRouter host selection. Ignored by providers that do not route.
+   * `only` pins one host tag; otherwise `sort` ranks them. Omitted sort on
+   * OpenRouter still means latency, which is this client's default.
+   */
+  route?: ChatRoute
   signal?: AbortSignal
   /** Tools offered to the model, in the shape the completions API expects. */
   tools?: readonly unknown[]
@@ -174,8 +211,9 @@ export interface Provider {
   /**
    * Context window for a model, for deciding when to compact. Providers whose
    * catalog does not publish one resolve it elsewhere or return a safe default.
+   * A route may name a smaller host-specific window.
    */
-  contextWindowFor(modelId: string): Promise<number>
+  contextWindowFor(modelId: string, route?: ChatRoute): Promise<number>
   /**
    * Reasoning support for a model. A model the catalog does not list reports
    * 'unknown' rather than a guess, so no thinking parameter is sent for it.
@@ -190,6 +228,10 @@ export interface Provider {
   supportsToolCalls(modelId: string): Promise<boolean>
   /** Drop the cached catalog so the next call refetches. */
   refreshModels(): Promise<ModelInfo[]>
+  /**
+   * Upstream hosts for a model. Absent on providers that do not expose a choice.
+   */
+  listEndpoints?(modelId: string): Promise<readonly ModelEndpoint[]>
   chat(request: ChatRequest): Promise<ChatResult>
   /**
    * The same request, streamed. A failure arrives as an 'error' event rather

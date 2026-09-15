@@ -18,7 +18,9 @@ import {
 import { METHODS } from './methods'
 import { InstructionsInput, InstructionsResult, SaveInstructionInput } from './instructions'
 import {
+  ListEndpointsInput,
   ListModelsInput,
+  ModelEndpoint,
   ModelInfo,
   ProviderIdInput,
   ProviderStatus,
@@ -88,6 +90,12 @@ const ListModelsRpc = Rpc.make(METHODS.listModels, {
   error: ProviderConfigError,
 })
 
+const ListEndpointsRpc = Rpc.make(METHODS.listEndpoints, {
+  payload: ListEndpointsInput,
+  success: Schema.Array(ModelEndpoint),
+  error: ProviderConfigError,
+})
+
 const ChatTitleRpc = Rpc.make(METHODS.title, {
   payload: Schema.Struct({ providerId: Schema.NonEmptyString, model: Schema.NonEmptyString, message: Schema.String, sessionId: Schema.NonEmptyString }),
   success: Schema.Struct({ title: Schema.NonEmptyString }),
@@ -145,6 +153,7 @@ export const ServerRpcs = RpcGroup.make(
   ClearApiKeyRpc,
   SetEnabledRpc,
   ListModelsRpc,
+  ListEndpointsRpc,
   ChatTitleRpc,
   ChatCompleteRpc,
   ChatStreamRpc,

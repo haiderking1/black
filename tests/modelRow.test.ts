@@ -7,6 +7,7 @@ import {
   filterModels,
   groupModels,
   shortcutLabel,
+  displayName,
 } from '../frontend/composer/modelRow'
 
 function model(id: string, overrides: Partial<ModelInfo> = {}): ModelInfo {
@@ -22,10 +23,11 @@ const catalog: ModelInfo[] = [
 ]
 
 describe('familyOf', () => {
-  it('takes the part before the first separator', () => {
+  it('takes the author before a slash, then the part before the first separator', () => {
     expect(familyOf('glm-5.3')).toBe('glm')
     expect(familyOf('qwen3.6-plus')).toBe('qwen3')
     expect(familyOf('kimi_k3')).toBe('kimi')
+    expect(familyOf('anthropic/claude-sonnet-4')).toBe('anthropic')
   })
 
   it('returns the id when there is no separator', () => {
@@ -35,6 +37,18 @@ describe('familyOf', () => {
   it('does not fall over on a leading separator', () => {
     expect(familyOf('-weird')).toBe('-weird')
     expect(familyOf('')).toBe('')
+  })
+})
+
+describe('displayName', () => {
+  it('prefers the catalog name when OpenRouter supplies one', () => {
+    expect(displayName(model('anthropic/claude-sonnet-4', { name: 'Claude Sonnet 4' }))).toBe(
+      'Claude Sonnet 4',
+    )
+  })
+
+  it('falls back to the id when there is no name', () => {
+    expect(displayName(model('glm-5.3'))).toBe('glm-5.3')
   })
 })
 
@@ -86,6 +100,12 @@ describe('filterModels', () => {
 
   it('matches on the family, so a bare vendor name finds its models', () => {
     expect(filterModels(catalog, 'glm').map((m) => m.id)).toEqual(['glm-5.3'])
+  })
+
+  it('matches OpenRouter author prefixes and display names', () => {
+    const routed = [model('anthropic/claude-sonnet-4', { name: 'Claude Sonnet 4', thinkingKind: 'effort', thinkingLevels: ['low'] })]
+    expect(filterModels(routed, 'anthropic').map((m) => m.id)).toEqual(['anthropic/claude-sonnet-4'])
+    expect(filterModels(routed, 'sonnet').map((m) => m.id)).toEqual(['anthropic/claude-sonnet-4'])
   })
 
   it('ignores case and surrounding space', () => {

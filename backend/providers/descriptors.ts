@@ -7,6 +7,7 @@
  */
 
 import { OPENCODE_GO_BASE_URL } from './opencode/endpoints'
+import { OPENROUTER_BASE_URL } from './openrouter/endpoints'
 
 export interface ProviderDescriptor {
   id: string
@@ -22,6 +23,12 @@ export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
     name: 'OpenCode Go',
     baseUrl: OPENCODE_GO_BASE_URL,
     keyHint: 'Get a key from OpenCode',
+  },
+  {
+    id: 'openrouter',
+    name: 'OpenRouter',
+    baseUrl: OPENROUTER_BASE_URL,
+    keyHint: 'Get a key from openrouter.ai/keys',
   },
 ]
 

@@ -5,7 +5,7 @@ import { METHODS } from '../../../contracts/methods'
 import { clearApiKey, readProviderEnabled, writeApiKey, writeProviderEnabled } from '../../providers/credentialStore'
 import { resolveApiKey } from '../../providers/credentials'
 import { findDescriptor, PROVIDER_DESCRIPTORS } from '../../providers/descriptors'
-import { createOpenCodeProvider } from '../../providers/opencode'
+import { createProvider } from '../../providers/create'
 import type { Provider } from '../../providers/types'
 
 /**
@@ -30,8 +30,7 @@ function asProviderError(error: unknown): ProviderConfigError {
 
 /** Build a provider for a descriptor, or undefined when the id is unknown. */
 function buildProvider(providerId: string, apiKey: string): Provider | undefined {
-  if (providerId === 'opencode-go') return createOpenCodeProvider({ apiKey })
-  return undefined
+  return createProvider(providerId, apiKey)
 }
 
 /**
@@ -150,6 +149,23 @@ export function providerHandlers() {
             // A limits outage should not hide the models themselves.
             return models
           }
+        },
+        catch: asProviderError,
+      }),
+
+    [METHODS.listEndpoints]: (payload: { providerId: string; model: string }) =>
+      Effect.tryPromise({
+        try: async () => {
+          const descriptor = findDescriptor(payload.providerId)
+          if (descriptor === undefined) throw new Error('Unknown provider: ' + payload.providerId)
+          const apiKey = resolveApiKey(payload.providerId)
+          if (apiKey === undefined) {
+            throw new Error('Configure an API key for ' + descriptor.name + ' first')
+          }
+          const provider = buildProvider(payload.providerId, apiKey)
+          if (provider === undefined) throw new Error('Unknown provider: ' + payload.providerId)
+          if (provider.listEndpoints === undefined) return []
+          return [...(await provider.listEndpoints(payload.model))]
         },
         catch: asProviderError,
       }),

@@ -3,7 +3,7 @@ import { Check, ChevronRight, Search, Star } from 'lucide-react'
 
 import type { ModelInfo } from '../../contracts/providers'
 import { ProviderLogo } from '../providers'
-import { filterModels, groupModels, shortcutLabel, SHORTCUT_COUNT } from './modelRow'
+import { filterModels, groupModels, shortcutLabel, SHORTCUT_COUNT, displayName } from './modelRow'
 import { toggleFavourite } from './favourites'
 import { useFavourites } from './useFavourites'
 
@@ -14,6 +14,9 @@ export interface ModelPanelProps {
   providerId: string
   /** Display name of that provider, from its descriptor. */
   providerName: string
+  /** Enabled, authenticated providers shown on the rail. */
+  providers?: readonly { id: string; name: string }[]
+  onSelectProvider?: (providerId: string) => void
   onSelect: (modelId: string) => void
   close: () => void
 }
@@ -29,6 +32,8 @@ export function ModelPanel({
   selectedModelId,
   providerId,
   providerName,
+  providers = [],
+  onSelectProvider,
   onSelect,
   close,
 }: ModelPanelProps): React.JSX.Element {
@@ -91,9 +96,18 @@ export function ModelPanel({
           <Star size={16} aria-hidden="true" fill={favouritesOnly ? 'currentColor' : 'none'} />
         </button>
         <span className="model-rail-divider" aria-hidden="true" />
-        <span className="model-rail-item active" aria-hidden="true" title={providerName}>
-          <ProviderLogo providerId={providerId} size={20} fallbackLabel={providerName} />
-        </span>
+        {(providers.length > 0 ? providers : [{ id: providerId, name: providerName }]).map((provider) => (
+          <button
+            key={provider.id}
+            type="button"
+            className={'model-rail-item' + (provider.id === providerId ? ' active' : '')}
+            title={provider.name}
+            aria-pressed={provider.id === providerId}
+            onClick={() => onSelectProvider?.(provider.id)}
+          >
+            <ProviderLogo providerId={provider.id} size={20} fallbackLabel={provider.name} />
+          </button>
+        ))}
       </div>
 
       <div className="model-main">
@@ -131,7 +145,7 @@ export function ModelPanel({
                       onClick={() => choose(model.id)}
                     >
                       <span className="model-text">
-                        <span className="model-name">{model.id}</span>
+                        <span className="model-name">{displayName(model)}</span>
                         <span className="model-provider">
                           <span className="model-provider-mark" aria-hidden="true">
                             <ProviderLogo
@@ -140,7 +154,7 @@ export function ModelPanel({
                               fallbackLabel={providerName}
                             />
                           </span>
-                          {providerName}
+                          {model.name !== undefined && model.name.trim() !== '' ? model.id : providerName}
                         </span>
                       </span>
 

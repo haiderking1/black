@@ -20,8 +20,9 @@ import type { ChatImage, ChatMessage, ChatStreamEvent as ProviderStreamEvent } f
 import { processImage } from '../../tools/image'
 import { resolveApiKey } from '../../providers/credentials'
 import { findDescriptor } from '../../providers/descriptors'
-import { createOpenCodeProvider } from '../../providers/opencode'
+import { createProvider } from '../../providers/create'
 import type {
+  ChatRoute,
   ChatStopReason,
   Provider,
 } from '../../providers/types'
@@ -40,8 +41,7 @@ function asProviderError(error: unknown): ProviderConfigError {
 }
 
 function buildProvider(providerId: string, apiKey: string): Provider | undefined {
-  if (providerId === 'opencode-go') return createOpenCodeProvider({ apiKey })
-  return undefined
+  return createProvider(providerId, apiKey)
 }
 
 /** Everything needed to talk to a provider, or the reason we cannot. */
@@ -93,7 +93,8 @@ function summarizationCallFor(
   provider: Provider,
   providerId: string,
   model: string,
-  signal: AbortSignal | undefined
+  signal: AbortSignal | undefined,
+  route?: ChatRoute
 ): SummarizationCall {
   return async (request) => {
     const result = await provider.chat({
@@ -104,7 +105,8 @@ function summarizationCallFor(
       ],
       maxTokens: request.maxTokens,
       ...(request.sessionId !== undefined ? { sessionId: request.sessionId } : {}),
-      ...(signal !== undefined ? { signal } : {})
+      ...(signal !== undefined ? { signal } : {}),
+      ...(route !== undefined ? { route } : {})
     })
 
     return {
@@ -141,6 +143,7 @@ async function fitRequest(
     model: string
     messages: readonly WireMessage[]
     sessionId?: string
+    route?: ChatRoute
   },
   signal: AbortSignal | undefined
 ): Promise<{
@@ -156,7 +159,7 @@ async function fitRequest(
 
   let contextWindow: number
   try {
-    contextWindow = await provider.contextWindowFor(payload.model)
+    contextWindow = await provider.contextWindowFor(payload.model, payload.route)
   } catch {
     return {
       messages: transcript,
@@ -171,7 +174,7 @@ async function fitRequest(
     messages: transcript,
     contextWindow,
     settings: compactionSettings(contextWindow),
-    call: summarizationCallFor(provider, providerId, payload.model, signal),
+    call: summarizationCallFor(provider, providerId, payload.model, signal, payload.route),
     ...(payload.sessionId !== undefined ? { sessionId: payload.sessionId } : {})
   })
 
@@ -268,6 +271,7 @@ export function chatHandlers() {
       requestId?: string
       workingDirectory?: string
       workflow?: Workflow
+      route?: ChatRoute
     }) => {
       const resolved = resolveProvider(payload.providerId)
 
@@ -349,6 +353,7 @@ export function chatHandlers() {
               ...(payload.maxTokens !== undefined ? { maxTokens: payload.maxTokens } : {}),
               ...(payload.thinkingLevel !== undefined ? { reasoningEffort: payload.thinkingLevel } : {}),
               ...(payload.sessionId !== undefined ? { sessionId: payload.sessionId } : {}),
+              ...(payload.route !== undefined ? { route: payload.route } : {}),
               ...(controller !== null ? { signal: controller.signal } : {}),
               ...(tools === undefined ? {} : { tools }),
             })) {
@@ -416,6 +421,7 @@ export function chatHandlers() {
       model: string
       messages: readonly WireMessage[]
       sessionId?: string
+      route?: ChatRoute
     }) =>
       Effect.tryPromise({
         try: async () => {
@@ -442,7 +448,7 @@ export function chatHandlers() {
 
           let contextWindow: number
           try {
-            contextWindow = await provider.contextWindowFor(payload.model)
+            contextWindow = await provider.contextWindowFor(payload.model, payload.route)
           } catch {
             return nothing
           }
@@ -450,7 +456,7 @@ export function chatHandlers() {
           const fitted = await fitContext({
             messages: transcript,
             contextWindow,
-            call: summarizationCallFor(provider, payload.providerId, payload.model, undefined),
+            call: summarizationCallFor(provider, payload.providerId, payload.model, undefined, payload.route),
             // The same settings the automatic path uses. What differs is that
             // nothing here consults the context window, so a manual checkpoint
             // runs whenever there is something to fold up, not only when the
@@ -482,6 +488,7 @@ export function chatHandlers() {
       providerId: string
       model: string
       messages: readonly WireMessage[]
+      route?: ChatRoute
     }) =>
       Effect.tryPromise({
         try: async () => {
@@ -502,7 +509,7 @@ export function chatHandlers() {
 
           let contextWindow: number | null = null
           try {
-            contextWindow = await provider.contextWindowFor(payload.model)
+            contextWindow = await provider.contextWindowFor(payload.model, payload.route)
           } catch {
             contextWindow = null
           }
@@ -536,6 +543,7 @@ export function chatHandlers() {
       sessionId?: string
       workingDirectory?: string
       workflow?: Workflow
+      route?: ChatRoute
     }) =>
       Effect.tryPromise({
         try: async () => {
@@ -563,6 +571,7 @@ export function chatHandlers() {
             ...(payload.maxTokens !== undefined ? { maxTokens: payload.maxTokens } : {}),
             ...(payload.thinkingLevel !== undefined ? { reasoningEffort: payload.thinkingLevel } : {}),
             ...(payload.sessionId !== undefined ? { sessionId: payload.sessionId } : {}),
+            ...(payload.route !== undefined ? { route: payload.route } : {}),
           })
 
           return {

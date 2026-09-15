@@ -24,6 +24,7 @@ export const PROVIDER_METHODS = {
   clearApiKey: 'providers.clearApiKey',
   setEnabled: 'providers.setEnabled',
   listModels: 'providers.listModels',
+  listEndpoints: 'providers.listEndpoints',
 } as const
 
 /** Chat completions. */

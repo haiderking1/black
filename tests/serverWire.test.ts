@@ -59,6 +59,10 @@ function stubHandlers(events: readonly ChatStreamEvent[] = [{ type: 'text', text
         modelCount: null,
       }),
     [METHODS.listModels]: () => Effect.succeed([{ id: 'glm-5.3', ownedBy: 'opencode', created: 1 }]),
+    [METHODS.listEndpoints]: () =>
+      Effect.succeed([
+        { tag: 'anthropic', providerName: 'Anthropic', contextLength: 200_000, status: 0 },
+      ]),
     [METHODS.cancel]: () => Effect.succeed({ cancelled: true }),
     [METHODS.contextUsage]: () => Effect.succeed({ tokens: 100, contextWindow: 1000 }),
     [METHODS.compact]: () =>
@@ -173,6 +177,12 @@ describe('rpc wire', () => {
       expect(await Effect.runPromise(connection.client[METHODS.getCwd]())).toBe('/stub-cwd')
       const providers = await Effect.runPromise(connection.client[METHODS.listProviders]())
       expect(providers).toEqual([])
+      const endpoints = await Effect.runPromise(
+        connection.client[METHODS.listEndpoints]({ providerId: 'openrouter', model: 'anthropic/claude-sonnet-4' }),
+      )
+      expect(endpoints).toEqual([
+        { tag: 'anthropic', providerName: 'Anthropic', contextLength: 200_000, status: 0 },
+      ])
 
       // The entries survive the round trip, not just the envelope around them.
       const listing = await Effect.runPromise(connection.client[METHODS.listDirectory]({}))

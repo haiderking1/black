@@ -6,8 +6,7 @@
  * so a caller can list what is actually usable.
  */
 
-import { createOpenCodeProvider, type OpenCodeProvider } from './opencode'
-import { OPENCODE_GO_BASE_URL } from './opencode/endpoints'
+import { createProvider } from './create'
 import { resolveApiKey } from './credentials'
 import type { Provider } from './types'
 
@@ -35,9 +34,11 @@ export function createProviderRegistry(providers: Provider[]): ProviderRegistry 
 export function createDefaultRegistry(): ProviderRegistry {
   const providers: Provider[] = []
 
-  const openCodeKey = resolveApiKey('opencode-go')
-  if (openCodeKey !== undefined) {
-    providers.push(createOpenCodeProvider({ apiKey: openCodeKey }))
+  for (const id of ['opencode-go', 'openrouter'] as const) {
+    const apiKey = resolveApiKey(id)
+    if (apiKey === undefined) continue
+    const provider = createProvider(id, apiKey)
+    if (provider !== undefined) providers.push(provider)
   }
 
   return createProviderRegistry(providers)
@@ -47,7 +48,9 @@ export * from './types'
 export * from './errors'
 export { createTtlCache, type TtlCache, type TtlCacheOptions } from './cache'
 export { resolveApiKey } from './credentials'
+export { createProvider } from './create'
 export { createOpenCodeProvider, type OpenCodeProvider, type OpenCodeProviderOptions } from './opencode'
+export { createOpenRouterProvider, type OpenRouterProvider, type OpenRouterProviderOptions } from './openrouter'
 export { createCatalog, DEFAULT_CATALOG_TTL_MS, type Catalog, type CatalogOptions } from './opencode/catalog'
 export { createChatClient, type ChatClientOptions } from './opencode/client'
 export {

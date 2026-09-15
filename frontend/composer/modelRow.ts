@@ -10,8 +10,14 @@ export const SHORTCUT_COUNT = 9
  * day a vendor ships something new; this reads the name the catalog returned.
  */
 export function familyOf(id: string): string {
+  const slash = id.indexOf('/')
+  if (slash > 0) return id.slice(0, slash)
   const head = id.split(/[-_.]/)[0] ?? ''
   return head === '' ? id : head
+}
+
+export function displayName(model: ModelInfo): string {
+  return model.name !== undefined && model.name.trim() !== '' ? model.name : model.id
 }
 
 /** The shortcut a row carries, or null for rows past the bound ones. */
@@ -58,6 +64,8 @@ export function filterModels(models: readonly ModelInfo[], query: string): reado
 
   return models.filter(
     (model) =>
-      model.id.toLowerCase().includes(needle) || familyOf(model.id).toLowerCase().includes(needle)
+      model.id.toLowerCase().includes(needle) ||
+      familyOf(model.id).toLowerCase().includes(needle) ||
+      (model.name !== undefined && model.name.toLowerCase().includes(needle))
   )
 }

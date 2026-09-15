@@ -15,6 +15,7 @@ import { getAgentDir } from '../config/agentDir'
 const ENV_BY_PROVIDER: Record<string, string> = {
   'opencode-go': 'OPENCODE_API_KEY',
   opencode: 'OPENCODE_API_KEY',
+  openrouter: 'OPENROUTER_API_KEY',
 }
 
 interface AuthFile {

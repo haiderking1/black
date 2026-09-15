@@ -30,6 +30,8 @@ describe('settings persistence', () => {
       openSidebarOnLaunch: false,
       reduceMotion: true,
       selectedModelId: 'glm-5.3',
+      selectedProviderId: 'openrouter',
+      selectedModels: { 'opencode-go': 'glm-5.3' },
       thinkingLevel: 'high' as const
     }
 
@@ -54,6 +56,8 @@ describe('settings persistence', () => {
       openSidebarOnLaunch: DEFAULT_SETTINGS.openSidebarOnLaunch,
       reduceMotion: true,
       selectedModelId: 'glm-5.3',
+      selectedProviderId: null,
+      selectedModels: {},
       thinkingLevel: 'nonsense'
     })
   })
@@ -61,12 +65,18 @@ describe('settings persistence', () => {
   it('remembers the chosen model and thinking level across a reload', () => {
     const storage = createMemoryStorage()
 
-    // The composer used to fall back to the provider's first model on every
-    // mount, so a choice was lost as soon as the component remounted.
-    writeSettings(storage, { ...DEFAULT_SETTINGS, selectedModelId: 'kimi-k3', thinkingLevel: 'max' })
+    writeSettings(storage, {
+      ...DEFAULT_SETTINGS,
+      selectedModelId: 'kimi-k3',
+      selectedProviderId: 'openrouter',
+      selectedModels: { openrouter: 'kimi-k3' },
+      thinkingLevel: 'max',
+    })
     const restored = readSettings(storage)
 
     expect(restored.selectedModelId).toBe('kimi-k3')
+    expect(restored.selectedProviderId).toBe('openrouter')
+    expect(restored.selectedModels).toEqual({ openrouter: 'kimi-k3' })
     expect(restored.thinkingLevel).toBe('max')
   })
 
@@ -78,6 +88,15 @@ describe('settings persistence', () => {
     // vocabulary, so refusing unknown values would drop valid choices.
     expect(parseSettings({ ...DEFAULT_SETTINGS, thinkingLevel: 'none' }).thinkingLevel).toBe('none')
     expect(parseSettings({ ...DEFAULT_SETTINGS, thinkingLevel: 'xhigh' }).thinkingLevel).toBe('xhigh')
+  })
+
+  it('drops invalid selectedModels entries and empty provider ids', () => {
+    const parsed = parseSettings({
+      selectedModels: { openrouter: 'x', '': 'no', bad: 1 },
+      selectedProviderId: '',
+    })
+    expect(parsed.selectedModels).toEqual({ openrouter: 'x' })
+    expect(parsed.selectedProviderId).toBe(null)
   })
 
   it('falls back to no model when the saved id is empty or not a string', () => {

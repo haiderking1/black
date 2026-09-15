@@ -21,6 +21,9 @@ import { useFloatingComposer } from './chat/floating-composer/useFloatingCompose
 import './chat/message-images.css'
 import { SettingsPage, useSettings } from './settings'
 import { useProviders } from './settings/useProviders'
+import { activeProviderId, pickerRail, providerDisplayName } from './settings/activeProvider'
+import { readRoute, toChatRoute } from './composer/routing/storage'
+import type { ChatRoute } from '../contracts/chat'
 
 /** A turn typed while a reply was arriving, waiting for that reply to finish. */
 interface QueuedSend {
@@ -30,6 +33,8 @@ interface QueuedSend {
   messageId: string
   content: string
   options: ComposerSubmitOptions | undefined
+  providerId: string
+  route?: ChatRoute
   /** Images that went with it, kept so the queue can resend them intact. */
   images: Array<{ mimeType: string; data: string }>
 }
@@ -111,7 +116,9 @@ export function App(): React.JSX.Element {
 
   // Only for the provider's display name, which the picker labels its rows with.
   const { providers } = useProviders()
-  const providerName = providers.find((entry) => entry.id === 'opencode-go')?.name
+  const providerId = activeProviderId(settings.selectedProviderId, providers)
+  const providerName = providerDisplayName(providerId, providers)
+  const pickerProviders = pickerRail(providers)
 
   // The message still arriving. Only that one keeps shimmering; the rest are
   // settled and should read as history.
@@ -247,10 +254,11 @@ export function App(): React.JSX.Element {
     try {
       const result = await Effect.runPromise(
         client['chat.compact']({
-          providerId: 'opencode-go',
+          providerId,
           model,
           messages: conversationHistory(existing),
-          sessionId
+          sessionId,
+          ...(providerId === 'openrouter' ? { route: toChatRoute(readRoute(model)) } : {})
         })
       )
 
@@ -311,7 +319,7 @@ export function App(): React.JSX.Element {
       const titleModel = options?.model || settings.selectedModelId
       if (titleModel && client !== null) {
         void Effect.runPromise(client['chat.title']({
-          providerId: 'opencode-go', model: titleModel, message: content, sessionId: titleSessionId,
+          providerId, model: titleModel, message: content, sessionId: titleSessionId,
         })).then(({ title }) => renameSession(titleSessionId, title, fallback)).catch(() => {
           // Naming must never interrupt a reply. Keep the first-message fallback.
         })
@@ -332,6 +340,8 @@ export function App(): React.JSX.Element {
       messageId: userMessage.id,
       content,
       options,
+      providerId,
+      ...(options?.route !== undefined ? { route: options.route } : {}),
       images
     }
 
@@ -391,7 +401,7 @@ export function App(): React.JSX.Element {
 
       try {
         const events = stream['chat.stream']({
-          providerId: 'opencode-go',
+          providerId: send.providerId,
           model,
           messages: [
             ...priorTurns,
@@ -414,7 +424,8 @@ export function App(): React.JSX.Element {
             : {}),
           ...(send.options?.thinkingLevel !== undefined
             ? { thinkingLevel: send.options.thinkingLevel }
-            : {})
+            : {}),
+          ...(send.route !== undefined ? { route: send.route } : {})
         })
 
         await consumeWork(events, patch)
@@ -486,7 +497,14 @@ export function App(): React.JSX.Element {
 
   // Measured from the transcript, so it is there as soon as a conversation is
   // open rather than only after a message has been sent.
-  const contextUsage = useContextUsage('opencode-go', settings.selectedModelId, messages)
+  const contextUsage = useContextUsage(
+    providerId,
+    settings.selectedModelId,
+    messages,
+    providerId === 'openrouter' && settings.selectedModelId !== null
+      ? toChatRoute(readRoute(settings.selectedModelId))
+      : undefined
+  )
 
   if (appView === 'settings') {
     return (
@@ -696,8 +714,17 @@ export function App(): React.JSX.Element {
             streaming={activeReplyId !== null}
             onStop={handleStop}
             contextUsage={contextUsage}
+            providerId={providerId}
+            providers={pickerProviders}
+            onSelectProvider={(next) => {
+              updateSetting('selectedProviderId', next)
+              updateSetting('selectedModelId', settings.selectedModels[next] ?? null)
+            }}
             model={settings.selectedModelId}
-            onSelectModel={(modelId) => updateSetting('selectedModelId', modelId)}
+            onSelectModel={(modelId) => {
+              updateSetting('selectedModelId', modelId)
+              updateSetting('selectedModels', { ...settings.selectedModels, [providerId]: modelId })
+            }}
             thinkingLevel={settings.thinkingLevel}
             onSelectThinkingLevel={(level) => updateSetting('thinkingLevel', level)}
             {...(providerName !== undefined ? { providerName } : {})}

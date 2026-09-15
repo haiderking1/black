@@ -28,6 +28,16 @@ describe('thinkingOptionsFor', () => {
     expect(valuesFor(kimi)).toEqual(['default', 'max'])
   })
 
+  it('passes through OpenRouter effort lists that include vendor none', () => {
+    const sonnet = model({
+      id: 'anthropic/claude-sonnet-4',
+      name: 'Claude Sonnet 4',
+      thinkingKind: 'effort',
+      thinkingLevels: ['high', 'medium', 'low'],
+    })
+    expect(valuesFor(sonnet)).toEqual(['default', 'high', 'medium', 'low'])
+  })
+
   it('passes through vendor levels that are not in our own list', () => {
     const luna = model({ id: 'gpt-5.6-luna', thinkingKind: 'effort', thinkingLevels: ['none', 'low', 'xhigh'] })
     // 'none' is the vendor's, and is distinct from our 'default': sending it is

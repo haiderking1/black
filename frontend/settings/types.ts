@@ -22,6 +22,13 @@ export interface AppSettings {
    */
   selectedModelId: string | null
   /**
+   * Provider last chosen in the composer. Null falls back to the first
+   * authenticated, enabled provider.
+   */
+  selectedProviderId: string | null
+  /** Last model chosen per provider, so switching catalogs restores the pick. */
+  selectedModels: Record<string, string>
+  /**
    * Reasoning effort chosen in the composer. A plain string because the value
    * is the vendor's own, and vendors do not share a vocabulary: GLM takes
    * low/high/max, Kimi K3 takes max alone, gpt-5.6-luna includes 'none'.

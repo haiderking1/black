@@ -8,6 +8,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   openSidebarOnLaunch: true,
   reduceMotion: false,
   selectedModelId: null,
+  selectedProviderId: null,
+  selectedModels: {},
   thinkingLevel: 'medium'
 }
 
@@ -23,6 +25,15 @@ function isThemePreference(value: unknown): value is ThemePreference {
 /** Any non-empty string: the level is the vendor's own vocabulary. */
 function isThinkingLevel(value: unknown): value is string {
   return typeof value === 'string' && value !== ''
+}
+
+function parseSelectedModels(value: unknown): Record<string, string> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return {}
+  const result: Record<string, string> = {}
+  for (const [key, modelId] of Object.entries(value)) {
+    if (key !== '' && typeof modelId === 'string' && modelId !== '') result[key] = modelId
+  }
+  return result
 }
 
 export function parseSettings(value: unknown): AppSettings {
@@ -48,6 +59,11 @@ export function parseSettings(value: unknown): AppSettings {
       typeof candidate['selectedModelId'] === 'string' && candidate['selectedModelId'] !== ''
         ? candidate['selectedModelId']
         : DEFAULT_SETTINGS.selectedModelId,
+    selectedProviderId:
+      typeof candidate['selectedProviderId'] === 'string' && candidate['selectedProviderId'] !== ''
+        ? candidate['selectedProviderId']
+        : DEFAULT_SETTINGS.selectedProviderId,
+    selectedModels: parseSelectedModels(candidate['selectedModels']),
     thinkingLevel: isThinkingLevel(candidate['thinkingLevel'])
       ? candidate['thinkingLevel']
       : DEFAULT_SETTINGS.thinkingLevel

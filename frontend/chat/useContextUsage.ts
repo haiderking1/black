@@ -32,7 +32,8 @@ const EMPTY_MESSAGES: readonly Message[] = []
 export function useContextUsage(
   providerId: string,
   model: string | null,
-  messages: readonly Message[]
+  messages: readonly Message[],
+  route?: { sort?: 'latency' | 'throughput'; only?: string }
 ): ContextUsage | null {
   const client = useRpcClient()
   const [usage, setUsage] = useState<ContextUsage | null>(null)
@@ -50,7 +51,8 @@ export function useContextUsage(
             client['chat.contextUsage']({
               providerId,
               model,
-              messages: conversationHistory(settledInput)
+              messages: conversationHistory(settledInput),
+              ...(route !== undefined ? { route } : {})
             })
           )
 
@@ -74,7 +76,7 @@ export function useContextUsage(
       clearTimeout(timer)
     }
     // Build history only after settling, not during every streamed render.
-  }, [client, providerId, model, settledInput])
+  }, [client, providerId, model, settledInput, route?.sort, route?.only])
 
   return usage
 }

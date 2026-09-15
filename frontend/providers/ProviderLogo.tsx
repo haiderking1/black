@@ -1,6 +1,7 @@
 import React from 'react'
 
 import { OpenCodeLogo } from './OpenCodeLogo'
+import { OpenRouterLogo } from './OpenRouterLogo'
 import './logo.css'
 
 export interface ProviderLogoProps {
@@ -24,6 +25,9 @@ export function ProviderLogo({
 }: ProviderLogoProps): React.JSX.Element {
   if (providerId === 'opencode-go' || providerId === 'opencode') {
     return <OpenCodeLogo size={size} />
+  }
+  if (providerId === 'openrouter') {
+    return <OpenRouterLogo size={size} />
   }
 
   const label = (fallbackLabel ?? providerId).trim()

@@ -4,6 +4,7 @@ import { ChevronDown } from 'lucide-react'
 import type { ModelInfo } from '../../contracts/providers'
 import { Dropdown } from './Dropdown'
 import { ModelPanel } from './ModelPanel'
+import { displayName } from './modelRow'
 
 export interface ModelPickerProps {
   models: readonly ModelInfo[]
@@ -13,13 +14,15 @@ export interface ModelPickerProps {
   providerId?: string
   /** Display name of the serving provider, from its descriptor. */
   providerName?: string
+  providers?: readonly { id: string; name: string }[]
+  onSelectProvider?: (providerId: string) => void
   isLoading?: boolean
   error?: string | null
 }
 
 /** Trim a vendor id to something that fits the toolbar. */
-function shortName(id: string): string {
-  return id.length > 24 ? id.slice(0, 23) + '\u2026' : id
+function shortName(label: string): string {
+  return label.length > 24 ? label.slice(0, 23) + '\u2026' : label
 }
 
 /**
@@ -38,15 +41,20 @@ export function ModelPicker({
   onSelect,
   providerId = 'opencode-go',
   providerName = 'Provider',
+  providers = [],
+  onSelectProvider,
   isLoading = false,
   error = null,
 }: ModelPickerProps): React.JSX.Element {
-  const label = selectedModelId ?? (models.length > 0 ? models[0]?.id ?? 'Select model' : 'Select model')
+  const selected = models.find((model) => model.id === selectedModelId)
+  const label = selected !== undefined
+    ? displayName(selected)
+    : selectedModelId ?? (models[0] !== undefined ? displayName(models[0]) : 'Select model')
 
   return (
     <Dropdown
       title="Choose a model"
-      disabled={isLoading}
+      disabled={isLoading && models.length === 0 && providers.length === 0}
       menuClassName="composer-picker-menu-wide"
       label={
         <>
@@ -67,12 +75,14 @@ export function ModelPicker({
             <div className="composer-picker-note">No models available.</div>
           ) : null}
 
-          {!isLoading && models.length > 0 ? (
+          {models.length > 0 || providers.length > 0 ? (
             <ModelPanel
               models={models}
               selectedModelId={selectedModelId}
               providerId={providerId}
               providerName={providerName}
+              providers={providers}
+              {...(onSelectProvider !== undefined ? { onSelectProvider } : {})}
               onSelect={onSelect}
               close={close}
             />
