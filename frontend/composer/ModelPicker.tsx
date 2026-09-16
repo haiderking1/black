@@ -5,6 +5,7 @@ import type { ModelInfo } from '../../contracts/providers'
 import { Dropdown } from './Dropdown'
 import { ModelPanel } from './ModelPanel'
 import { displayName } from './modelRow'
+import { useT } from '../i18n'
 
 export interface ModelPickerProps {
   models: readonly ModelInfo[]
@@ -40,20 +41,22 @@ export function ModelPicker({
   selectedModelId,
   onSelect,
   providerId = 'opencode-go',
-  providerName = 'Provider',
+  providerName,
   providers = [],
   onSelectProvider,
   isLoading = false,
   error = null,
 }: ModelPickerProps): React.JSX.Element {
+  const t = useT()
+  const servingName = providerName ?? t('model.provider')
   const selected = models.find((model) => model.id === selectedModelId)
   const label = selected !== undefined
     ? displayName(selected)
-    : selectedModelId ?? (models[0] !== undefined ? displayName(models[0]) : 'Select model')
+    : selectedModelId ?? (models[0] !== undefined ? displayName(models[0]) : t('model.select'))
 
   return (
     <Dropdown
-      title="Choose a model"
+      title={t('model.choose')}
       disabled={isLoading && models.length === 0 && providers.length === 0}
       menuClassName="composer-picker-menu-wide"
       label={
@@ -65,14 +68,14 @@ export function ModelPicker({
     >
       {(close) => (
         <>
-          {isLoading ? <div className="composer-picker-note">Loading models\u2026</div> : null}
+          {isLoading ? <div className="composer-picker-note">{t('model.loading')}</div> : null}
 
           {!isLoading && error !== null ? (
             <div className="composer-picker-note composer-picker-note-error">{error}</div>
           ) : null}
 
           {!isLoading && error === null && models.length === 0 ? (
-            <div className="composer-picker-note">No models available.</div>
+            <div className="composer-picker-note">{t('model.empty')}</div>
           ) : null}
 
           {models.length > 0 || providers.length > 0 ? (
@@ -80,7 +83,7 @@ export function ModelPicker({
               models={models}
               selectedModelId={selectedModelId}
               providerId={providerId}
-              providerName={providerName}
+              providerName={servingName}
               providers={providers}
               {...(onSelectProvider !== undefined ? { onSelectProvider } : {})}
               onSelect={onSelect}

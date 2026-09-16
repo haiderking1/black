@@ -35,7 +35,7 @@
 .attachment-remove {
   position: absolute;
   top: 4px;
-  right: 6px;
+  inset-inline-end: 6px;
   width: 18px;
   height: 18px;
   display: flex;

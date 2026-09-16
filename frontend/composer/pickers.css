@@ -14,6 +14,7 @@
   border-radius: var(--radius-pill);
   color: var(--text-secondary);
   font-size: 12.5px;
+  line-height: 1.6;
   white-space: nowrap;
   transition: background-color 120ms ease, color 120ms ease;
 }
@@ -32,6 +33,7 @@
   max-width: 160px;
   overflow: hidden;
   text-overflow: ellipsis;
+  line-height: 1.6;
 }
 
 /*
@@ -45,7 +47,7 @@
 .composer-picker-menu {
   position: absolute;
   bottom: calc(100% + 8px);
-  left: 0;
+  inset-inline-start: 0;
   z-index: 20;
   min-width: 220px;
   max-height: 320px;
@@ -76,7 +78,7 @@
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   font-size: 13px;
-  text-align: left;
+  text-align: start;
 }
 
 .composer-picker-item:hover {
@@ -152,7 +154,7 @@
   gap: 3px;
   width: 42px;
   padding: 8px 0;
-  border-right: 1px solid var(--border-subtle);
+  border-inline-end: 1px solid var(--border-subtle);
 }
 
 .model-rail-item {
@@ -181,6 +183,10 @@
   background-color: var(--bg-surface-hover);
   color: var(--text-primary);
   box-shadow: inset 3px 0 0 var(--text-primary);
+}
+
+html[dir='rtl'] .model-rail-item.active {
+  box-shadow: inset -3px 0 0 var(--text-primary);
 }
 
 .model-rail-divider {
@@ -221,10 +227,13 @@
   color: var(--text-primary);
   font-family: inherit;
   font-size: 13px;
+  line-height: 1.75;
+  padding-block: 3px;
 }
 
 .model-search-input::placeholder {
   color: var(--text-muted);
+  line-height: inherit;
 }
 
 .model-scroll {
@@ -250,7 +259,7 @@
   width: 100%;
   padding: 7px 8px;
   border-radius: var(--radius-md);
-  text-align: left;
+  text-align: start;
   cursor: pointer;
   transition: background-color 0.12s ease;
 }
@@ -285,6 +294,7 @@
   color: var(--text-primary);
   font-size: 13px;
   font-weight: 600;
+  line-height: 1.6;
 }
 
 .model-provider {
@@ -350,7 +360,7 @@
   width: 100%;
   padding: 7px 8px;
   border-radius: var(--radius-md);
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 
@@ -371,4 +381,12 @@
 
 .model-group-chevron.open {
   transform: rotate(90deg);
+}
+
+html[dir='rtl'] .model-group-chevron {
+  transform: scaleX(-1);
+}
+
+html[dir='rtl'] .model-group-chevron.open {
+  transform: scaleX(-1) rotate(90deg);
 }

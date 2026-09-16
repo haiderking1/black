@@ -1,6 +1,8 @@
 import React, { useRef } from 'react'
 import { Paperclip } from 'lucide-react'
 
+import { useT } from '../i18n'
+
 /**
  * Opens the file picker for images.
  *
@@ -18,6 +20,7 @@ export function AttachButton({
   onFiles: (files: File[]) => void
   disabled?: boolean
 }): React.JSX.Element {
+  const t = useT()
   const inputRef = useRef<HTMLInputElement>(null)
 
   return (
@@ -27,8 +30,8 @@ export function AttachButton({
         className="composer-icon-btn"
         onClick={() => inputRef.current?.click()}
         disabled={disabled}
-        aria-label="Attach images"
-        title="Attach images"
+        aria-label={t('composer.attach')}
+        title={t('composer.attach')}
       >
         <Paperclip size={17} />
       </button>

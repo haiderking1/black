@@ -2,6 +2,7 @@ import React, { useState } from 'react'
 
 import { Markdown } from '../markdown'
 import { thinkingLabel } from './formatDuration'
+import { useLanguage } from '../language'
 import './thinking.css'
 
 export interface ThinkingBlockProps {
@@ -27,6 +28,7 @@ export interface ThinkingBlockProps {
  * pull it back up when the reasoning stopped.
  */
 export function ThinkingBlock({ thinking, isStreaming, durationMs }: ThinkingBlockProps): React.JSX.Element {
+  const language = useLanguage()
   const [open, setOpen] = useState(false)
 
   return (
@@ -38,7 +40,7 @@ export function ThinkingBlock({ thinking, isStreaming, durationMs }: ThinkingBlo
         aria-expanded={open}
       >
         <span className={isStreaming ? 'shimmer-text' : undefined}>
-          {thinkingLabel(isStreaming, durationMs)}
+          {thinkingLabel(isStreaming, durationMs, language)}
         </span>
       </button>
 

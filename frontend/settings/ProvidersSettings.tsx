@@ -3,6 +3,7 @@ import { AlertCircle } from 'lucide-react'
 
 import { ProviderRow } from './ProviderRow'
 import { useProviders } from './useProviders'
+import { useT } from '../i18n'
 import './providers.css'
 
 /**
@@ -13,6 +14,7 @@ import './providers.css'
  * empty even when one is configured.
  */
 export function ProvidersSettings(): React.JSX.Element {
+  const t = useT()
   const { providers, isLoading, error, setApiKey, clearApiKey, setEnabled } = useProviders()
 
   return (
@@ -24,11 +26,11 @@ export function ProvidersSettings(): React.JSX.Element {
         </div>
       ) : null}
 
-      <section aria-label="Providers">
+      <section aria-label={t('providers.aria')}>
         <div className="settings-provider-list">
           {providers.length === 0 ? (
             <div className="settings-provider-empty">
-              {isLoading ? 'Loading providers\u2026' : 'No providers available.'}
+              {isLoading ? t('providers.loading') : t('providers.empty')}
             </div>
           ) : (
             providers.map((provider) => (

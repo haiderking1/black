@@ -1,6 +1,7 @@
 import React from 'react'
 
 import type { SlashCommand } from './slashCommands'
+import { useT } from '../i18n'
 import './slash.css'
 
 export interface SlashMenuProps {
@@ -26,6 +27,7 @@ export function SlashMenu({
   onSelect,
   onActivate
 }: SlashMenuProps): React.JSX.Element | null {
+  const t = useT()
   if (commands.length === 0) return null
 
   return (
@@ -42,7 +44,7 @@ export function SlashMenu({
             onClick={() => onSelect(command)}
           >
             <span className="slash-name">{command.name}</span>
-            <span className="slash-description">{command.description}</span>
+            <span className="slash-description">{command.name === '/compact' ? t('slash.compact') : command.description}</span>
           </button>
         ))}
       </div>

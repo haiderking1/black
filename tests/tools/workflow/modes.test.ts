@@ -34,6 +34,9 @@ test('old settings and RPC callers default to compute while invalid modes are re
   expect(decode(input).workflow).toBeUndefined()
   expect(decode({ ...input, workflow: 'standard' }).workflow).toBe('standard')
   expect(() => decode({ ...input, workflow: 'invalid' })).toThrow()
+  expect(decode(input).language).toBeUndefined()
+  expect(decode({ ...input, language: 'ar' }).language).toBe('ar')
+  expect(() => decode({ ...input, language: 'fr' })).toThrow()
 })
 
 test('standard tools execute without compute and keep their turn-local mode', async () => {

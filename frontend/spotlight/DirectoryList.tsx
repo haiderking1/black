@@ -1,6 +1,7 @@
 import React from 'react'
 import { Folder } from 'lucide-react'
 import type { DirectoryEntry } from '../../contracts/fs'
+import { useT } from '../i18n'
 
 interface DirectoryListProps {
   entries: DirectoryEntry[]
@@ -21,16 +22,17 @@ export function DirectoryList({
   onHover,
   onHoverLeave
 }: DirectoryListProps): React.JSX.Element {
+  const t = useT()
   if (error !== null && error !== '') {
     return <div className="dir-nav-empty dir-nav-error">{error}</div>
   }
 
   if (entries.length === 0 && isLoading) {
-    return <div className="dir-nav-loading">Reading directory...</div>
+    return <div className="dir-nav-loading">{t('spotlight.reading')}</div>
   }
 
   if (entries.length === 0) {
-    return <div className="dir-nav-empty">No subdirectories in this folder.</div>
+    return <div className="dir-nav-empty">{t('spotlight.noSubdirs')}</div>
   }
 
   // While a new directory loads, the previous rows stay visible until the

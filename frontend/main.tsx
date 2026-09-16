@@ -2,7 +2,6 @@ import React from 'react'
 import { createRoot } from 'react-dom/client'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { App } from './App'
-import { PreviewProvider } from './lightbox'
 import { ConnectionProvider } from './rpc'
 import './index.css'
 import './shimmer.css'
@@ -26,11 +25,7 @@ root.render(
   <React.StrictMode>
     <ConnectionProvider>
       <QueryClientProvider client={queryClient}>
-        {/* Above the app, so every image anywhere can open a preview without
-            each of them owning an overlay of its own. */}
-        <PreviewProvider>
-          <App />
-        </PreviewProvider>
+        <App />
       </QueryClientProvider>
     </ConnectionProvider>
   </React.StrictMode>

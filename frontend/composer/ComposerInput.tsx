@@ -14,6 +14,8 @@ interface ComposerInputProps {
   onKeyDown?: (event: React.KeyboardEvent<HTMLTextAreaElement>) => boolean
   placeholder?: string
   disabled?: boolean
+  dir?: 'ltr' | 'rtl' | 'auto'
+  lang?: string
 }
 
 export function ComposerInput({
@@ -22,7 +24,9 @@ export function ComposerInput({
   onSubmit,
   onKeyDown,
   placeholder = 'Message Black...',
-  disabled = false
+  disabled = false,
+  dir = 'auto',
+  lang,
 }: ComposerInputProps): React.JSX.Element {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
 
@@ -60,6 +64,8 @@ export function ComposerInput({
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
         disabled={disabled}
+        dir={dir}
+        {...(lang !== undefined ? { lang } : {})}
         rows={1}
       />
     </div>

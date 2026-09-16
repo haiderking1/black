@@ -3,6 +3,8 @@ import type { ModelEndpoint } from '../../../contracts/providers'
 export interface AutoRouteChoice {
   title: string
   note: string
+  /** Extra searchable text, so an Arabic title still matches "fastest". */
+  haystack?: string
 }
 
 /**
@@ -34,8 +36,9 @@ export function filterAuto<T extends AutoRouteChoice>(
   const needle = query.trim().toLowerCase()
   if (needle === '') return choices
 
-  return choices.filter(
-    (choice) =>
-      choice.title.toLowerCase().includes(needle) || choice.note.toLowerCase().includes(needle),
-  )
+  return choices.filter((choice) => {
+    if (choice.title.toLowerCase().includes(needle)) return true
+    if (choice.note.toLowerCase().includes(needle)) return true
+    return (choice.haystack ?? '').toLowerCase().includes(needle)
+  })
 }

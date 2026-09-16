@@ -34,7 +34,9 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 7px 8px 7px 14px;
+  padding-block: 7px;
+  padding-inline-start: 14px;
+  padding-inline-end: 8px;
 }
 
 /* A rule between turns, never above the first or below the last. */
@@ -61,6 +63,10 @@
      wrote, and dimming it made the whole tab read as disabled. */
   color: var(--text-primary);
   font-size: 13.5px;
+}
+
+.queued-card-text[dir='rtl'] {
+  font-family: 'Noto Sans Arabic', var(--font-sans);
 }
 
 .queued-card-actions {

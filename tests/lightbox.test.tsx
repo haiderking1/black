@@ -5,6 +5,7 @@ import { renderToStaticMarkup } from 'react-dom/server'
 import { Lightbox } from '../frontend/lightbox/Lightbox'
 import { PreviewImage } from '../frontend/lightbox/PreviewImage'
 import { PreviewProvider, usePreview } from '../frontend/lightbox/PreviewContext'
+import { LanguageProvider } from '../frontend/language'
 
 /**
  * Structure rather than behaviour.
@@ -30,6 +31,16 @@ describe('Lightbox', () => {
   it('falls back to a generic label when the image has no name', () => {
     const html = render(<Lightbox request={{ src: base.src }} onClose={base.onClose} />)
     expect(html).toContain('aria-label="Image preview"')
+  })
+
+  it('uses Arabic chrome when the UI language is Arabic', () => {
+    const html = render(
+      <LanguageProvider language="ar">
+        <Lightbox request={{ src: base.src }} onClose={base.onClose} />
+      </LanguageProvider>,
+    )
+    expect(html).toContain('aria-label="معاينة الصورة"')
+    expect(html).toContain('aria-label="إغلاق المعاينة"')
   })
 
   it('shows the image at full size', () => {

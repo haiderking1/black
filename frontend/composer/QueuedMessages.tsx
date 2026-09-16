@@ -1,6 +1,8 @@
 import React from 'react'
 import { ArrowRight, CornerDownRight, Trash2 } from 'lucide-react'
 
+import { directionFor, langFor, useLanguage } from '../language'
+import { useT } from '../i18n'
 import './queued.css'
 
 export interface QueuedMessageItem {
@@ -29,6 +31,8 @@ export function QueuedMessages({
   onDismiss,
   onSteer
 }: QueuedMessagesProps): React.JSX.Element | null {
+  const language = useLanguage()
+  const t = useT()
   if (messages.length === 0) return null
 
   return (
@@ -36,25 +40,27 @@ export function QueuedMessages({
       <div className="queued-card">
         {messages.map((message) => (
           <div key={message.requestId} className="queued-card-row">
-            <CornerDownRight className="queued-card-icon" size={15} aria-hidden="true" />
-            <span className="queued-card-text">{message.content}</span>
+            <CornerDownRight className="queued-card-icon rtl-flip" size={15} aria-hidden="true" />
+            <span className="queued-card-text" dir={directionFor(language, message.content)} lang={langFor(language, message.content)}>
+              {message.content}
+            </span>
 
             <div className="queued-card-actions">
               <button
                 type="button"
                 className="queued-card-action"
                 onClick={() => onSteer(message.requestId)}
-                title="Stop the current reply and send this next"
+                title={t('composer.sendNowTitle')}
               >
-                <ArrowRight size={13} aria-hidden="true" />
-                <span>Send now</span>
+                <ArrowRight size={13} aria-hidden="true" className="rtl-flip" />
+                <span>{t('composer.sendNow')}</span>
               </button>
               <button
                 type="button"
                 className="queued-card-action"
                 onClick={() => onDismiss(message.requestId)}
-                aria-label="Remove queued message"
-                title="Remove"
+                aria-label={t('composer.removeQueued')}
+                title={t('composer.remove')}
               >
                 <Trash2 size={14} aria-hidden="true" />
               </button>

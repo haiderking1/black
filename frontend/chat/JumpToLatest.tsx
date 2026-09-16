@@ -1,5 +1,6 @@
 import React from 'react'
 import { ArrowDown } from 'lucide-react'
+import { useT } from '../i18n'
 
 export interface JumpToLatestProps {
   /** Shown only when the view has stopped following new content. */
@@ -14,10 +15,11 @@ export interface JumpToLatestProps {
  * to see how the answer ended.
  */
 export function JumpToLatest({ visible, onClick }: JumpToLatestProps): React.JSX.Element | null {
+  const t = useT()
   if (!visible) return null
 
   return (
-    <button type="button" className="jump-to-latest" onClick={onClick} aria-label="Jump to latest message">
+    <button type="button" className="jump-to-latest" onClick={onClick} aria-label={t('chat.jumpLatest')}>
       <ArrowDown size={15} aria-hidden="true" />
     </button>
   )

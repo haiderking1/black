@@ -1,5 +1,6 @@
 import * as Schema from 'effect/Schema'
 
+import { Language } from './language'
 import { THINKING_LEVELS } from './providers'
 import { Workflow } from './workflow'
 
@@ -116,6 +117,11 @@ export const ChatCompleteInput = Schema.Struct({
   workflow: Schema.optional(Workflow),
   /** OpenRouter host selection. Ignored by providers that do not route. */
   route: Schema.optional(ChatRoute),
+  /**
+   * Reply language and chat layout. Omitted means auto: follow the user,
+   * including Arabic right-to-left when they write it.
+   */
+  language: Schema.optional(Language),
 })
 export type ChatCompleteInput = typeof ChatCompleteInput.Type
 

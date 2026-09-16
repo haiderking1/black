@@ -10,6 +10,7 @@ import { abortRequest, beginRequest, endRequest } from '../../chat/inflight'
 import { fitContext, measureContext } from '../../chat/fitContext'
 import type { TranscriptMessage } from '../../chat/transcript'
 import { withSystemPrompt } from '../../chat/systemPrompt'
+import { withLanguagePolicy } from '../../chat/language'
 import { loadAgentInstructions } from '../../instructions/agents/load'
 import { agentPolicy } from '../../instructions/agents/policy'
 import { runToolLoop } from '../../chat/toolLoop'
@@ -272,6 +273,7 @@ export function chatHandlers() {
       workingDirectory?: string
       workflow?: Workflow
       route?: ChatRoute
+      language?: string
     }) => {
       const resolved = resolveProvider(payload.providerId)
 
@@ -319,10 +321,11 @@ export function chatHandlers() {
               : fitted.contextWindow - Math.round(fitted.contextWindow * RESERVE_SHARE)
 
           const streamRound = async function* (round: ChatMessage[]): AsyncGenerator<ProviderStreamEvent> {
-            const policy = agentPolicy(await loadAgentInstructions(workingDirectory), workingDirectory)
+            const standing = agentPolicy(await loadAgentInstructions(workingDirectory), workingDirectory)
+            const policy = withLanguagePolicy(standing, payload.language)
             const prepared = withSystemPrompt(round, workingDirectory, policy, workflow)
             const tools = workingDirectory === undefined || !canCallTools
-              ? undefined : toolDefinitions(policy, workflow)
+              ? undefined : toolDefinitions(standing, workflow)
 
             // Checked before the request rather than after it fails. A round
             // that grew past the window would otherwise be rejected by the
@@ -544,6 +547,7 @@ export function chatHandlers() {
       workingDirectory?: string
       workflow?: Workflow
       route?: ChatRoute
+      language?: string
     }) =>
       Effect.tryPromise({
         try: async () => {
@@ -565,7 +569,10 @@ export function chatHandlers() {
             messages: withSystemPrompt(
               providerHistory(fitted.messages),
               payload.workingDirectory,
-              agentPolicy(await loadAgentInstructions(payload.workingDirectory), payload.workingDirectory),
+              withLanguagePolicy(
+                agentPolicy(await loadAgentInstructions(payload.workingDirectory), payload.workingDirectory),
+                payload.language
+              ),
               payload.workflow
             ),
             ...(payload.maxTokens !== undefined ? { maxTokens: payload.maxTokens } : {}),

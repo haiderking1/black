@@ -5,6 +5,7 @@ import type { ModelEndpoint } from '../../../contracts/providers'
 import { Dropdown } from '../Dropdown'
 import { filterAuto, filterHosts } from './filter'
 import { formatDiscount, formatLatency, formatPricePair, formatTps } from './format'
+import { useT, type MessageKey } from '../../i18n'
 import { defaultRoute, type StoredRoute } from './storage'
 import './routePicker.css'
 
@@ -16,16 +17,18 @@ export interface RoutePickerProps {
   error?: string | null
 }
 
-function labelFor(route: StoredRoute, endpoints: readonly ModelEndpoint[]): string {
+function labelFor(route: StoredRoute, endpoints: readonly ModelEndpoint[], fastest: string, throughput: string): string {
   if ('only' in route) {
     return endpoints.find((endpoint) => endpoint.tag === route.only)?.providerName ?? route.only
   }
-  return route.sort === 'throughput' ? 'Throughput' : 'Fastest'
+  return route.sort === 'throughput' ? throughput : fastest
 }
 
 function HostStats({ endpoint }: { endpoint: ModelEndpoint }): React.JSX.Element | null {
+  const t = useT()
   const tps = endpoint.throughput !== undefined ? formatTps(endpoint.throughput) : null
-  const price = formatPricePair(endpoint.promptPrice, endpoint.completionPrice)
+  const priceRaw = formatPricePair(endpoint.promptPrice, endpoint.completionPrice)
+  const price = priceRaw === 'Free' ? t('route.free') : priceRaw
   const latency = endpoint.latencyMs !== undefined ? formatLatency(endpoint.latencyMs) : null
   const bits = [tps, price, latency, endpoint.quantization].filter((item): item is string => item !== null)
   if (bits.length === 0) return null
@@ -38,10 +41,27 @@ function HostStats({ endpoint }: { endpoint: ModelEndpoint }): React.JSX.Element
   )
 }
 
-const AUTO_ROUTES: Array<{ route: StoredRoute; title: string; note: string }> = [
-  { route: { sort: 'latency' }, title: 'Fastest', note: 'Lowest time to first token' },
-  { route: { sort: 'throughput' }, title: 'Throughput', note: 'Highest tokens per second' },
-]
+function autoRoutes(translate: (key: MessageKey) => string): Array<{
+  route: StoredRoute
+  title: string
+  note: string
+  haystack: string
+}> {
+  return [
+    {
+      route: { sort: 'latency' },
+      title: translate('route.fastest'),
+      note: translate('route.fastestNote'),
+      haystack: 'Fastest Lowest time to first token',
+    },
+    {
+      route: { sort: 'throughput' },
+      title: translate('route.throughput'),
+      note: translate('route.throughputNote'),
+      haystack: 'Throughput Highest tokens per second',
+    },
+  ]
+}
 
 /**
  * Which OpenRouter host should serve this model.
@@ -57,11 +77,12 @@ export function RoutePicker({
   disabled = false,
   error = null,
 }: RoutePickerProps): React.JSX.Element {
-  const current = labelFor(value, endpoints)
+  const t = useT()
+  const current = labelFor(value, endpoints, t('route.fastest'), t('route.throughput'))
 
   return (
     <Dropdown
-      title="Provider host"
+      title={t('route.host')}
       menuClassName="route-picker-menu"
       disabled={disabled}
       label={
@@ -96,9 +117,11 @@ function RouteMenu({
   close,
   error,
 }: RoutePickerProps & { close: () => void }): React.JSX.Element {
+  const t = useT()
   const [query, setQuery] = useState('')
+  const choices = useMemo(() => autoRoutes(t), [t])
 
-  const shownAuto = useMemo(() => filterAuto(AUTO_ROUTES, query), [query])
+  const shownAuto = useMemo(() => filterAuto(choices, query), [choices, query])
   const shownHosts = useMemo(() => filterHosts(endpoints, query), [endpoints, query])
   const searching = query.trim() !== ''
   const empty = shownAuto.length === 0 && shownHosts.length === 0
@@ -115,8 +138,8 @@ function RouteMenu({
           onKeyDown={(event) => {
             if (event.key === 'Enter') event.preventDefault()
           }}
-          placeholder="Search hosts..."
-          aria-label="Search hosts"
+          placeholder={t('route.search')}
+          aria-label={t('route.search')}
           autoComplete="off"
           spellCheck={false}
           autoFocus
@@ -126,7 +149,7 @@ function RouteMenu({
       <div className="route-picker-body">
         {empty ? (
           <div className="composer-picker-note">
-            {searching ? 'No host matches that.' : 'No hosts listed.'}
+            {searching ? t('route.noMatch') : t('route.empty')}
           </div>
         ) : (
           <>
@@ -160,12 +183,13 @@ function RouteMenu({
 
             {shownHosts.length > 0 ? (
               <>
-                <div className="route-picker-heading">Hosts</div>
+                <div className="route-picker-heading">{t('route.hosts')}</div>
                 <ul className="route-picker-list">
                   {shownHosts.map((endpoint) => {
                     const route: StoredRoute = { only: endpoint.tag }
                     const selected = JSON.stringify(route) === JSON.stringify(value)
-                    const discount = formatDiscount(endpoint.discount)
+                    const discountRaw = formatDiscount(endpoint.discount)
+                    const discount = discountRaw === 'Free' ? t('route.free') : discountRaw
                     return (
                       <li key={endpoint.tag}>
                         <button

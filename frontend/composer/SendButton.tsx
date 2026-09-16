@@ -1,5 +1,6 @@
 import React from 'react'
 import { ArrowUp, Square } from 'lucide-react'
+import { useT } from '../i18n'
 
 interface SendButtonProps {
   /** True while a reply is arriving, which turns the button into a stop control. */
@@ -16,14 +17,15 @@ interface SendButtonProps {
  * turn, and the queue drains when the reply ahead of it finishes.
  */
 export function SendButton({ streaming = false, disabled, onClick }: SendButtonProps): React.JSX.Element {
+  const t = useT()
   if (streaming) {
     return (
       <button
         type="button"
         className="composer-send-btn active"
         onClick={onClick}
-        aria-label="Stop response"
-        title="Stop"
+        aria-label={t('composer.stop')}
+        title={t('composer.stopTitle')}
       >
         <Square size={13} strokeWidth={2.5} fill="currentColor" />
       </button>
@@ -36,7 +38,7 @@ export function SendButton({ streaming = false, disabled, onClick }: SendButtonP
       className={`composer-send-btn ${disabled ? 'disabled' : 'active'}`}
       disabled={disabled}
       onClick={onClick}
-      aria-label="Send message"
+      aria-label={t('composer.send')}
     >
       <ArrowUp size={16} strokeWidth={2.5} />
     </button>

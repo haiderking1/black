@@ -16,3 +16,26 @@
   background-color: var(--bg-surface);
   object-fit: contain;
 }
+
+.user-turn {
+  align-items: flex-end;
+}
+
+html[dir='rtl'] .user-turn {
+  align-items: flex-start;
+}
+
+.user-message-text {
+  display: block;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  text-align: start;
+}
+
+.user-message-text[dir='rtl'] {
+  font-family: 'Noto Naskh Arabic', var(--font-sans);
+  font-size: 16px;
+  line-height: 1.9;
+  letter-spacing: 0;
+  text-rendering: optimizeLegibility;
+}

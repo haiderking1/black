@@ -15,6 +15,8 @@ import { RoutePicker, resolvedRoute } from './routing/RoutePicker'
 import { readRoute, toChatRoute, writeRoute, type StoredRoute } from './routing/storage'
 import { useEndpoints } from './routing/useEndpoints'
 import type { ChatRoute } from '../../contracts/chat'
+import { inputDirection, langFor, useLanguage } from '../language'
+import { t } from '../i18n'
 import './composer.css'
 import './pickers.css'
 import './attachments.css'
@@ -73,10 +75,14 @@ export function Composer({
   onStop,
   contextUsage = null
 }: ComposerProps): React.JSX.Element {
+  const language = useLanguage()
   const [text, setText] = useState('')
   const [attachments, setAttachments] = useState<Attachment[]>([])
   const [attachmentError, setAttachmentError] = useState<string | null>(null)
   const [dragging, setDragging] = useState(false)
+  const inputDir = inputDirection(language, text)
+  const inputLang = langFor(language, text)
+  const inputPlaceholder = t(language, streaming ? 'composer.followUp' : 'composer.placeholder')
 
   const { models, isLoading, error } = useModels(providerId)
 
@@ -109,7 +115,7 @@ export function Composer({
   }, [activeModelId, endpoints, endpointsReady, providerId, route])
 
   // Options come from the model, since vendors disagree on which levels exist.
-  const thinking = useMemo(() => thinkingOptionsFor(activeModel), [activeModel])
+  const thinking = useMemo(() => thinkingOptionsFor(activeModel, language), [activeModel, language])
 
   // Derive a usable level without rewriting the saved preference. The catalog
   // starts empty on launch and can temporarily lose capability metadata. Only
@@ -163,7 +169,7 @@ export function Composer({
    * looks correct until the reply answers a question they did not ask.
    */
   const addFiles = async (files: File[]): Promise<void> => {
-    const batch = await attachmentsFromFiles(files)
+    const batch = await attachmentsFromFiles(files, undefined, language)
     if (batch.attachments.length > 0) {
       setAttachments((previous) => [...previous, ...batch.attachments])
     }
@@ -270,8 +276,10 @@ export function Composer({
           onKeyDown={handleInputKeyDown}
           /* While a reply is arriving the next message is a follow-up, not a
              fresh request. */
-          placeholder={streaming ? 'Send follow-up' : placeholder}
+          placeholder={inputPlaceholder}
           disabled={disabled}
+          dir={inputDir}
+          lang={inputLang}
         />
 
         {attachmentError === null ? null : <p className="attachment-error">{attachmentError}</p>}

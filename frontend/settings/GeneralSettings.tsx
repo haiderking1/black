@@ -1,7 +1,9 @@
 import React from 'react'
 import { RotateCcw } from 'lucide-react'
 import type { AppSettings } from './types'
+import { LanguageSettings } from './language/LanguageSettings'
 import { WorkflowSettings } from './workflow/WorkflowSettings'
+import { useT } from '../i18n'
 
 interface GeneralSettingsProps {
   settings: AppSettings
@@ -35,47 +37,50 @@ export function GeneralSettings({
   onChange,
   onReset
 }: GeneralSettingsProps): React.JSX.Element {
+  const t = useT()
   return (
     <div className="settings-general">
       <header className="settings-content-header">
-        <span className="settings-eyebrow">Settings</span>
-        <h1>General</h1>
-        <p>Control how Black behaves on this device.</p>
+        <span className="settings-eyebrow">{t('settings.eyebrow')}</span>
+        <h1>{t('general.title')}</h1>
+        <p>{t('general.subtitle')}</p>
       </header>
+
+      <LanguageSettings value={settings.language} onChange={(value) => onChange('language', value)} />
 
       <WorkflowSettings value={settings.workflow} onChange={value => onChange('workflow', value)} />
 
       <section className="settings-section" aria-labelledby="behavior-heading">
         <div className="settings-section-heading">
-          <h2 id="behavior-heading">Behavior</h2>
-          <p>Set the defaults used when Black starts.</p>
+          <h2 id="behavior-heading">{t('general.behavior')}</h2>
+          <p>{t('general.behaviorHint')}</p>
         </div>
 
         <div className="settings-card">
           <div className="settings-row">
             <div className="settings-row-copy">
-              <span className="settings-row-title">Open sidebar on launch</span>
+              <span className="settings-row-title">{t('general.openSidebar')}</span>
               <span className="settings-row-description">
-                Start new windows with the project sidebar visible.
+                {t('general.openSidebarHint')}
               </span>
             </div>
             <Toggle
               checked={settings.openSidebarOnLaunch}
-              label="Open sidebar on launch"
+              label={t('general.openSidebar')}
               onChange={(checked) => onChange('openSidebarOnLaunch', checked)}
             />
           </div>
 
           <div className="settings-row">
             <div className="settings-row-copy">
-              <span className="settings-row-title">Reduce motion</span>
+              <span className="settings-row-title">{t('general.reduceMotion')}</span>
               <span className="settings-row-description">
-                Minimize interface animations and transitions.
+                {t('general.reduceMotionHint')}
               </span>
             </div>
             <Toggle
               checked={settings.reduceMotion}
-              label="Reduce motion"
+              label={t('general.reduceMotion')}
               onChange={(checked) => onChange('reduceMotion', checked)}
             />
           </div>
@@ -84,12 +89,12 @@ export function GeneralSettings({
 
       <section className="settings-reset-section" aria-labelledby="reset-heading">
         <div>
-          <h2 id="reset-heading">Reset settings</h2>
-          <p>Restore every setting to its default value.</p>
+          <h2 id="reset-heading">{t('general.reset')}</h2>
+          <p>{t('general.resetHint')}</p>
         </div>
         <button type="button" className="settings-reset-button" onClick={onReset}>
           <RotateCcw size={15} aria-hidden="true" />
-          <span>Reset</span>
+          <span>{t('general.resetButton')}</span>
         </button>
       </section>
     </div>

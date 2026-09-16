@@ -7,6 +7,8 @@ import { DiffView } from './DiffView'
 import { FileMark } from './FileMark'
 import computeIcon from './icons/compute.svg'
 import { rowLabel } from './rowLabel'
+import { useLanguage } from '../language'
+import { t } from '../i18n'
 import './tools.css'
 
 function Caret({ open }: { open: boolean }): React.JSX.Element {
@@ -31,14 +33,17 @@ function Caret({ open }: { open: boolean }): React.JSX.Element {
 }
 
 export function ToolRow({ run }: { run: ToolRun }): React.JSX.Element {
+  const language = useLanguage()
   const running = isRunning(run)
   const failed = run.isError === true
   const images = run.images ?? []
   const [open, setOpen] = useState(false)
 
-  const label = rowLabel(run)
+  const label = rowLabel(run, language)
   const detail = failed ? run.result ?? run.diff : run.diff ?? run.result
-  const input = label.command ?? (run.result === undefined ? run.args : undefined)
+  const rawInput = label.command ?? (run.result === undefined ? run.args : undefined)
+  const trimmedInput = rawInput?.trim()
+  const input = trimmedInput === undefined || trimmedInput === '' || trimmedInput === '{}' ? undefined : rawInput
   const hasBody = detail !== undefined || images.length > 0 || input !== undefined
   const expanded = failed || images.length > 0 || open
 
@@ -50,7 +55,7 @@ export function ToolRow({ run }: { run: ToolRun }): React.JSX.Element {
         onClick={() => setOpen((previous) => !previous)}
         disabled={!hasBody}
         aria-expanded={expanded}
-        aria-label={[label.verb, label.name, label.note, label.added === undefined ? '' : '+' + label.added, label.removed === undefined ? '' : '-' + label.removed, failed ? 'failed' : ''].filter(Boolean).join(' ')}
+        aria-label={[label.verb, label.name, label.note, label.added === undefined ? '' : '+' + label.added, label.removed === undefined ? '' : '-' + label.removed, failed ? t(language, 'tool.failed') : ''].filter(Boolean).join(' ')}
         {...(run.path === undefined ? {} : { title: run.path })}
       >
         {run.name === 'compute' ? (
@@ -69,7 +74,7 @@ export function ToolRow({ run }: { run: ToolRun }): React.JSX.Element {
         {label.removed === undefined ? null : (
           <span className="tool-row-count tool-row-count-removed">-{label.removed}</span>
         )}
-        {failed ? <span className="tool-row-state">failed</span> : run.interrupted ? <span className="tool-row-state">interrupted</span> : null}
+        {failed ? <span className="tool-row-state">{t(language, 'tool.failed')}</span> : run.interrupted ? <span className="tool-row-state">{t(language, 'tool.interrupted')}</span> : null}
         <span className="tool-row-caret">{hasBody ? <Caret open={expanded} /> : null}</span>
       </button>
 
@@ -82,7 +87,7 @@ export function ToolRow({ run }: { run: ToolRun }): React.JSX.Element {
               className="tool-image"
               src={imageDataUrl(image)}
               {...(run.path === undefined ? {} : { name: run.path })}
-              alt="Image returned by the read tool"
+              alt={t(language, 'tool.readImageAlt')}
             />
           ))}
           {detail === undefined ? null : failed || run.diff === undefined ? (

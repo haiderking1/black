@@ -13,12 +13,14 @@ import { startWork } from './working/model'
 import { consumeWork } from './working/consume'
 import { finishWork } from './working/reducer'
 import { conversationHistory } from './working/history'
-import { PreviewImage } from './lightbox'
+import { PreviewImage, PreviewProvider } from './lightbox'
 import { describeRpcError, useRpcClient } from './rpc'
 import type { ComposerSubmitOptions } from './composer'
 import './chat/chat-scroll.css'
 import { useFloatingComposer } from './chat/floating-composer/useFloatingComposer'
 import './chat/message-images.css'
+import { LanguageProvider, directionFor, langFor } from './language'
+import { t } from './i18n'
 import { SettingsPage, useSettings } from './settings'
 import { useProviders } from './settings/useProviders'
 import { activeProviderId, pickerRail, providerDisplayName } from './settings/activeProvider'
@@ -49,6 +51,8 @@ export function App(): React.JSX.Element {
   const { settings, updateSetting, resetSettings } = useSettings()
   const workflowRef = useRef(settings.workflow)
   workflowRef.current = settings.workflow
+  const languageRef = useRef(settings.language)
+  languageRef.current = settings.language
   const [sidebarOpen, setSidebarOpen] = useState(() => settings.openSidebarOnLaunch)
   const [spotlightOpen, setSpotlightOpen] = useState(false)
   const [appView, setAppView] = useState<AppView>('chat')
@@ -270,14 +274,14 @@ export function App(): React.JSX.Element {
           sessionId,
           createMessage(
             'assistant',
-            'Nothing to compact yet. The conversation is already smaller than the recent history black keeps.'
+            t(settings.language, 'chat.nothingToCompact')
           )
         )
         return
       }
 
       const cut = existing.findIndex((message) => message.id === result.firstKeptMessageId)
-      if (cut === -1) throw new Error('The compaction cut no longer exists. The conversation was kept unchanged.')
+      if (cut === -1) throw new Error(t(settings.language, 'chat.compactCutGone'))
       const kept = existing.slice(cut)
 
       replaceMessages(sessionId, [createMessage('assistant', result.summary), ...kept])
@@ -313,7 +317,7 @@ export function App(): React.JSX.Element {
     // otherwise name the thread with an empty string.
     const currentSession = sessions.find((s) => s.id === sessionId)
     if (getMessages(sessionId).length === 0 && (currentSession === undefined || currentSession.title === DEFAULT_SESSION_TITLE)) {
-      const fallback = deriveSessionTitle(content.trim() === '' ? 'Image' : content)
+      const fallback = deriveSessionTitle(content.trim() === '' ? t(settings.language, 'chat.image') : content)
       renameSession(sessionId, fallback)
       const titleSessionId = sessionId
       const titleModel = options?.model || settings.selectedModelId
@@ -373,7 +377,7 @@ export function App(): React.JSX.Element {
           threadId,
           createMessage(
             'assistant',
-            'No model is available. Add an API key in Settings, then choose a model in the composer.'
+            t(settings.language, 'chat.noModel')
           )
         )
         return
@@ -425,7 +429,8 @@ export function App(): React.JSX.Element {
           ...(send.options?.thinkingLevel !== undefined
             ? { thinkingLevel: send.options.thinkingLevel }
             : {}),
-          ...(send.route !== undefined ? { route: send.route } : {})
+          ...(send.route !== undefined ? { route: send.route } : {}),
+          language: languageRef.current,
         })
 
         await consumeWork(events, patch)
@@ -508,17 +513,23 @@ export function App(): React.JSX.Element {
 
   if (appView === 'settings') {
     return (
-      <SettingsPage
-        projects={projects}
-        settings={settings}
-        onChange={updateSetting}
-        onReset={resetSettings}
-        onClose={() => setAppView('chat')}
-      />
+      <LanguageProvider language={settings.language}>
+        <PreviewProvider>
+          <SettingsPage
+            projects={projects}
+            settings={settings}
+            onChange={updateSetting}
+            onReset={resetSettings}
+            onClose={() => setAppView('chat')}
+          />
+        </PreviewProvider>
+      </LanguageProvider>
     )
   }
 
   return (
+    <LanguageProvider language={settings.language}>
+    <PreviewProvider>
     <div style={{ display: 'flex', width: '100%', height: '100%', backgroundColor: 'var(--bg-main)' }}>
       {/* Collapsible Sidebar with project/session tree */}
       <Sidebar
@@ -559,7 +570,7 @@ export function App(): React.JSX.Element {
               <button
                 type="button"
                 onClick={() => setSidebarOpen(true)}
-                title="Open sidebar"
+                title={t(settings.language, 'sidebar.open')}
                 style={{
                   flexShrink: 0,
                   width: '34px',
@@ -571,7 +582,7 @@ export function App(): React.JSX.Element {
                   color: 'var(--text-secondary)'
                 }}
               >
-                <PanelLeft size={18} />
+                <PanelLeft size={18} className="rtl-flip" />
               </button>
             )}
 
@@ -618,7 +629,7 @@ export function App(): React.JSX.Element {
                   textAlign: 'center'
                 }}
               >
-                What can I help with today?
+                {t(settings.language, 'chat.empty')}
               </h1>
             </div>
           ) : (
@@ -644,10 +655,10 @@ export function App(): React.JSX.Element {
               {messages.map((m) => (
                 <div
                   key={m.id}
+                  className={m.role === 'user' ? 'user-turn' : 'assistant-turn'}
                   style={{
                     display: 'flex',
                     flexDirection: 'column',
-                    alignItems: m.role === 'user' ? 'flex-end' : 'flex-start',
                     width: '100%'
                   }}
                 >
@@ -686,12 +697,20 @@ export function App(): React.JSX.Element {
                                 className="message-image"
                                 src={'data:' + image.mimeType + ';base64,' + image.data}
                                 {...(image.name === undefined ? {} : { name: image.name })}
-                                alt="Attached image"
+                                alt={t(settings.language, 'chat.attachedImage')}
                               />
                             ))}
                           </div>
                         )}
-                        {m.content}
+                        {m.content === '' ? null : (
+                          <span
+                            className="user-message-text"
+                            dir={directionFor(settings.language, m.content)}
+                            lang={langFor(settings.language, m.content)}
+                          >
+                            {m.content}
+                          </span>
+                        )}
                       </>
                     )}
                   </div>
@@ -744,5 +763,7 @@ export function App(): React.JSX.Element {
         onRemoveProject={handleRemoveProject}
       />
     </div>
+    </PreviewProvider>
+    </LanguageProvider>
   )
 }

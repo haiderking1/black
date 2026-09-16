@@ -1,6 +1,7 @@
 import React from 'react'
 
 import { usePreview } from './PreviewContext'
+import { useT } from '../i18n'
 
 /**
  * An image that can be opened full size.
@@ -25,16 +26,17 @@ export function PreviewImage({
   title?: string
 }): React.JSX.Element {
   const { open } = usePreview()
+  const t = useT()
 
-  const label = name ?? 'image'
+  const label = name ?? t('lightbox.image')
 
   return (
     <button
       type="button"
       className="preview-trigger"
       onClick={() => open(name === undefined ? { src } : { src, name })}
-      aria-label={'Open ' + label + ' larger'}
-      title={title ?? 'Open larger'}
+      aria-label={t('lightbox.openLarger', { label })}
+      title={title ?? t('lightbox.openTitle')}
     >
       <img className={className} src={src} alt={alt ?? label} />
     </button>

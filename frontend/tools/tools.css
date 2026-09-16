@@ -23,7 +23,7 @@
   font-family: inherit;
   font-size: 13px;
   line-height: 20px;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 
@@ -126,6 +126,14 @@
   transform: rotate(90deg);
 }
 
+html[dir='rtl'] .tool-caret {
+  transform: scaleX(-1);
+}
+
+html[dir='rtl'] .tool-caret-open {
+  transform: scaleX(-1) rotate(90deg);
+}
+
 .tool-row-head:focus-visible .tool-row-caret,
 .tool-row-head:not(:disabled):hover .tool-row-caret,
 .tool-row-head[aria-expanded="true"] .tool-row-caret {
@@ -138,9 +146,10 @@
   flex-direction: column;
   align-items: stretch;
   gap: 6px;
-  margin: 3px 0 8px 6px;
-  padding-left: 24px;
-  border-left: 1px solid var(--border-subtle);
+  margin-block: 3px 8px;
+  margin-inline-start: 6px;
+  padding-inline-start: 24px;
+  border-inline-start: 1px solid var(--border-subtle);
 }
 
 .tool-row-body > .preview-trigger {
@@ -192,7 +201,7 @@
   display: flex;
   width: max-content;
   min-width: 100%;
-  padding: 0 10px 0 6px;
+  padding-inline: 6px 10px;
   white-space: pre;
 }
 
@@ -205,14 +214,14 @@
 
 .tool-diff-number {
   flex: none;
-  margin-left: 1ch;
+  margin-inline-start: 1ch;
   color: var(--text-dim);
   font-variant-numeric: tabular-nums;
 }
 
 .tool-diff-text {
   flex: none;
-  padding-left: 1ch;
+  padding-inline-start: 1ch;
 }
 
 .tool-diff-added {

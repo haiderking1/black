@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 
 import { fitImage, type NaturalSize, type Viewport } from './fitImage'
 import type { PreviewRequest } from './PreviewContext'
+import { useT } from '../i18n'
 import './lightbox.css'
 
 /**
@@ -37,6 +38,7 @@ export function Lightbox({
   request: PreviewRequest
   onClose: () => void
 }): React.JSX.Element {
+  const t = useT()
   const closeRef = useRef<HTMLButtonElement>(null)
 
   // The image's own size, reported when it loads, and the window's, tracked so
@@ -81,7 +83,7 @@ export function Lightbox({
       className="lightbox"
       role="dialog"
       aria-modal="true"
-      aria-label={request.name ?? 'Image preview'}
+      aria-label={request.name ?? t('lightbox.preview')}
       /* On the way down rather than on the click, so starting a drag on the
          image and releasing it over the background does not dismiss. */
       onMouseDown={(event) => {
@@ -103,14 +105,14 @@ export function Lightbox({
           type="button"
           className="lightbox-close"
           onClick={onClose}
-          aria-label="Close preview"
+          aria-label={t('lightbox.close')}
         >
           <X size={15} />
         </button>
         <img
           className="lightbox-image"
           src={request.src}
-          alt={request.name ?? 'Image preview'}
+          alt={request.name ?? t('lightbox.preview')}
           /* Exact size once measured, css ceilings until then so the first
              frame is not a box with nothing in it. */
           style={

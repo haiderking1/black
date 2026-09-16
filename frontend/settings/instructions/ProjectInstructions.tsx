@@ -3,9 +3,11 @@ import * as Effect from 'effect/Effect'
 import type { InstructionFile } from '../../../contracts/instructions'
 import { describeRpcError, useRpcClient } from '../../rpc'
 import { InstructionEditor } from './InstructionEditor'
+import { useT } from '../../i18n'
 import './instructions.css'
 
 export function ProjectInstructions({ workingDirectory, onDirtyChange }: { workingDirectory?: string; onDirtyChange?: (dirty: boolean) => void }) {
+  const t = useT()
   const client = useRpcClient()
   const [snapshot, setSnapshot] = useState<{ files: readonly InstructionFile[]; globalExcluded: boolean } | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -29,7 +31,7 @@ export function ProjectInstructions({ workingDirectory, onDirtyChange }: { worki
   }, [client, workingDirectory])
   useEffect(() => { void reload(); return () => { generation.current++ } }, [reload])
   async function save(file: InstructionFile, content: string) {
-    if (!client) throw new Error('Not connected')
+    if (!client) throw new Error(t('instructions.notConnected'))
     try {
       const result = await Effect.runPromise(client['instructions.save']({ ...(workingDirectory ? { workingDirectory } : {}), path: file.path, revision: file.revision, content }))
       // Update only the saved row; other open drafts keep their original revisions.
@@ -38,12 +40,12 @@ export function ProjectInstructions({ workingDirectory, onDirtyChange }: { worki
     } catch (error) { throw new Error(describeRpcError(error)) }
   }
   return <section className="instructions-settings">
-    <header><span className="instructions-note">Selected instruction files</span><button type="button" disabled={loading} onClick={() => { if (!dirty.current.size || window.confirm('Discard unsaved instruction edits and reload?')) void reload() }}>Reload</button></header>
-    <p className="instructions-note">Saved changes apply on the next model round.</p>
-    {workingDirectory && snapshot && <p className="instructions-note">{snapshot.globalExcluded ? 'Project instructions replace global instructions.' : 'Uses global instructions. Edit them in the Global section.'}</p>}
+    <header><span className="instructions-note">{t('instructions.selected')}</span><button type="button" disabled={loading} onClick={() => { if (!dirty.current.size || window.confirm(t('settings.discardReload'))) void reload() }}>{t('instructions.reload')}</button></header>
+    <p className="instructions-note">{t('instructions.savedNextRound')}</p>
+    {workingDirectory && snapshot && <p className="instructions-note">{snapshot.globalExcluded ? t('instructions.replaceGlobal') : t('instructions.usesGlobal')}</p>}
     {error && <p role="alert">{error}</p>}
-    {loading && <p role="status">Loading instructions…</p>}
-    {!loading && snapshot?.files.length === 0 && <p>No instruction files found. Add AGENTS.md to your project or ~/.black/AGENTS.md globally.</p>}
+    {loading && <p role="status">{t('instructions.loading')}</p>}
+    {!loading && snapshot?.files.length === 0 && <p>{t('instructions.none')}</p>}
     {snapshot?.files.filter(file => !workingDirectory || file.scope !== 'All workspaces').map(file => <InstructionEditor key={file.path + ':' + epoch} file={file} save={save} reportDirty={reportDirty} />)}
   </section>
 }

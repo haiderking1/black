@@ -36,7 +36,7 @@
   --radius-sm: 6px;
 
   /* Typography: Inter for UI, JetBrainsMono Nerd Font for code */
-  --font-sans: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-sans: "Inter", "Noto Sans Arabic", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: "JetBrainsMono Nerd Font", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
 
@@ -258,4 +258,40 @@ code, pre, kbd, samp {
   animation-duration: 0.01ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.01ms !important;
+}
+
+html[dir='rtl'] {
+  font-family: 'Noto Sans Arabic', var(--font-sans);
+  line-height: 1.6;
+}
+
+/*
+ * Native fields paint inside a tight content box. Latin Inter fits; Noto's
+ * Arabic descenders (ج ي ع م ح خ) hang below that box and get sheared.
+ */
+html[dir='rtl'] input,
+html[dir='rtl'] textarea {
+  line-height: 1.75;
+  padding-block: 3px;
+}
+
+html[dir='rtl'] input::placeholder,
+html[dir='rtl'] textarea::placeholder {
+  line-height: inherit;
+}
+
+html[dir='rtl'] input[type='search'] {
+  appearance: none;
+}
+
+html[dir='rtl'] .rtl-flip {
+  transform: scaleX(-1);
+}
+
+html[dir='rtl'] .settings-toggle.active .settings-toggle-thumb {
+  transform: translateX(-18px);
+}
+
+html[dir='rtl'] .settings-switch.active .settings-switch-knob {
+  transform: translateX(-14px);
 }

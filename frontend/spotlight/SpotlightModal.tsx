@@ -4,6 +4,7 @@ import { SourcesList } from './SourcesList'
 import { DirectoryList } from './DirectoryList'
 import type { ProjectItemData } from './ProjectList'
 import { useDirectoryListing } from './useDirectoryListing'
+import { useT } from '../i18n'
 import './spotlight.css'
 
 export interface SpotlightModalProps {
@@ -38,6 +39,7 @@ export function SpotlightModal({
   onAddProject,
   onRemoveProject
 }: SpotlightModalProps): React.JSX.Element | null {
+  const t = useT()
   /** Row chosen with arrow keys, null when no keyboard selection is active */
   const [selectedIndex, setSelectedIndex] = useState<number | null>(0)
   /** Row under the pointer, null when the pointer is not on a row */
@@ -89,8 +91,8 @@ export function SpotlightModal({
   const showLocalFolder = useMemo(() => {
     const term = searchQuery.trim().toLowerCase()
     if (term === '') return true
-    return 'local folder browse a folder on disk'.includes(term)
-  }, [searchQuery])
+    return t('spotlight.localHaystack').toLowerCase().includes(term)
+  }, [searchQuery, t])
 
   const sourcesItemCount = (showLocalFolder ? 1 : 0) + filteredProjects.length
 
@@ -223,10 +225,10 @@ export function SpotlightModal({
             type="button"
             className="spotlight-back-btn"
             onClick={isDirView ? backToSources : onClose}
-            aria-label="Back"
-            title="Back"
+            aria-label={t('spotlight.back')}
+            title={t('spotlight.back')}
           >
-            <ArrowLeft size={18} strokeWidth={2} />
+            <ArrowLeft size={18} strokeWidth={2} className="rtl-flip" />
           </button>
 
           {isDirView ? (
@@ -240,7 +242,7 @@ export function SpotlightModal({
               className="spotlight-input"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              placeholder="Search..."
+              placeholder={t('spotlight.search')}
             />
           )}
 
@@ -250,9 +252,9 @@ export function SpotlightModal({
               className="spotlight-add-btn"
               onClick={addCurrentDirectory}
               disabled={path === '' || isLoading || (error !== null && error !== '')}
-              title="Add this directory as a project"
+              title={t('spotlight.addTitle')}
             >
-              <span>Add</span>
+              <span>{t('spotlight.add')}</span>
               <span className="spotlight-add-shortcut">Enter</span>
             </button>
           ) : null}
@@ -262,7 +264,7 @@ export function SpotlightModal({
         <div className="spotlight-body">
           {isDirView ? (
             <>
-              <div className="spotlight-section-label">Directories</div>
+              <div className="spotlight-section-label">{t('spotlight.directories')}</div>
               <DirectoryList
                 entries={entries}
                 isLoading={isLoading || path === ''}
@@ -298,24 +300,24 @@ export function SpotlightModal({
             <span className="spotlight-kbd" aria-hidden="true">
               <ArrowDown size={15} strokeWidth={1.75} />
             </span>
-            <span>Navigate</span>
+            <span>{t('spotlight.navigate')}</span>
           </span>
 
           {!isDirView && (
             <span className="spotlight-footer-group">
               <span className="spotlight-kbd">Enter</span>
-              <span>Select</span>
+              <span>{t('spotlight.select')}</span>
             </span>
           )}
 
           <span className="spotlight-footer-group">
             <span className="spotlight-kbd">Backspace</span>
-            <span>Back</span>
+            <span>{t('spotlight.back')}</span>
           </span>
 
           <span className="spotlight-footer-group">
             <span className="spotlight-kbd">Esc</span>
-            <span>Close</span>
+            <span>{t('spotlight.close')}</span>
           </span>
 
         </div>

@@ -2,6 +2,7 @@ import { expect, test } from 'bun:test'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { WorkspaceTitle } from '../../frontend/workspace/WorkspaceTitle'
+import { LanguageProvider } from '../../frontend/language'
 
 test('shows project and current session without an icon', () => {
   const html = renderToStaticMarkup(<WorkspaceTitle projectName="see" sessionTitle="Fix Timer Overlay Position" />)
@@ -22,4 +23,16 @@ test('handles empty workspace and escapes user titles', () => {
   const html = renderToStaticMarkup(<WorkspaceTitle projectName="<project>" sessionTitle="<script>" />)
   expect(html).toContain('&lt;script&gt;')
   expect(html).not.toContain('<script>')
+})
+
+test('translates the fallback and a new-chat title when Arabic is pinned', () => {
+  const html = renderToStaticMarkup(
+    <LanguageProvider language="ar">
+      <WorkspaceTitle sessionTitle="New chat" />
+    </LanguageProvider>,
+  )
+  expect(html).toContain('مساحة العمل')
+  expect(html).toContain('محادثة جديدة')
+  expect(html).not.toContain('Workspace')
+  expect(html).not.toContain('New chat')
 })

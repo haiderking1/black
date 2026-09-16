@@ -19,7 +19,7 @@
   color: var(--text-muted);
   font-size: 12.5px;
   line-height: 1.6;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
   transition: color 0.15s ease;
 }
@@ -48,10 +48,15 @@
   color: var(--text-secondary);
 }
 
+.thinking-body .markdown[dir='rtl'] {
+  font-size: 15.5px;
+  line-height: 1.9;
+}
+
 /* Lists in reasoning are frequent and do not need the answer's 22px indent. */
 .thinking-body .markdown ul,
 .thinking-body .markdown ol {
-  padding-left: 20px;
+  padding-inline-start: 20px;
 }
 
 /*

@@ -3,6 +3,7 @@ import { X } from 'lucide-react'
 
 import { PreviewImage } from '../lightbox'
 import { attachmentDataUrl, formatAttachmentSize, type Attachment } from './attachments'
+import { useT } from '../i18n'
 
 /**
  * The images waiting to be sent, above the text.
@@ -23,6 +24,7 @@ export function AttachmentStrip({
   onRemove: (id: string) => void
   disabled?: boolean
 }): React.JSX.Element | null {
+  const t = useT()
   if (attachments.length === 0) {
     return null
   }
@@ -43,8 +45,8 @@ export function AttachmentStrip({
             className="attachment-remove"
             onClick={() => onRemove(attachment.id)}
             disabled={disabled}
-            aria-label={'Remove ' + attachment.name}
-            title="Remove"
+            aria-label={t('composer.removeAttachment', { name: attachment.name })}
+            title={t('composer.remove')}
           >
             <X size={11} strokeWidth={3} />
           </button>

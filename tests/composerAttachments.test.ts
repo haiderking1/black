@@ -185,6 +185,21 @@ describe('attachmentFromFile', () => {
     expect(result.ok).toBe(true)
     if (result.ok) expect(result.attachment.name).toBe('pasted image.png')
   })
+
+  it('names and refuses in Arabic when the UI language is Arabic', async () => {
+    const pasted = new File([new Uint8Array([1])], '', { type: 'image/png' })
+    const named = await attachmentFromFile(pasted, 0, decodes, 'ar')
+    expect(named.ok).toBe(true)
+    if (named.ok) expect(named.attachment.name).toBe('صورة ملصقة.png')
+
+    const pdf = new File(['%PDF'], 'doc.pdf', { type: 'application/pdf' })
+    const refused = await attachmentFromFile(pdf, 0, decodes, 'ar')
+    expect(refused.ok).toBe(false)
+    if (!refused.ok) {
+      expect(refused.reason).toContain('application/pdf')
+      expect(refused.reason).toContain('الصور فقط')
+    }
+  })
 })
 
 describe('attachmentsFromFiles', () => {

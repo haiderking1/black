@@ -1,4 +1,5 @@
 import type { Workflow } from '../../contracts/workflow'
+import type { LanguagePreference } from '../../contracts/language'
 
 export const THEME_PREFERENCES = [
   'dark',
@@ -36,4 +37,9 @@ export interface AppSettings {
    * 'default' means send nothing; legacy 'off' has the same meaning.
    */
   thinkingLevel: string
+  /**
+   * App and reply language. Auto follows each message and keeps menus in
+   * English. Arabic pins the whole interface right to left.
+   */
+  language: LanguagePreference
 }

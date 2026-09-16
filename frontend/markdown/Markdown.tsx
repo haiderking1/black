@@ -3,6 +3,7 @@ import ReactMarkdown from 'react-markdown'
 import remarkBreaks from 'remark-breaks'
 import remarkGfm from 'remark-gfm'
 
+import { directionFor, langFor, useLanguage } from '../language'
 import { CodeBlock } from './CodeBlock'
 import './markdown.css'
 
@@ -30,8 +31,16 @@ export interface MarkdownProps {
  * may be open and a list may be mid-item. Both degrade to something readable
  * rather than breaking the render, so no attempt is made to only render complete
  * markdown.
+ *
+ * Direction follows the language setting, or the script mix of this source when
+ * the setting is auto, so Arabic prose lays out right to left without waiting
+ * for a first-strong character that a leading code fence would steal.
  */
 function MarkdownImpl({ children, breaks = false }: MarkdownProps): React.JSX.Element {
+  const language = useLanguage()
+  const dir = directionFor(language, children)
+  const lang = langFor(language, children)
+
   // Memoised because react-markdown re-parses when the plugin array identity
   // changes, and a fresh array on every render would re-parse the whole document.
   const plugins = useMemo(
@@ -40,7 +49,7 @@ function MarkdownImpl({ children, breaks = false }: MarkdownProps): React.JSX.El
   )
 
   return (
-    <div className="markdown">
+    <div className="markdown" dir={dir} lang={lang}>
       <ReactMarkdown
         remarkPlugins={plugins}
         components={{
@@ -56,9 +65,15 @@ function MarkdownImpl({ children, breaks = false }: MarkdownProps): React.JSX.El
           // distinguishes them.
           code: ({ className, children: body }) => {
             const isBlock = typeof className === 'string' && className.startsWith('language-')
-            if (!isBlock) return <code className="markdown-inline-code">{body}</code>
-            const language = className.slice('language-'.length)
-            return <CodeBlock language={language} code={String(body)} />
+            if (!isBlock) {
+              return (
+                <code className="markdown-inline-code" dir="ltr">
+                  {body}
+                </code>
+              )
+            }
+            const languageName = className.slice('language-'.length)
+            return <CodeBlock language={languageName} code={String(body)} />
           },
           pre: ({ children: body }) => <>{body}</>,
         }}

@@ -9,13 +9,21 @@
   color: var(--text-muted);
   font-size: 12.5px;
   line-height: 1.6;
-  text-align: left;
+  text-align: start;
   cursor: pointer;
 }
 .working-header:hover { color: var(--text-secondary); }
 .working-header:focus-visible { outline: none; }
 .working-caret { flex: none; }
 .working-caret-open { transform: rotate(90deg); }
+
+html[dir='rtl'] .working-caret {
+  transform: scaleX(-1);
+}
+
+html[dir='rtl'] .working-caret-open {
+  transform: scaleX(-1) rotate(90deg);
+}
 .working-body { padding-top: 4px; }
 .working-body[hidden] { display: none; }
 .working-text { margin: 4px 0 8px; }

@@ -3,6 +3,7 @@ import { ChevronDown, Eye, EyeOff, Trash2 } from 'lucide-react'
 
 import type { ProviderStatus } from '../../contracts/providers'
 import { OpenCodeLogo, OpenRouterLogo } from '../providers'
+import { useT } from '../i18n'
 
 /** The logo per provider. A provider without an entry falls back to its initial. */
 const LOGOS: Record<string, (props: { size?: number }) => React.JSX.Element> = {
@@ -34,6 +35,7 @@ export function ProviderRow({
   onClearApiKey,
   onSetEnabled,
 }: ProviderRowProps): React.JSX.Element {
+  const t = useT()
   const [expanded, setExpanded] = useState(false)
   const panelId = useId()
   const [draft, setDraft] = useState('')
@@ -71,7 +73,7 @@ export function ProviderRow({
         >
           <span className="settings-provider-logo">
             {Logo !== undefined ? <Logo size={24} /> : <NetworkMark />}
-            {ready ? <span className="settings-provider-dot" role="img" aria-label="Enabled with API key" title="Enabled with API key" /> : null}
+            {ready ? <span className="settings-provider-dot" role="img" aria-label={t('providers.enabledWithKey')} title={t('providers.enabledWithKey')} /> : null}
           </span>
           <span className="settings-provider-copy">
             <span className="settings-provider-title">
@@ -86,7 +88,7 @@ export function ProviderRow({
           type="button"
           role="switch"
           aria-checked={provider.enabled}
-          aria-label={provider.name + ' enabled'}
+          aria-label={t('providers.enabledAria', { name: provider.name })}
           className={'settings-switch ' + (provider.enabled ? 'active' : '')}
           onClick={() => void onSetEnabled(provider.id, !provider.enabled)}
         >
@@ -97,7 +99,7 @@ export function ProviderRow({
       <div id={panelId} hidden={!expanded}>
       {expanded ? <div className="settings-provider-key">
         <label className="settings-provider-key-label" htmlFor={'key-' + provider.id}>
-          API key
+          {t('providers.apiKey')}
         </label>
         <div className="settings-provider-key-field">
           <input
@@ -108,7 +110,7 @@ export function ProviderRow({
             disabled={isSaving}
             spellCheck={false}
             autoComplete="off"
-            placeholder={provider.authenticated ? 'Replace the stored key' : 'Paste your key'}
+            placeholder={provider.authenticated ? t('providers.replaceKey') : t('providers.pasteKey')}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') void handleSave()
@@ -118,7 +120,7 @@ export function ProviderRow({
           <button
             type="button"
             className="settings-provider-icon-button"
-            aria-label={revealed ? 'Hide key' : 'Show key'}
+            aria-label={revealed ? t('providers.hideKey') : t('providers.showKey')}
             onClick={() => setRevealed((prev) => !prev)}
           >
             {revealed ? <EyeOff size={15} aria-hidden="true" /> : <Eye size={15} aria-hidden="true" />}
@@ -130,14 +132,14 @@ export function ProviderRow({
             disabled={!canSave}
             onClick={() => void handleSave()}
           >
-            {isSaving ? 'Saving' : 'Save'}
+            {isSaving ? t('providers.saving') : t('providers.save')}
           </button>
 
           {provider.authenticated ? (
             <button
               type="button"
               className="settings-provider-icon-button"
-              aria-label="Remove key"
+              aria-label={t('providers.removeKey')}
               disabled={isSaving}
               onClick={() => void onClearApiKey(provider.id)}
             >
@@ -146,7 +148,7 @@ export function ProviderRow({
           ) : null}
         </div>
         <p className="settings-provider-hint">
-          Stored in your agent directory and sent only to this provider.
+          {t('providers.keyHint')}
         </p>
       </div> : null}
       </div>

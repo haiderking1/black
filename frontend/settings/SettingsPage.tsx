@@ -6,6 +6,7 @@ import { ProvidersSettings } from './ProvidersSettings'
 import { InstructionsSettings } from './instructions/InstructionsSettings'
 import type { AppSettings } from './types'
 import type { ProjectItemData } from '../spotlight'
+import { useT } from '../i18n'
 import './settings.css'
 
 export interface SettingsPageProps {
@@ -25,9 +26,10 @@ export function SettingsPage({
   onReset,
   onClose
 }: SettingsPageProps): React.JSX.Element {
+  const t = useT()
   const [activeSection, setActiveSection] = useState<SettingsSection>('general')
   const [instructionsDirty, setInstructionsDirty] = useState(false)
-  const mayLeave = useCallback(() => !instructionsDirty || window.confirm('Discard unsaved instruction edits?'), [instructionsDirty])
+  const mayLeave = useCallback(() => !instructionsDirty || window.confirm(t('settings.discardInstructions')), [instructionsDirty, t])
   const close = useCallback(() => { if (mayLeave()) onClose() }, [mayLeave, onClose])
   function selectSection(section: SettingsSection) {
     if (section !== activeSection && mayLeave()) { setInstructionsDirty(false); setActiveSection(section) }
@@ -49,7 +51,7 @@ export function SettingsPage({
   return (
     <div className="settings-page">
       <aside className="settings-navigation">
-        <nav className="settings-navigation-list" aria-label="Settings sections">
+        <nav className="settings-navigation-list" aria-label={t('settings.navAria')}>
           <button
             type="button"
             className={`settings-navigation-item ${activeSection === 'general' ? 'active' : ''}`}
@@ -57,7 +59,7 @@ export function SettingsPage({
             onClick={() => selectSection('general')}
           >
             <SlidersHorizontal size={16} aria-hidden="true" />
-            <span>General</span>
+            <span>{t('settings.nav.general')}</span>
           </button>
           <button
             type="button"
@@ -66,7 +68,7 @@ export function SettingsPage({
             onClick={() => selectSection('appearance')}
           >
             <Palette size={16} aria-hidden="true" />
-            <span>Appearance</span>
+            <span>{t('settings.nav.appearance')}</span>
           </button>
           <button
             type="button"
@@ -75,16 +77,16 @@ export function SettingsPage({
             onClick={() => selectSection('providers')}
           >
             <Plug size={16} aria-hidden="true" />
-            <span>Providers</span>
+            <span>{t('settings.nav.providers')}</span>
           </button>
           <button type="button" className={`settings-navigation-item ${activeSection === 'instructions' ? 'active' : ''}`} aria-current={activeSection === 'instructions' ? 'page' : undefined} onClick={() => selectSection('instructions')}>
-            <SlidersHorizontal size={16} aria-hidden="true" /><span>Instructions</span>
+            <SlidersHorizontal size={16} aria-hidden="true" /><span>{t('settings.nav.instructions')}</span>
           </button>
         </nav>
 
         <button type="button" className="settings-back-button" onClick={close}>
-          <ArrowLeft size={17} aria-hidden="true" />
-          <span>Back</span>
+          <ArrowLeft size={17} aria-hidden="true" className="rtl-flip" />
+          <span>{t('settings.back')}</span>
         </button>
       </aside>
 

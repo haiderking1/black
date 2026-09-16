@@ -6,6 +6,7 @@ import { ProviderLogo } from '../providers'
 import { filterModels, groupModels, shortcutLabel, SHORTCUT_COUNT, displayName } from './modelRow'
 import { toggleFavourite } from './favourites'
 import { useFavourites } from './useFavourites'
+import { useT } from '../i18n'
 
 export interface ModelPanelProps {
   models: readonly ModelInfo[]
@@ -37,6 +38,7 @@ export function ModelPanel({
   onSelect,
   close,
 }: ModelPanelProps): React.JSX.Element {
+  const t = useT()
   const [query, setQuery] = useState('')
   const [favouritesOnly, setFavouritesOnly] = useState(false)
   const [unlistedOpen, setUnlistedOpen] = useState(false)
@@ -91,7 +93,7 @@ export function ModelPanel({
           className={'model-rail-item' + (favouritesOnly ? ' active' : '')}
           onClick={() => setFavouritesOnly((prev) => !prev)}
           aria-pressed={favouritesOnly}
-          title={favouritesOnly ? 'Show all models' : 'Show favourites'}
+          title={favouritesOnly ? t('model.showAll') : t('model.showFavourites')}
         >
           <Star size={16} aria-hidden="true" fill={favouritesOnly ? 'currentColor' : 'none'} />
         </button>
@@ -117,8 +119,8 @@ export function ModelPanel({
             className="model-search-input"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="Search models..."
-            aria-label="Search models"
+            placeholder={t('model.search')}
+            aria-label={t('model.search')}
             autoFocus
           />
         </div>
@@ -126,7 +128,7 @@ export function ModelPanel({
         <div className="model-scroll">
           {rows.length === 0 ? (
             <div className="composer-picker-note">
-              {favouritesOnly ? 'No favourites yet.' : 'No model matches that.'}
+              {favouritesOnly ? t('model.noFavourites') : t('model.noMatch')}
             </div>
           ) : (
             <ul className="model-list">
@@ -167,7 +169,7 @@ export function ModelPanel({
                       <span
                         role="button"
                         tabIndex={0}
-                        aria-label={favourited ? 'Remove from favourites' : 'Add to favourites'}
+                        aria-label={favourited ? t('model.removeFavourite') : t('model.addFavourite')}
                         className={'model-star' + (favourited ? ' on' : '')}
                         onClick={(event) => {
                           event.stopPropagation()
@@ -202,10 +204,12 @@ export function ModelPanel({
             >
               <span className="model-text">
                 <span className="model-name">
-                  {unlistedOpen ? 'Hide unlisted models' : 'Unlisted models'}
+                  {unlistedOpen ? t('model.hideUnlisted') : t('model.unlisted')}
                 </span>
                 <span className="model-group-note">
-                  {groups.unlisted.length === 1 ? '1 model' : groups.unlisted.length + ' models'}
+                  {groups.unlisted.length === 1
+                    ? t('model.count.one')
+                    : t('model.count.many', { n: groups.unlisted.length })}
                 </span>
               </span>
               <ChevronRight

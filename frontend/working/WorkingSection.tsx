@@ -2,6 +2,7 @@ import React from 'react'
 import type { Message } from '../chat/types'
 import { CompactionNotice } from '../compaction'
 import { Markdown } from '../markdown'
+import { useT } from '../i18n'
 import { useWorkLabel } from './useWorkLabel'
 import { WorkBlock } from './WorkBlock'
 import { transcriptBlocks } from './transcriptBlocks'
@@ -16,11 +17,11 @@ function legacyActivity(message: Message): WorkPart[] {
   return parts
 }
 
-function statusNote(work: TurnWork | undefined): string | undefined {
-  if (work?.status === 'stopped') return 'Stopped'
-  if (work?.status === 'interrupted') return 'Interrupted'
-  if (work?.status === 'incomplete') return 'Response limit reached'
-  if (work?.status === 'failed') return 'Failed'
+function statusNote(work: TurnWork | undefined, stopped: string, interrupted: string, limit: string, failed: string): string | undefined {
+  if (work?.status === 'stopped') return stopped
+  if (work?.status === 'interrupted') return interrupted
+  if (work?.status === 'incomplete') return limit
+  if (work?.status === 'failed') return failed
   return undefined
 }
 
@@ -29,12 +30,13 @@ export function WorkingSection({ message, active, onExpandedChange }: {
   active: boolean
   onExpandedChange: (expanded: boolean, blockKey?: string) => void
 }): React.JSX.Element {
+  const t = useT()
   const work = message.work
   const parts = work?.parts ?? [...legacyActivity(message), { type: 'text' as const, round: 0, text: message.content }]
   const blocks = transcriptBlocks(parts)
   const expanded = workIsExpanded(work ?? { expanded: message.workExpanded })
   const running = active && work?.status === 'active'
-  const note = statusNote(work)
+  const note = statusNote(work, t('work.stopped'), t('work.interrupted'), t('work.limit'), t('work.failed'))
   const label = useWorkLabel(work, running)
   const hasWork = blocks.some(block => block.type === 'work')
   return <div className="assistant-turn">
@@ -49,6 +51,6 @@ export function WorkingSection({ message, active, onExpandedChange }: {
           onExpandedChange={value => onExpandedChange(value, block.key)} />)}
     {work?.error ? <div className="working-error" role="status">{work.error}</div>
       : !hasWork && note ? <div className="working-status" role="status">{note}</div> : null}
-    {work?.status === 'completed' && blocks.length === 0 ? <div className="working-status">Empty reply</div> : null}
+    {work?.status === 'completed' && blocks.length === 0 ? <div className="working-status">{t('work.empty')}</div> : null}
   </div>
 }

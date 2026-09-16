@@ -1,4 +1,6 @@
 import type { ModelInfo } from '../../contracts/providers'
+import type { LanguagePreference } from '../../contracts/language'
+import { t } from '../i18n'
 
 /**
  * Thinking choices for a model.
@@ -30,33 +32,44 @@ export interface ThinkingOptions {
   note: string | null
 }
 
-const LABELS: Record<string, string> = {
-  default: 'Default',
-  off: 'Default',
-  none: 'None',
-  minimal: 'Minimal',
-  low: 'Low',
-  medium: 'Medium',
-  high: 'High',
-  xhigh: 'Extra high',
-  max: 'Max'
-}
-
-function labelFor(value: string): string {
-  return LABELS[value] ?? value
+function labelFor(value: string, language: LanguagePreference): string {
+  switch (value) {
+    case 'default':
+    case 'off':
+      return t(language, 'thinking.default')
+    case 'none':
+      return t(language, 'thinking.none')
+    case 'minimal':
+      return t(language, 'thinking.minimal')
+    case 'low':
+      return t(language, 'thinking.low')
+    case 'medium':
+      return t(language, 'thinking.medium')
+    case 'high':
+      return t(language, 'thinking.high')
+    case 'xhigh':
+      return t(language, 'thinking.xhigh')
+    case 'max':
+      return t(language, 'thinking.max')
+    default:
+      return value
+  }
 }
 
 /** The levels offered when a model is not in the catalog and nothing is known. */
-export function fallbackChoices(): ThinkingChoice[] {
-  const defaultChoice: ThinkingChoice = { value: THINKING_DEFAULT, label: 'Default' }
+export function fallbackChoices(language: LanguagePreference = 'auto'): ThinkingChoice[] {
+  const defaultChoice: ThinkingChoice = { value: THINKING_DEFAULT, label: t(language, 'thinking.default') }
   return [defaultChoice]
 }
 
-export function thinkingOptionsFor(model: ModelInfo | null): ThinkingOptions {
-  const defaultChoice: ThinkingChoice = { value: THINKING_DEFAULT, label: 'Default' }
+export function thinkingOptionsFor(
+  model: ModelInfo | null,
+  language: LanguagePreference = 'auto',
+): ThinkingOptions {
+  const defaultChoice: ThinkingChoice = { value: THINKING_DEFAULT, label: t(language, 'thinking.default') }
 
   if (model === null) {
-    return { choices: fallbackChoices(), disabled: true, note: 'Supported thinking levels are unavailable. Using the model default.' }
+    return { choices: fallbackChoices(language), disabled: true, note: t(language, 'thinking.note.unavailable') }
   }
 
   switch (model.thinkingKind) {
@@ -66,13 +79,13 @@ export function thinkingOptionsFor(model: ModelInfo | null): ThinkingOptions {
         return {
           choices: [defaultChoice],
           disabled: true,
-          note: model.id + ' does not publish a thinking level this client can set.'
+          note: t(language, 'thinking.note.noLevels', { model: model.id }),
         }
       }
       // The vendor's own values, so what is sent is always one it accepts. A
       // vendor value that collides with our sentinel is kept as the vendor's,
       // since sending it is what that vendor asked for.
-      const vendorChoices = levels.map((value) => ({ value, label: labelFor(value) }))
+      const vendorChoices = levels.map((value) => ({ value, label: labelFor(value, language) }))
       const hasDefault = levels.includes(THINKING_DEFAULT) || levels.includes('off')
       return {
         choices: hasDefault ? vendorChoices : [defaultChoice, ...vendorChoices],
@@ -85,28 +98,36 @@ export function thinkingOptionsFor(model: ModelInfo | null): ThinkingOptions {
       return {
         choices: [defaultChoice],
         disabled: true,
-        note: model.id + ' reasons on or off. This client sets an effort level, so it cannot steer it.'
+        note: t(language, 'thinking.note.toggle', { model: model.id }),
       }
 
     case 'none':
       return {
         choices: [defaultChoice],
         disabled: true,
-        note: model.id + ' has no published effort levels to set.'
+        note: t(language, 'thinking.note.none', { model: model.id }),
       }
 
     case 'unknown':
       return {
-        choices: fallbackChoices(),
+        choices: fallbackChoices(language),
         disabled: true,
-        note: 'Supported thinking levels are unknown for ' + model.id + '. Using the model default.'
+        note: t(language, 'thinking.note.unknown', { model: model.id }),
       }
 
     default:
       if (model.reasoning === false) {
-        return { choices: [defaultChoice], disabled: true, note: model.id + ' does not reason.' }
+        return {
+          choices: [defaultChoice],
+          disabled: true,
+          note: t(language, 'thinking.note.noReason', { model: model.id }),
+        }
       }
-      return { choices: fallbackChoices(), disabled: true, note: 'Supported thinking levels are unavailable. Using the model default.' }
+      return {
+        choices: fallbackChoices(language),
+        disabled: true,
+        note: t(language, 'thinking.note.unavailable'),
+      }
   }
 }
 

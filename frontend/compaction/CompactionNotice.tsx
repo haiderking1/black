@@ -1,6 +1,7 @@
 import React from 'react'
 
 import { formatTokens } from '../format/tokens'
+import { useT } from '../i18n'
 import './compaction.css'
 
 export interface CompactionNoticeProps {
@@ -28,14 +29,15 @@ export function CompactionNotice({
   tokensAfter,
   isStreaming
 }: CompactionNoticeProps): React.JSX.Element {
+  const t = useT()
   const size =
     tokensAfter === undefined
-      ? formatTokens(tokensBefore) + ' tokens'
+      ? t('compact.tokens', { n: formatTokens(tokensBefore) })
       : formatTokens(tokensBefore) + ' \u2192 ' + formatTokens(tokensAfter)
 
   return (
     <div className="compaction-notice">
-      <span className={isStreaming ? 'shimmer-text' : undefined}>Context compacted</span>
+      <span className={isStreaming ? 'shimmer-text' : undefined}>{t('compact.notice')}</span>
       <span className="compaction-notice-size">{size}</span>
     </div>
   )

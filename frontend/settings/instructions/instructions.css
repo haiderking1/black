@@ -4,7 +4,7 @@
 .instructions-note, .instruction-path { color: var(--text-secondary); font-size: 12px; line-height: 1.6; overflow-wrap: anywhere; }
 .instruction-file { margin-top: 12px; border: 1px solid var(--border-composer); border-radius: 12px; overflow: hidden; background: var(--bg-composer); }
 .instruction-file summary { cursor: pointer; padding: 14px; font-size: 12px; }
-.instruction-file summary span { margin-right: 12px; }
+.instruction-file summary span { margin-inline-end: 12px; }
 .instruction-file-name { font-weight: 500; }
 .instruction-editor { padding: 0 14px 14px; }
 .instruction-editor textarea { display: block; box-sizing: border-box; width: 100%; min-height: 280px; resize: none; margin: 12px 0; padding: 12px; border: 1px solid var(--border-composer); border-radius: 8px; background: var(--bg-main); color: var(--text-primary); font: 12px/1.6 monospace; tab-size: 2; }
@@ -13,6 +13,6 @@
 .instructions-settings [role=alert] { color: var(--text-secondary); overflow-wrap: anywhere; }
 .instruction-section { margin-top: 12px; border: 1px solid var(--border-composer); border-radius: 12px; background: var(--bg-composer); overflow: hidden; }
 .instruction-section > summary { cursor: pointer; padding: 14px 16px; font-size: 13px; overflow-wrap: anywhere; }
-.instruction-section > summary > span + span { margin-left: 12px; }
+.instruction-section > summary > span + span { margin-inline-start: 12px; }
 .instruction-section-path { display: block; color: var(--text-secondary); font-size: 11px; margin-top: 5px; }
 .instruction-section-content { padding: 0 16px 16px; }

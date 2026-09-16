@@ -4,6 +4,7 @@ import type { ProjectItemData } from '../spotlight'
 import { ProjectTree } from './ProjectTree'
 import { useExpandedProjects } from './useExpandedProjects'
 import type { SessionRecord } from './types'
+import { useT } from '../i18n'
 import './sidebar.css'
 
 export interface SidebarProps {
@@ -39,6 +40,7 @@ export function Sidebar({
   onOpenSearch,
   onOpenSettings
 }: SidebarProps): React.JSX.Element {
+  const t = useT()
   const { expandedIds, toggleProject, expandProject } = useExpandedProjects(projects)
 
   const handleNewSession = (projectId: string): void => {
@@ -58,12 +60,12 @@ export function Sidebar({
           type="button"
           className="sidebar-search-trigger-btn"
           onClick={onOpenSearch}
-          title="Search or add projects (Ctrl+K / ⌘K)"
+          title={t('sidebar.searchTitle')}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
             <Search size={15} style={{ flexShrink: 0, opacity: 0.8 }} />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-              Search
+              {t('sidebar.search')}
             </span>
           </div>
 
@@ -74,10 +76,10 @@ export function Sidebar({
           type="button"
           className="sidebar-icon-btn"
           onClick={onToggle}
-          title="Close sidebar"
-          aria-label="Close sidebar"
+          title={t('sidebar.close')}
+          aria-label={t('sidebar.close')}
         >
-          <PanelLeft size={18} />
+          <PanelLeft size={18} className="rtl-flip" />
         </button>
       </div>
 
@@ -89,12 +91,12 @@ export function Sidebar({
             onClick={onOpenSearch}
             disabled={onOpenSearch === undefined}
           >
-            <span className="sidebar-empty-title">No projects yet</span>
-            <span className="sidebar-empty-hint">Press Ctrl+K to add one</span>
+            <span className="sidebar-empty-title">{t('sidebar.empty')}</span>
+            <span className="sidebar-empty-hint">{t('sidebar.emptyHint')}</span>
           </button>
         ) : (
           <>
-            <div className="sidebar-section-title">Projects</div>
+            <div className="sidebar-section-title">{t('sidebar.projects')}</div>
             <ProjectTree
               projects={projects}
               sessions={sessions}
@@ -118,10 +120,10 @@ export function Sidebar({
           type="button"
           className="sidebar-settings-btn"
           onClick={onOpenSettings}
-          title="Settings"
+          title={t('sidebar.settings')}
         >
           <Settings size={17} />
-          <span>Settings</span>
+          <span>{t('sidebar.settings')}</span>
         </button>
       </div>
     </aside>

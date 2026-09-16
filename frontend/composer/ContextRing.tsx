@@ -1,6 +1,7 @@
 import React from 'react'
 
 import { formatTokens } from '../format/tokens'
+import { useT } from '../i18n'
 import './context-ring.css'
 
 export interface ContextRingProps {
@@ -39,6 +40,7 @@ const CIRCUMFERENCE = 2 * Math.PI * RADIUS
  * jump in the transcript has an explanation on screen before it happens.
  */
 export function ContextRing({ tokens, contextWindow }: ContextRingProps): React.JSX.Element | null {
+  const t = useT()
   if (tokens === null || contextWindow === null || contextWindow <= 0) return null
 
   const used = Math.min(1, Math.max(0, tokens / contextWindow))
@@ -49,8 +51,12 @@ export function ContextRing({ tokens, contextWindow }: ContextRingProps): React.
     <span
       className={full ? 'context-ring full' : 'context-ring'}
       role="img"
-      aria-label={`Context ${percent} per cent full`}
-      title={`${formatTokens(tokens)} of ${formatTokens(contextWindow)} tokens (${percent}%)`}
+      aria-label={t('context.aria', { n: percent })}
+      title={t('context.title', {
+        tokens: formatTokens(tokens),
+        window: formatTokens(contextWindow),
+        n: percent,
+      })}
     >
       <svg width="28" height="28" viewBox="0 0 20 20" aria-hidden="true">
         <circle className="context-ring-track" cx="10" cy="10" r={RADIUS} strokeWidth={STROKE} />

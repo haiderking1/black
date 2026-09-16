@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Pencil, Trash2 } from 'lucide-react'
 import type { SessionRecord } from './types'
+import { DEFAULT_SESSION_TITLE } from './sessionStore'
+import { useT } from '../i18n'
 
 interface SessionRowProps {
   session: SessionRecord
@@ -17,14 +19,16 @@ export function SessionRow({
   onRename,
   onDelete
 }: SessionRowProps): React.JSX.Element {
+  const t = useT()
+  const displayed = session.title === DEFAULT_SESSION_TITLE ? t('sidebar.newChat') : session.title
   const [isRenaming, setIsRenaming] = useState(false)
-  const [draftTitle, setDraftTitle] = useState(session.title)
+  const [draftTitle, setDraftTitle] = useState(displayed)
   const inputRef = useRef<HTMLInputElement>(null)
   const cancelBlurRef = useRef(false)
 
   useEffect(() => {
-    if (!isRenaming) setDraftTitle(session.title)
-  }, [session.title, isRenaming])
+    if (!isRenaming) setDraftTitle(displayed)
+  }, [displayed, isRenaming])
 
   useEffect(() => {
     if (!isRenaming) return
@@ -35,7 +39,7 @@ export function SessionRow({
   const startRename = (event: React.MouseEvent<HTMLButtonElement>): void => {
     event.stopPropagation()
     cancelBlurRef.current = false
-    setDraftTitle(session.title)
+    setDraftTitle(displayed)
     setIsRenaming(true)
   }
 
@@ -44,7 +48,12 @@ export function SessionRow({
       cancelBlurRef.current = false
       return
     }
-    onRename(draftTitle)
+    const next = draftTitle.trim()
+    const stored =
+      next === '' || next === DEFAULT_SESSION_TITLE || next === t('sidebar.newChat')
+        ? DEFAULT_SESSION_TITLE
+        : next
+    onRename(stored)
     setIsRenaming(false)
   }
 
@@ -58,7 +67,7 @@ export function SessionRow({
     if (event.key === 'Escape') {
       event.preventDefault()
       cancelBlurRef.current = true
-      setDraftTitle(session.title)
+      setDraftTitle(displayed)
       setIsRenaming(false)
     }
   }
@@ -72,7 +81,7 @@ export function SessionRow({
     <div
       className={`session-row ${isActive ? 'active' : ''} ${isRenaming ? 'renaming' : ''}`}
       onClick={isRenaming ? undefined : onSelect}
-      title={session.title}
+      title={displayed}
     >
       {isRenaming ? (
         <input
@@ -83,11 +92,11 @@ export function SessionRow({
           onClick={(event) => event.stopPropagation()}
           onKeyDown={handleInputKeyDown}
           onBlur={commitRename}
-          aria-label={`Rename ${session.title}`}
+          aria-label={t('sidebar.rename', { title: displayed })}
           maxLength={80}
         />
       ) : (
-        <span className="session-row-title">{session.title}</span>
+        <span className="session-row-title">{displayed}</span>
       )}
 
       <span className="session-row-actions">
@@ -96,8 +105,8 @@ export function SessionRow({
             type="button"
             className="sidebar-row-action"
             onClick={startRename}
-            aria-label={`Rename ${session.title}`}
-            title="Rename session"
+            aria-label={t('sidebar.rename', { title: displayed })}
+            title={t('sidebar.renameTitle')}
           >
             <Pencil size={11} strokeWidth={2} />
           </button>
@@ -106,8 +115,8 @@ export function SessionRow({
           type="button"
           className="sidebar-row-action sidebar-row-delete"
           onClick={handleDelete}
-          aria-label={`Delete ${session.title}`}
-          title="Delete session"
+          aria-label={t('sidebar.delete', { title: displayed })}
+          title={t('sidebar.deleteTitle')}
         >
           <Trash2 size={11} strokeWidth={2} />
         </button>

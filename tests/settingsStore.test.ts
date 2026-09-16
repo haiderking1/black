@@ -32,7 +32,8 @@ describe('settings persistence', () => {
       selectedModelId: 'glm-5.3',
       selectedProviderId: 'openrouter',
       selectedModels: { 'opencode-go': 'glm-5.3' },
-      thinkingLevel: 'high' as const
+      thinkingLevel: 'high' as const,
+      language: 'ar' as const,
     }
 
     expect(writeSettings(storage, selectedSettings)).toBe(true)
@@ -58,7 +59,8 @@ describe('settings persistence', () => {
       selectedModelId: 'glm-5.3',
       selectedProviderId: null,
       selectedModels: {},
-      thinkingLevel: 'nonsense'
+      thinkingLevel: 'nonsense',
+      language: 'auto',
     })
   })
 
@@ -78,6 +80,19 @@ describe('settings persistence', () => {
     expect(restored.selectedProviderId).toBe('openrouter')
     expect(restored.selectedModels).toEqual({ openrouter: 'kimi-k3' })
     expect(restored.thinkingLevel).toBe('max')
+  })
+
+  it('remembers Arabic as the chat language', () => {
+    const storage = createMemoryStorage()
+    writeSettings(storage, { ...DEFAULT_SETTINGS, language: 'ar' })
+    expect(readSettings(storage).language).toBe('ar')
+  })
+
+  it('repairs an unknown language to auto without touching the rest', () => {
+    expect(parseSettings({ ...DEFAULT_SETTINGS, language: 'fr' }).language).toBe('auto')
+    expect(parseSettings({ ...DEFAULT_SETTINGS, language: '' }).language).toBe('auto')
+    expect(parseSettings({ ...DEFAULT_SETTINGS, language: 1 }).language).toBe('auto')
+    expect(parseSettings({ ...DEFAULT_SETTINGS, language: 'en' }).language).toBe('en')
   })
 
   it('repairs an empty thinking level but keeps the vendor value otherwise', () => {

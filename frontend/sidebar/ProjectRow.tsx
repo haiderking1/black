@@ -1,6 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react'
 import { Folder, MoreHorizontal, SquarePen, Trash2 } from 'lucide-react'
 
+import { useT } from '../i18n'
+
 interface ProjectRowProps {
   name: string
   path: string
@@ -24,6 +26,7 @@ export function ProjectRow({
   onDelete,
   children
 }: ProjectRowProps): React.JSX.Element {
+  const t = useT()
   const [menuOpen, setMenuOpen] = useState(false)
   const menuRef = useRef<HTMLSpanElement>(null)
 
@@ -71,8 +74,8 @@ export function ProjectRow({
             e.stopPropagation()
             onToggle()
           }}
-          aria-label={`${isExpanded ? 'Collapse' : 'Expand'} ${name}`}
-          title={`${isExpanded ? 'Collapse' : 'Expand'} project`}
+          aria-label={isExpanded ? t('sidebar.collapseProject', { name }) : t('sidebar.expandProject', { name })}
+          title={isExpanded ? t('sidebar.collapse') : t('sidebar.expand')}
         >
           <Folder size={18} strokeWidth={1.8} />
         </button>
@@ -88,10 +91,10 @@ export function ProjectRow({
                 e.stopPropagation()
                 setMenuOpen((open) => !open)
               }}
-              aria-label={`Project actions for ${name}`}
+              aria-label={t('sidebar.projectActions', { name })}
               aria-haspopup="menu"
               aria-expanded={menuOpen}
-              title="Project actions"
+              title={t('sidebar.projectActionsTitle')}
             >
               <MoreHorizontal size={15} strokeWidth={2} />
             </button>
@@ -113,7 +116,7 @@ export function ProjectRow({
                   }}
                 >
                   <Trash2 size={13} strokeWidth={2} />
-                  <span>Remove project</span>
+                  <span>{t('sidebar.removeProject')}</span>
                 </button>
               </span>
             )}
@@ -126,8 +129,8 @@ export function ProjectRow({
               e.stopPropagation()
               onNewSession()
             }}
-            aria-label={`New session in ${name}`}
-            title="New session"
+            aria-label={t('sidebar.newSessionIn', { name })}
+            title={t('sidebar.newSession')}
           >
             <SquarePen size={15} strokeWidth={1.8} />
           </button>

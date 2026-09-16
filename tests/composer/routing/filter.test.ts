@@ -63,4 +63,16 @@ describe('filterAuto', () => {
   it('matches Throughput on tokens per second', () => {
     expect(filterAuto(auto, 'tokens per').map((item) => item.title)).toEqual(['Throughput'])
   })
+
+  it('matches English haystack when the visible title is Arabic', () => {
+    const translated = [
+      {
+        title: 'الأسرع',
+        note: 'أقل زمن لأول رمز',
+        haystack: 'Fastest Lowest time to first token',
+      },
+    ]
+    expect(filterAuto(translated, 'fastest').map((item) => item.title)).toEqual(['الأسرع'])
+    expect(filterAuto(translated, 'أول رمز').map((item) => item.title)).toEqual(['الأسرع'])
+  })
 })

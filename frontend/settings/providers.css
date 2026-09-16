@@ -60,7 +60,7 @@
   min-width: 0;
   padding: 7px 10px;
   border-radius: var(--radius-md);
-  text-align: left;
+  text-align: start;
   transition: background-color 120ms ease;
 }
 
@@ -111,7 +111,7 @@
 .settings-provider-dot {
   position: absolute;
   top: -2px;
-  right: -2px;
+  inset-inline-end: -2px;
   width: 7px;
   height: 7px;
   border-radius: 50%;
@@ -151,7 +151,7 @@
 .settings-switch-knob {
   position: absolute;
   top: 2px;
-  left: 2px;
+  inset-inline-start: 2px;
   width: 14px;
   height: 14px;
   border-radius: var(--radius-circle);

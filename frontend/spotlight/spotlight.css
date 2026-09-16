@@ -79,6 +79,8 @@
   flex: 1;
   min-width: 0;
   font-size: 15.5px;
+  line-height: 1.75;
+  padding-block: 2px;
   color: var(--text-primary);
   background: transparent;
   border: none;
@@ -88,6 +90,7 @@
 
 .spotlight-input::placeholder {
   color: var(--text-muted);
+  line-height: inherit;
 }
 
 .spotlight-path {

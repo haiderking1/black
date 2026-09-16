@@ -4,7 +4,7 @@
   width: 260px;
   height: 100%;
   background-color: var(--bg-sidebar);
-  border-right: 1px solid var(--border-subtle);
+  border-inline-end: 1px solid var(--border-subtle);
   display: flex;
   flex-direction: column;
   padding: 10px 10px 14px 10px;
@@ -37,7 +37,7 @@
   width: 0;
   padding: 0;
   overflow: hidden;
-  border-right: none;
+  border-inline-end: none;
 }
 
 .sidebar-header {
@@ -133,7 +133,7 @@
   width: 100%;
   padding: 12px 10px;
   border-radius: var(--radius-sm);
-  text-align: left;
+  text-align: start;
   transition: background-color 0.15s ease;
 }
 
@@ -287,7 +287,7 @@
 .project-action-menu {
   position: absolute;
   top: calc(100% + 5px);
-  right: 0;
+  inset-inline-end: 0;
   z-index: 20;
   width: max-content;
   min-width: 148px;
@@ -350,7 +350,8 @@
   align-items: center;
   gap: 6px;
   min-height: 40px;
-  padding: 8px 18px 8px 50px;
+  padding: 8px 18px;
+  padding-inline-start: 50px;
   border-radius: 12px;
   color: var(--text-secondary);
   font-size: 14px;
@@ -391,12 +392,18 @@
   user-select: text;
 }
 
+html[dir='rtl'] .session-rename-input {
+  height: 26px;
+  line-height: 1.7;
+}
+
 .session-rename-input:focus {
   border-color: rgba(255, 255, 255, 0.22);
 }
 
 .session-empty {
-  padding: 4px 18px 4px 50px;
+  padding: 4px 18px;
+  padding-inline-start: 50px;
   font-size: 12px;
   color: var(--text-dim);
 }
@@ -406,8 +413,7 @@
   padding-top: 6px;
   display: flex;
   align-items: center;
-  padding-left: 4px;
-  padding-right: 4px;
+  padding-inline: 4px;
 }
 
 .sidebar-settings-btn {

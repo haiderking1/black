@@ -20,7 +20,7 @@ export function DiffView({ diff }: { diff: string }): React.JSX.Element {
   const lines = diff.split('\n').filter((line) => line.length > 0)
 
   return (
-    <pre className="tool-diff">
+    <pre className="tool-diff" dir="ltr">
       {lines.map((line, index) => {
         const parsed = readLine(line)
         return (

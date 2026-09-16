@@ -1,3 +1,4 @@
+import { parseLanguage } from '../../contracts/language'
 import { THEME_PREFERENCES, type AppSettings, type ThemePreference } from './types'
 
 export const SETTINGS_STORAGE_KEY = 'black_settings_v1'
@@ -10,7 +11,8 @@ export const DEFAULT_SETTINGS: AppSettings = {
   selectedModelId: null,
   selectedProviderId: null,
   selectedModels: {},
-  thinkingLevel: 'medium'
+  thinkingLevel: 'medium',
+  language: 'auto',
 }
 
 export interface SettingsStorage {
@@ -66,7 +68,8 @@ export function parseSettings(value: unknown): AppSettings {
     selectedModels: parseSelectedModels(candidate['selectedModels']),
     thinkingLevel: isThinkingLevel(candidate['thinkingLevel'])
       ? candidate['thinkingLevel']
-      : DEFAULT_SETTINGS.thinkingLevel
+      : DEFAULT_SETTINGS.thinkingLevel,
+    language: parseLanguage(candidate['language']),
   }
 }
 

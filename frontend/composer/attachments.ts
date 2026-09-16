@@ -1,3 +1,6 @@
+import type { LanguagePreference } from '../../contracts/language'
+import { t } from '../i18n'
+
 /**
  * Images attached to a message.
  *
@@ -75,13 +78,14 @@ export type AttachmentResult =
  * both is the difference between a chip labelled with the image and one
  * labelled "undefined".
  */
-function nameFor(file: File, index: number): string {
+function nameFor(file: File, index: number, language: LanguagePreference): string {
   const given: unknown = file.name
   if (typeof given === 'string' && given !== '') {
     return given
   }
   const extension = file.type.split('/')[1] ?? 'png'
-  return 'pasted image' + (index === 0 ? '' : ' ' + String(index + 1)) + '.' + extension
+  const base = t(language, 'composer.pastedImage')
+  return base + (index === 0 ? '' : ' ' + String(index + 1)) + '.' + extension
 }
 
 /**
@@ -118,27 +122,28 @@ const decodeWithBitmap: ImageDecoder = async (bytes, mimeType) => {
 export async function attachmentFromFile(
   file: File,
   index = 0,
-  decode: ImageDecoder = decodeWithBitmap
+  decode: ImageDecoder = decodeWithBitmap,
+  language: LanguagePreference = 'auto',
 ): Promise<AttachmentResult> {
   const type = file.type.toLowerCase()
 
   if (!INLINE_TYPES.has(type) && !CONVERTIBLE_TYPES.has(type)) {
-    const label = type === '' ? 'that file' : type
-    return { ok: false, reason: 'Cannot attach ' + label + '. Images only.' }
+    const label = type === '' ? t(language, 'composer.attachError.unknownType') : type
+    return { ok: false, reason: t(language, 'composer.attachError.type', { type: label }) }
   }
 
   if (file.size > MAX_SOURCE_BYTES) {
-    return { ok: false, reason: 'That image is too large to attach.' }
+    return { ok: false, reason: t(language, 'composer.attachError.tooLarge') }
   }
 
   if (file.size === 0) {
-    return { ok: false, reason: 'That file is empty.' }
+    return { ok: false, reason: t(language, 'composer.attachError.empty') }
   }
 
   const bytes = new Uint8Array(await file.arrayBuffer())
 
   if (!(await decode(bytes, type))) {
-    return { ok: false, reason: 'That file could not be read as an image.' }
+    return { ok: false, reason: t(language, 'composer.attachError.unreadable') }
   }
 
   return {
@@ -147,7 +152,7 @@ export async function attachmentFromFile(
       id: nextId(),
       data: toBase64(bytes),
       mimeType: type,
-      name: nameFor(file, index),
+      name: nameFor(file, index, language),
       size: bytes.length
     }
   }
@@ -161,14 +166,15 @@ export interface AttachmentBatch {
 
 export async function attachmentsFromFiles(
   files: Iterable<File>,
-  decode: ImageDecoder = decodeWithBitmap
+  decode: ImageDecoder = decodeWithBitmap,
+  language: LanguagePreference = 'auto',
 ): Promise<AttachmentBatch> {
   const attachments: Attachment[] = []
   const errors: string[] = []
 
   let index = 0
   for (const file of files) {
-    const result = await attachmentFromFile(file, index, decode)
+    const result = await attachmentFromFile(file, index, decode, language)
     if (result.ok) {
       attachments.push(result.attachment)
     } else {

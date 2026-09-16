@@ -3,6 +3,7 @@ import type { ProjectItemData } from '../spotlight'
 import { ProjectRow } from './ProjectRow'
 import { SessionRow } from './SessionRow'
 import type { SessionRecord } from './types'
+import { useT } from '../i18n'
 
 interface ProjectTreeProps {
   projects: ProjectItemData[]
@@ -33,6 +34,7 @@ export function ProjectTree({
   onDeleteSession,
   onDeleteProject
 }: ProjectTreeProps): React.JSX.Element {
+  const t = useT()
   return (
     <div className="project-tree">
       {projects.map((project) => {
@@ -61,7 +63,7 @@ export function ProjectTree({
               <div className="session-list-inner">
                 <div className="session-list-body">
                   {projectSessions.length === 0 ? (
-                    <div className="session-empty">No sessions yet</div>
+                    <div className="session-empty">{t('sidebar.noSessions')}</div>
                   ) : (
                     projectSessions.map((session) => (
                       <SessionRow

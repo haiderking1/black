@@ -41,6 +41,16 @@
   overflow-y: auto;
 }
 
+.composer-textarea[dir='auto'] {
+  unicode-bidi: plaintext;
+}
+
+.composer-textarea[dir='rtl'] {
+  font-family: 'Noto Sans Arabic', var(--font-sans);
+  font-size: 16px;
+  line-height: 1.8;
+}
+
 .composer-textarea::placeholder {
   color: var(--text-muted);
 }

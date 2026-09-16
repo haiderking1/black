@@ -3,6 +3,7 @@ import { Brain, Check, ChevronDown } from 'lucide-react'
 
 import { Dropdown } from './Dropdown'
 import type { ThinkingChoice } from './thinkingOptions'
+import { useT } from '../i18n'
 
 export interface ThinkingPickerProps {
   value: string
@@ -28,12 +29,13 @@ export function ThinkingPicker({
   disabled = false,
   note = null
 }: ThinkingPickerProps): React.JSX.Element {
+  const t = useT()
   const current = choices.find((choice) => choice.value === value)
   const label = current?.label ?? value
 
   return (
     <Dropdown
-      title="Thinking level"
+      title={t('thinking.level')}
       disabled={disabled}
       label={
         <>
