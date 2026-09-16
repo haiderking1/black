@@ -15,7 +15,7 @@ import './providers.css'
  */
 export function ProvidersSettings(): React.JSX.Element {
   const t = useT()
-  const { providers, isLoading, error, setApiKey, clearApiKey, setEnabled } = useProviders()
+  const { providers, isLoading, error, setApiKey, clearApiKey, setEnabled, startOAuth, cancelOAuth, submitOAuthCode } = useProviders()
 
   return (
     <div className="settings-providers">
@@ -40,6 +40,9 @@ export function ProvidersSettings(): React.JSX.Element {
                 onSetApiKey={setApiKey}
                 onClearApiKey={clearApiKey}
                 onSetEnabled={setEnabled}
+                onStartOAuth={startOAuth}
+                onCancelOAuth={cancelOAuth}
+                onSubmitOAuthCode={submitOAuthCode}
               />
             ))
           )}

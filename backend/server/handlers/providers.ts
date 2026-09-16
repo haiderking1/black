@@ -2,10 +2,15 @@ import * as Effect from 'effect/Effect'
 
 import { ProviderConfigError } from '../../../contracts/errors'
 import { METHODS } from '../../../contracts/methods'
-import { clearApiKey, readProviderEnabled, writeApiKey, writeProviderEnabled } from '../../providers/credentialStore'
-import { resolveApiKey } from '../../providers/credentials'
-import { findDescriptor, PROVIDER_DESCRIPTORS } from '../../providers/descriptors'
+import { clearApiKey, readProviderEnabled, writeApiKey, writeOAuth, writeProviderEnabled } from '../../providers/credentialStore'
+import { resolveAccessToken, resolveApiKey } from '../../providers/credentials'
+import { findDescriptor, PROVIDER_DESCRIPTORS, type ProviderAuthKind } from '../../providers/descriptors'
 import { createProvider } from '../../providers/create'
+import {
+  cancelBrowserLogin,
+  startBrowserLogin,
+  submitBrowserLoginCode,
+} from '../../providers/codex/oauth'
 import type { Provider } from '../../providers/types'
 
 /**
@@ -22,15 +27,38 @@ export interface ProviderStatus {
   enabled: boolean
   authenticated: boolean
   modelCount: number | null
+  authKind: ProviderAuthKind
+}
+
+export interface ProviderHandlerOptions {
+  openUrl: (url: string) => Promise<void>
 }
 
 function asProviderError(error: unknown): ProviderConfigError {
   return new ProviderConfigError({ message: error instanceof Error ? error.message : String(error) })
 }
 
+function missingCredentialMessage(name: string, authKind: ProviderAuthKind): string {
+  if (authKind === 'oauth') return 'Sign in to ' + name + ' first'
+  return 'Configure an API key for ' + name + ' first'
+}
+
 /** Build a provider for a descriptor, or undefined when the id is unknown. */
 function buildProvider(providerId: string, apiKey: string): Provider | undefined {
   return createProvider(providerId, apiKey)
+}
+
+function statusFromDescriptor(
+  descriptor: { id: string; name: string; baseUrl: string; authKind: ProviderAuthKind },
+  fields: { enabled: boolean; authenticated: boolean; modelCount: number | null },
+): ProviderStatus {
+  return {
+    id: descriptor.id,
+    name: descriptor.name,
+    baseUrl: descriptor.baseUrl,
+    authKind: descriptor.authKind,
+    ...fields,
+  }
 }
 
 /**
@@ -54,19 +82,15 @@ async function describeProvider(providerId: string): Promise<ProviderStatus> {
       const provider = buildProvider(providerId, apiKey)
       if (provider !== undefined) modelCount = (await provider.listModels()).length
     } catch {
-      // The screen still renders; the count is simply unknown.
       modelCount = null
     }
   }
 
-  return {
-    id: descriptor.id,
-    name: descriptor.name,
-    baseUrl: descriptor.baseUrl,
+  return statusFromDescriptor(descriptor, {
     enabled: readProviderEnabled(descriptor.id),
     authenticated,
     modelCount,
-  }
+  })
 }
 
 export async function listProviderStatuses(): Promise<ProviderStatus[]> {
@@ -75,30 +99,39 @@ export async function listProviderStatuses(): Promise<ProviderStatus[]> {
     try {
       statuses.push(await describeProvider(descriptor.id))
     } catch {
-      // A provider that cannot be described is reported as unconfigured rather
-      // than omitted, so the row stays visible and actionable.
-      statuses.push({
-        id: descriptor.id,
-        name: descriptor.name,
-        baseUrl: descriptor.baseUrl,
-        enabled: readProviderEnabled(descriptor.id),
-        authenticated: false,
-        modelCount: null,
-      })
+      statuses.push(
+        statusFromDescriptor(descriptor, {
+          enabled: readProviderEnabled(descriptor.id),
+          authenticated: false,
+          modelCount: null,
+        }),
+      )
     }
   }
   return statuses
 }
 
-export function providerHandlers() {
+async function requireProvider(providerId: string): Promise<Provider> {
+  const descriptor = findDescriptor(providerId)
+  if (descriptor === undefined) throw new Error('Unknown provider: ' + providerId)
+  const apiKey = await resolveAccessToken(providerId)
+  if (apiKey === undefined) throw new Error(missingCredentialMessage(descriptor.name, descriptor.authKind))
+  const provider = buildProvider(providerId, apiKey)
+  if (provider === undefined) throw new Error('Unknown provider: ' + providerId)
+  return provider
+}
+
+export function providerHandlers(options: ProviderHandlerOptions) {
   return {
-    // Declared with no error channel, and it has none: describing a provider
-    // catches internally so one bad catalog cannot fail the settings screen.
     [METHODS.listProviders]: () => Effect.promise(() => listProviderStatuses()),
 
     [METHODS.setApiKey]: (payload: { providerId: string; apiKey: string }) =>
       Effect.tryPromise({
         try: async () => {
+          const descriptor = findDescriptor(payload.providerId)
+          if (descriptor?.authKind === 'oauth') {
+            throw new Error(descriptor.name + ' uses ChatGPT sign-in, not an API key')
+          }
           writeApiKey(payload.providerId, payload.apiKey)
           return await describeProvider(payload.providerId)
         },
@@ -108,31 +141,18 @@ export function providerHandlers() {
     [METHODS.clearApiKey]: (payload: { providerId: string }) =>
       Effect.tryPromise({
         try: async () => {
+          cancelBrowserLogin(payload.providerId)
           clearApiKey(payload.providerId)
           return await describeProvider(payload.providerId)
         },
         catch: asProviderError,
       }),
 
-    // Model ids come from the vendor catalog, which is cached by the provider,
-    // so opening the picker repeatedly does not refetch.
     [METHODS.listModels]: (payload: { providerId: string }) =>
       Effect.tryPromise({
         try: async () => {
-          const descriptor = findDescriptor(payload.providerId)
-          if (descriptor === undefined) throw new Error('Unknown provider: ' + payload.providerId)
-          const apiKey = resolveApiKey(payload.providerId)
-          if (apiKey === undefined) {
-            throw new Error('Configure an API key for ' + descriptor.name + ' first')
-          }
-          const provider = buildProvider(payload.providerId, apiKey)
-          if (provider === undefined) throw new Error('Unknown provider: ' + payload.providerId)
-
+          const provider = await requireProvider(payload.providerId)
           const models = await provider.listModels()
-
-          // The vendor catalog carries ids only. Reasoning support comes from the
-          // limits catalog and is merged here, so the composer can offer the
-          // levels this model actually takes rather than a fixed list.
           try {
             return await Promise.all(
               models.map(async (model) => {
@@ -146,7 +166,6 @@ export function providerHandlers() {
               }),
             )
           } catch {
-            // A limits outage should not hide the models themselves.
             return models
           }
         },
@@ -156,14 +175,7 @@ export function providerHandlers() {
     [METHODS.listEndpoints]: (payload: { providerId: string; model: string }) =>
       Effect.tryPromise({
         try: async () => {
-          const descriptor = findDescriptor(payload.providerId)
-          if (descriptor === undefined) throw new Error('Unknown provider: ' + payload.providerId)
-          const apiKey = resolveApiKey(payload.providerId)
-          if (apiKey === undefined) {
-            throw new Error('Configure an API key for ' + descriptor.name + ' first')
-          }
-          const provider = buildProvider(payload.providerId, apiKey)
-          if (provider === undefined) throw new Error('Unknown provider: ' + payload.providerId)
+          const provider = await requireProvider(payload.providerId)
           if (provider.listEndpoints === undefined) return []
           return [...(await provider.listEndpoints(payload.model))]
         },
@@ -175,6 +187,34 @@ export function providerHandlers() {
         try: async () => {
           writeProviderEnabled(payload.providerId, payload.enabled)
           return await describeProvider(payload.providerId)
+        },
+        catch: asProviderError,
+      }),
+
+    [METHODS.startOAuth]: (payload: { providerId: string }) =>
+      Effect.tryPromise({
+        try: async () => {
+          const descriptor = findDescriptor(payload.providerId)
+          if (descriptor === undefined) throw new Error('Unknown provider: ' + payload.providerId)
+          if (descriptor.authKind !== 'oauth') {
+            throw new Error(descriptor.name + ' does not use browser sign-in')
+          }
+          const credential = await startBrowserLogin({ openUrl: options.openUrl }, payload.providerId)
+          writeOAuth(payload.providerId, credential)
+          return await describeProvider(payload.providerId)
+        },
+        catch: asProviderError,
+      }),
+
+    [METHODS.cancelOAuth]: (payload: { providerId: string }) =>
+      Effect.sync(() => {
+        cancelBrowserLogin(payload.providerId)
+      }),
+
+    [METHODS.submitOAuthCode]: (payload: { providerId: string; input: string }) =>
+      Effect.try({
+        try: () => {
+          submitBrowserLoginCode(payload.input, payload.providerId)
         },
         catch: asProviderError,
       }),

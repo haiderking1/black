@@ -2,6 +2,7 @@ import React from 'react'
 
 import { OpenCodeLogo } from './OpenCodeLogo'
 import { OpenRouterLogo } from './OpenRouterLogo'
+import { CodexLogo } from './CodexLogo'
 import './logo.css'
 
 export interface ProviderLogoProps {
@@ -28,6 +29,9 @@ export function ProviderLogo({
   }
   if (providerId === 'openrouter') {
     return <OpenRouterLogo size={size} />
+  }
+  if (providerId === 'openai-codex') {
+    return <CodexLogo size={size} />
   }
 
   const label = (fallbackLabel ?? providerId).trim()

@@ -17,6 +17,8 @@ export const ProviderStatus = Schema.Struct({
   authenticated: Schema.Boolean,
   /** Models the vendor reports, or null when the catalog could not be read. */
   modelCount: Schema.NullOr(Schema.Int),
+  /** How this provider is signed in. Absent means a pasted API key. */
+  authKind: Schema.optional(Schema.Literals(['api_key', 'oauth'])),
 })
 
 /**
@@ -97,4 +99,9 @@ export const ProviderIdInput = Schema.Struct({
 export const SetProviderEnabledInput = Schema.Struct({
   providerId: Schema.NonEmptyString,
   enabled: Schema.Boolean,
+})
+
+export const SubmitOAuthCodeInput = Schema.Struct({
+  providerId: Schema.NonEmptyString,
+  input: Schema.NonEmptyString,
 })

@@ -1,3 +1,10 @@
+/* Own color, so a muted parent (the model rail, a caption) cannot wash it out. */
+.codex-logo {
+  color: var(--text-primary);
+  display: block;
+  flex-shrink: 0;
+}
+
 /* Stands in only where a provider has no mark of its own. */
 .provider-logo-fallback {
   display: inline-flex;

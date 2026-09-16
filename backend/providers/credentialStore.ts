@@ -12,10 +12,16 @@ import { dirname, join } from 'node:path'
 import { getAgentDir } from '../config/agentDir'
 import { acquireFileLock } from '../config/settings/lock'
 import { stripBom } from '../config/text'
+import type { OAuthCredential } from './codex/oauth/types'
 
 interface ProviderEntry {
   apiKey?: string
   enabled?: boolean
+  type?: string
+  access?: string
+  refresh?: string
+  expires?: number
+  accountId?: string
   [key: string]: unknown
 }
 
@@ -74,14 +80,63 @@ function updateProvider(providerId: string, change: (entry: ProviderEntry) => Pr
 export function writeApiKey(providerId: string, apiKey: string): void {
   const trimmed = apiKey.trim()
   if (trimmed === '') throw new Error('An API key is required')
-  updateProvider(providerId, (entry) => ({ ...entry, apiKey: trimmed }))
+  updateProvider(providerId, (entry) => {
+    const next: ProviderEntry = { ...entry, apiKey: trimmed }
+    delete next['type']
+    delete next['access']
+    delete next['refresh']
+    delete next['expires']
+    delete next['accountId']
+    return next
+  })
 }
+
+const OAUTH_FIELDS = ['type', 'access', 'refresh', 'expires', 'accountId', 'apiKey'] as const
 
 export function clearApiKey(providerId: string): void {
   updateProvider(providerId, (entry) => {
-    delete entry['apiKey']
+    for (const field of OAUTH_FIELDS) delete entry[field]
     return entry
   })
+}
+
+export function writeOAuth(providerId: string, credential: OAuthCredential): void {
+  if (credential.access.trim() === '' || credential.refresh.trim() === '' || credential.accountId.trim() === '') {
+    throw new Error('An OAuth credential is required')
+  }
+  if (!Number.isFinite(credential.expires)) throw new Error('An OAuth credential is required')
+  updateProvider(providerId, (entry) => {
+    const next: ProviderEntry = { ...entry }
+    delete next['apiKey']
+    next['type'] = 'oauth'
+    next['access'] = credential.access
+    next['refresh'] = credential.refresh
+    next['expires'] = credential.expires
+    next['accountId'] = credential.accountId
+    return next
+  })
+}
+
+export function readOAuth(providerId: string): OAuthCredential | undefined {
+  const entry = asEntry(readAuthFile(getAuthFilePath())[providerId])
+  if (entry['type'] !== 'oauth') return undefined
+  if (typeof entry['access'] !== 'string' || entry['access'] === '') return undefined
+  if (typeof entry['refresh'] !== 'string' || entry['refresh'] === '') return undefined
+  if (typeof entry['expires'] !== 'number' || !Number.isFinite(entry['expires'])) return undefined
+  if (typeof entry['accountId'] !== 'string' || entry['accountId'] === '') return undefined
+  return {
+    type: 'oauth',
+    access: entry['access'],
+    refresh: entry['refresh'],
+    expires: entry['expires'],
+    accountId: entry['accountId'],
+  }
+}
+
+export function hasStoredAuth(providerId: string): boolean {
+  const entry = asEntry(readAuthFile(getAuthFilePath())[providerId])
+  if (typeof entry['apiKey'] === 'string' && entry['apiKey'] !== '') return true
+  return readOAuth(providerId) !== undefined
 }
 
 export function writeProviderEnabled(providerId: string, enabled: boolean): void {

@@ -107,7 +107,9 @@ export function ModelPanel({
             aria-pressed={provider.id === providerId}
             onClick={() => onSelectProvider?.(provider.id)}
           >
-            <ProviderLogo providerId={provider.id} size={20} fallbackLabel={provider.name} />
+            <span className="model-rail-mark">
+              <ProviderLogo providerId={provider.id} size={20} fallbackLabel={provider.name} />
+            </span>
           </button>
         ))}
       </div>

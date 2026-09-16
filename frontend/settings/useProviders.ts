@@ -13,6 +13,9 @@ export interface UseProvidersResult {
   setApiKey: (providerId: string, apiKey: string) => Promise<void>
   clearApiKey: (providerId: string) => Promise<void>
   setEnabled: (providerId: string, enabled: boolean) => Promise<void>
+  startOAuth: (providerId: string) => Promise<void>
+  cancelOAuth: (providerId: string) => Promise<void>
+  submitOAuthCode: (providerId: string, input: string) => Promise<void>
   reload: () => Promise<void>
 }
 
@@ -126,5 +129,51 @@ export function useProviders(): UseProvidersResult {
     [applyStatus, client],
   )
 
-  return { providers, isLoading, error, setApiKey, clearApiKey, setEnabled, reload }
+  const startOAuth = useCallback(
+    async (providerId: string): Promise<void> => {
+      if (client === null) return
+      try {
+        applyStatus(await Effect.runPromise(client['providers.startOAuth']({ providerId })))
+        setError(null)
+      } catch (caught) {
+        const message = describeRpcError(caught)
+        if (message.includes('Login cancelled')) {
+          setError(null)
+          return
+        }
+        setError(message)
+        throw caught
+      }
+    },
+    [applyStatus, client],
+  )
+
+  const cancelOAuth = useCallback(
+    async (providerId: string): Promise<void> => {
+      if (client === null) return
+      try {
+        await Effect.runPromise(client['providers.cancelOAuth']({ providerId }))
+        setError(null)
+      } catch (caught) {
+        setError(describeRpcError(caught))
+      }
+    },
+    [client],
+  )
+
+  const submitOAuthCode = useCallback(
+    async (providerId: string, input: string): Promise<void> => {
+      if (client === null) return
+      try {
+        await Effect.runPromise(client['providers.submitOAuthCode']({ providerId, input }))
+        setError(null)
+      } catch (caught) {
+        setError(describeRpcError(caught))
+        throw caught
+      }
+    },
+    [client],
+  )
+
+  return { providers, isLoading, error, setApiKey, clearApiKey, setEnabled, startOAuth, cancelOAuth, submitOAuthCode, reload }
 }

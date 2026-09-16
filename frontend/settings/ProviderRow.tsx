@@ -2,13 +2,15 @@ import React, { useId, useState } from 'react'
 import { ChevronDown, Eye, EyeOff, Trash2 } from 'lucide-react'
 
 import type { ProviderStatus } from '../../contracts/providers'
-import { OpenCodeLogo, OpenRouterLogo } from '../providers'
+import { CodexLogo, OpenCodeLogo, OpenRouterLogo } from '../providers'
 import { useT } from '../i18n'
+import { OAuthPanel } from './oauth/OAuthPanel'
 
 /** The logo per provider. A provider without an entry falls back to its initial. */
 const LOGOS: Record<string, (props: { size?: number }) => React.JSX.Element> = {
   'opencode-go': OpenCodeLogo,
   openrouter: OpenRouterLogo,
+  'openai-codex': CodexLogo,
 }
 
 function NetworkMark(): React.JSX.Element {
@@ -20,6 +22,9 @@ interface ProviderRowProps {
   onSetApiKey: (providerId: string, apiKey: string) => Promise<void>
   onClearApiKey: (providerId: string) => Promise<void>
   onSetEnabled: (providerId: string, enabled: boolean) => Promise<void>
+  onStartOAuth?: (providerId: string) => Promise<void>
+  onCancelOAuth?: (providerId: string) => Promise<void>
+  onSubmitOAuthCode?: (providerId: string, input: string) => Promise<void>
 }
 
 /**
@@ -34,6 +39,9 @@ export function ProviderRow({
   onSetApiKey,
   onClearApiKey,
   onSetEnabled,
+  onStartOAuth,
+  onCancelOAuth,
+  onSubmitOAuthCode,
 }: ProviderRowProps): React.JSX.Element {
   const t = useT()
   const [expanded, setExpanded] = useState(false)
@@ -44,8 +52,9 @@ export function ProviderRow({
 
   const Logo = LOGOS[provider.id]
   const canSave = draft.trim() !== '' && !isSaving
-
+  const oauth = provider.authKind === 'oauth'
   const ready = provider.enabled && provider.authenticated
+  const readyLabel = oauth ? t('providers.enabledWithOAuth') : t('providers.enabledWithKey')
 
   const handleSave = async (): Promise<void> => {
     if (!canSave) return
@@ -73,7 +82,7 @@ export function ProviderRow({
         >
           <span className="settings-provider-logo">
             {Logo !== undefined ? <Logo size={24} /> : <NetworkMark />}
-            {ready ? <span className="settings-provider-dot" role="img" aria-label={t('providers.enabledWithKey')} title={t('providers.enabledWithKey')} /> : null}
+            {ready ? <span className="settings-provider-dot" role="img" aria-label={readyLabel} title={readyLabel} /> : null}
           </span>
           <span className="settings-provider-copy">
             <span className="settings-provider-title">
@@ -97,7 +106,17 @@ export function ProviderRow({
       </div>
 
       <div id={panelId} hidden={!expanded}>
-      {expanded ? <div className="settings-provider-key">
+      {expanded && oauth && onStartOAuth !== undefined && onCancelOAuth !== undefined && onSubmitOAuthCode !== undefined ? (
+        <OAuthPanel
+          providerId={provider.id}
+          authenticated={provider.authenticated}
+          onStart={onStartOAuth}
+          onCancel={onCancelOAuth}
+          onSubmitCode={onSubmitOAuthCode}
+          onSignOut={onClearApiKey}
+        />
+      ) : null}
+      {expanded && !oauth ? <div className="settings-provider-key">
         <label className="settings-provider-key-label" htmlFor={'key-' + provider.id}>
           {t('providers.apiKey')}
         </label>

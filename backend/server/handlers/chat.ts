@@ -19,7 +19,7 @@ import { wireTranscript, providerHistory } from '../../chat/history'
 import { toolDefinitions } from '../../tools/registry'
 import type { ChatImage, ChatMessage, ChatStreamEvent as ProviderStreamEvent } from '../../providers/types'
 import { processImage } from '../../tools/image'
-import { resolveApiKey } from '../../providers/credentials'
+import { resolveAccessToken } from '../../providers/credentials'
 import { findDescriptor } from '../../providers/descriptors'
 import { createProvider } from '../../providers/create'
 import type {
@@ -46,12 +46,20 @@ function buildProvider(providerId: string, apiKey: string): Provider | undefined
 }
 
 /** Everything needed to talk to a provider, or the reason we cannot. */
-function resolveProvider(providerId: string): { provider: Provider; error: null } | { provider: null; error: string } {
+async function resolveProvider(
+  providerId: string,
+): Promise<{ provider: Provider; error: null } | { provider: null; error: string }> {
   const descriptor = findDescriptor(providerId)
   if (descriptor === undefined) return { provider: null, error: 'Unknown provider: ' + providerId }
 
-  const apiKey = resolveApiKey(providerId)
-  if (apiKey === undefined) return { provider: null, error: 'No API key configured for ' + descriptor.name }
+  const apiKey = await resolveAccessToken(providerId)
+  if (apiKey === undefined) {
+    const message =
+      descriptor.authKind === 'oauth'
+        ? 'Sign in to ' + descriptor.name + ' first'
+        : 'No API key configured for ' + descriptor.name
+    return { provider: null, error: message }
+  }
 
   const provider = buildProvider(providerId, apiKey)
   if (provider === undefined) return { provider: null, error: 'Unknown provider: ' + providerId }
@@ -275,11 +283,10 @@ export function chatHandlers() {
       route?: ChatRoute
       language?: string
     }) => {
-      const resolved = resolveProvider(payload.providerId)
-
       let activeController: AbortController | undefined
       // One generator either way, so both paths produce the same stream type.
       const events = (async function* (): AsyncGenerator<ChatStreamEvent> {
+        const resolved = await resolveProvider(payload.providerId)
         if (resolved.provider === null) {
           yield { type: 'error', message: resolved.error }
           return
@@ -428,16 +435,9 @@ export function chatHandlers() {
     }) =>
       Effect.tryPromise({
         try: async () => {
-          const descriptor = findDescriptor(payload.providerId)
-          if (descriptor === undefined) throw new Error('Unknown provider: ' + payload.providerId)
-
-          const apiKey = resolveApiKey(payload.providerId)
-          if (apiKey === undefined) {
-            throw new Error('No API key configured for ' + descriptor.name)
-          }
-
-          const provider = buildProvider(payload.providerId, apiKey)
-          if (provider === undefined) throw new Error('Unknown provider: ' + payload.providerId)
+          const resolved = await resolveProvider(payload.providerId)
+          if (resolved.error !== null) throw new Error(resolved.error)
+          const provider = resolved.provider
 
           const transcript = wireTranscript(payload.messages)
 
@@ -495,16 +495,9 @@ export function chatHandlers() {
     }) =>
       Effect.tryPromise({
         try: async () => {
-          const descriptor = findDescriptor(payload.providerId)
-          if (descriptor === undefined) throw new Error('Unknown provider: ' + payload.providerId)
-
-          const apiKey = resolveApiKey(payload.providerId)
-          if (apiKey === undefined) {
-            throw new Error('No API key configured for ' + descriptor.name)
-          }
-
-          const provider = buildProvider(payload.providerId, apiKey)
-          if (provider === undefined) throw new Error('Unknown provider: ' + payload.providerId)
+          const resolved = await resolveProvider(payload.providerId)
+          if (resolved.error !== null) throw new Error(resolved.error)
+          const provider = resolved.provider
 
           const transcript = wireTranscript(payload.messages)
 
@@ -530,7 +523,7 @@ export function chatHandlers() {
     [METHODS.title]: (payload: { providerId: string; model: string; message: string; sessionId: string }) =>
       Effect.tryPromise({
         try: async () => {
-          const resolved = resolveProvider(payload.providerId)
+          const resolved = await resolveProvider(payload.providerId)
           if (resolved.error !== null) throw new Error(resolved.error)
           return generateSessionTitle(resolved.provider, payload.model, payload.message, payload.sessionId)
         },
@@ -551,16 +544,9 @@ export function chatHandlers() {
     }) =>
       Effect.tryPromise({
         try: async () => {
-          const descriptor = findDescriptor(payload.providerId)
-          if (descriptor === undefined) throw new Error('Unknown provider: ' + payload.providerId)
-
-          const apiKey = resolveApiKey(payload.providerId)
-          if (apiKey === undefined) {
-            throw new Error('No API key configured for ' + descriptor.name)
-          }
-
-          const provider = buildProvider(payload.providerId, apiKey)
-          if (provider === undefined) throw new Error('Unknown provider: ' + payload.providerId)
+          const resolved = await resolveProvider(payload.providerId)
+          if (resolved.error !== null) throw new Error(resolved.error)
+          const provider = resolved.provider
 
           const fitted = await fitRequest(provider, payload.providerId, payload, undefined)
 

@@ -8,6 +8,10 @@
 
 import { OPENCODE_GO_BASE_URL } from './opencode/endpoints'
 import { OPENROUTER_BASE_URL } from './openrouter/endpoints'
+import { CODEX_BASE_URL } from './codex/endpoints'
+import { PROVIDER_ID as CODEX_PROVIDER_ID } from './codex/oauth/constants'
+
+export type ProviderAuthKind = 'api_key' | 'oauth'
 
 export interface ProviderDescriptor {
   id: string
@@ -15,6 +19,7 @@ export interface ProviderDescriptor {
   baseUrl: string
   /** Shown under the name when no key is configured. */
   keyHint: string
+  authKind: ProviderAuthKind
 }
 
 export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
@@ -23,12 +28,21 @@ export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
     name: 'OpenCode Go',
     baseUrl: OPENCODE_GO_BASE_URL,
     keyHint: 'Get a key from OpenCode',
+    authKind: 'api_key',
   },
   {
     id: 'openrouter',
     name: 'OpenRouter',
     baseUrl: OPENROUTER_BASE_URL,
     keyHint: 'Get a key from openrouter.ai/keys',
+    authKind: 'api_key',
+  },
+  {
+    id: CODEX_PROVIDER_ID,
+    name: 'OpenAI Codex',
+    baseUrl: CODEX_BASE_URL,
+    keyHint: 'ChatGPT Plus or Pro',
+    authKind: 'oauth',
   },
 ]
 

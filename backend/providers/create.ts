@@ -7,10 +7,12 @@
 
 import { createOpenCodeProvider } from './opencode'
 import { createOpenRouterProvider } from './openrouter'
+import { createCodexProvider } from './codex'
 import type { Provider } from './types'
 
 export function createProvider(providerId: string, apiKey: string): Provider | undefined {
   if (providerId === 'opencode-go') return createOpenCodeProvider({ apiKey })
   if (providerId === 'openrouter') return createOpenRouterProvider({ apiKey })
+  if (providerId === 'openai-codex') return createCodexProvider({ apiKey })
   return undefined
 }

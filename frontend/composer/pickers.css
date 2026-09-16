@@ -173,6 +173,11 @@
   transition: background-color 0.12s ease, color 0.12s ease;
 }
 
+.model-rail-mark {
+  display: inline-flex;
+  color: var(--text-primary);
+}
+
 .model-rail-item:hover {
   background-color: var(--bg-surface-hover);
   color: var(--text-primary);
@@ -314,6 +319,7 @@ html[dir='rtl'] .model-rail-item.active {
   justify-content: center;
   width: 13px;
   height: 13px;
+  color: var(--text-primary);
 }
 
 .model-shortcut {

@@ -26,6 +26,7 @@ import {
   ProviderStatus,
   SetApiKeyInput,
   SetProviderEnabledInput,
+  SubmitOAuthCodeInput,
 } from './providers'
 
 /**
@@ -96,6 +97,24 @@ const ListEndpointsRpc = Rpc.make(METHODS.listEndpoints, {
   error: ProviderConfigError,
 })
 
+const StartOAuthRpc = Rpc.make(METHODS.startOAuth, {
+  payload: ProviderIdInput,
+  success: ProviderStatus,
+  error: ProviderConfigError,
+})
+
+const CancelOAuthRpc = Rpc.make(METHODS.cancelOAuth, {
+  payload: ProviderIdInput,
+  success: Schema.Void,
+  error: ProviderConfigError,
+})
+
+const SubmitOAuthCodeRpc = Rpc.make(METHODS.submitOAuthCode, {
+  payload: SubmitOAuthCodeInput,
+  success: Schema.Void,
+  error: ProviderConfigError,
+})
+
 const ChatTitleRpc = Rpc.make(METHODS.title, {
   payload: Schema.Struct({ providerId: Schema.NonEmptyString, model: Schema.NonEmptyString, message: Schema.String, sessionId: Schema.NonEmptyString }),
   success: Schema.Struct({ title: Schema.NonEmptyString }),
@@ -154,6 +173,9 @@ export const ServerRpcs = RpcGroup.make(
   SetEnabledRpc,
   ListModelsRpc,
   ListEndpointsRpc,
+  StartOAuthRpc,
+  CancelOAuthRpc,
+  SubmitOAuthCodeRpc,
   ChatTitleRpc,
   ChatCompleteRpc,
   ChatStreamRpc,

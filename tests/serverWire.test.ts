@@ -94,6 +94,18 @@ function stubHandlers(events: readonly ChatStreamEvent[] = [{ type: 'text', text
         authenticated: false,
         modelCount: null,
       }),
+    [METHODS.cancelOAuth]: () => Effect.void,
+    [METHODS.startOAuth]: () =>
+      Effect.succeed({
+        id: 'openai-codex',
+        name: 'OpenAI Codex',
+        baseUrl: 'https://chatgpt.com/backend-api',
+        enabled: true,
+        authenticated: true,
+        modelCount: 1,
+        authKind: 'oauth' as const,
+      }),
+    [METHODS.submitOAuthCode]: () => Effect.void,
   })
 }
 

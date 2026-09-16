@@ -25,6 +25,9 @@ export const PROVIDER_METHODS = {
   setEnabled: 'providers.setEnabled',
   listModels: 'providers.listModels',
   listEndpoints: 'providers.listEndpoints',
+  startOAuth: 'providers.startOAuth',
+  cancelOAuth: 'providers.cancelOAuth',
+  submitOAuthCode: 'providers.submitOAuthCode',
 } as const
 
 /** Chat completions. */

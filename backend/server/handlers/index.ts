@@ -1,10 +1,9 @@
-import type { BrowserWindow } from 'electron'
-
 import { ServerRpcs } from '../../../contracts/rpc'
 import { chatHandlers } from './chat'
 import { instructionHandlers } from './instructions'
 import { fsHandlers } from './fs'
 import { providerHandlers } from './providers'
+import { shell, type BrowserWindow } from 'electron'
 
 /**
  * Every method the server serves.
@@ -20,7 +19,11 @@ export interface HandlerContext {
 export function buildHandlers(context: HandlerContext) {
   return ServerRpcs.toLayer({
     ...fsHandlers(context),
-    ...providerHandlers(),
+    ...providerHandlers({
+      openUrl: async (url) => {
+        await shell.openExternal(url)
+      },
+    }),
     ...chatHandlers(),
     ...instructionHandlers(),
   })
