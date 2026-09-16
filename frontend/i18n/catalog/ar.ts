@@ -236,6 +236,7 @@ export const ar: Record<MessageKey, string> = {
   'code.copyTitle': 'نسخ',
   'code.unavailable': 'الحافظة غير متاحة',
   'code.text': 'نص',
+  'code.wrap': 'تبديل التفاف الأسطر',
 
   'spotlight.search': 'بحث...',
   'spotlight.back': 'رجوع',

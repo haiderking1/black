@@ -234,6 +234,7 @@ export const en = {
   'code.copyTitle': 'Copy',
   'code.unavailable': 'Clipboard unavailable',
   'code.text': 'text',
+  'code.wrap': 'Toggle line wrap',
 
   'spotlight.search': 'Search...',
   'spotlight.back': 'Back',
