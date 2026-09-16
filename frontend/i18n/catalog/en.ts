@@ -247,6 +247,7 @@ export const en = {
   'spotlight.localFolderHint': 'Browse a folder on disk',
   'spotlight.projects': 'Projects',
   'spotlight.noMatch': 'No projects matching "{term}"',
+  'spotlight.noDirMatch': 'No folders matching "{term}"',
   'spotlight.noProjects': 'No projects yet',
   'spotlight.reading': 'Reading directory...',
   'spotlight.noSubdirs': 'No subdirectories in this folder.',

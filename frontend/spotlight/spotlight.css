@@ -94,10 +94,10 @@
 }
 
 .spotlight-path {
-  flex: 1;
-  font-size: 14px;
+  padding: 0 18px 10px;
+  font-size: 12.5px;
   font-family: var(--font-mono);
-  color: var(--text-primary);
+  color: var(--text-dim);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;

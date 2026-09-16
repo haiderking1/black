@@ -249,6 +249,7 @@ export const ar: Record<MessageKey, string> = {
   'spotlight.localFolderHint': 'تصفح مجلدًا على القرص',
   'spotlight.projects': 'المشاريع',
   'spotlight.noMatch': 'لا مشاريع تطابق "{term}"',
+  'spotlight.noDirMatch': 'لا مجلدات تطابق "{term}"',
   'spotlight.noProjects': 'لا مشاريع بعد',
   'spotlight.reading': 'جاري قراءة المجلد...',
   'spotlight.noSubdirs': 'لا مجلدات فرعية هنا.',

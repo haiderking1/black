@@ -4,9 +4,10 @@ import type { DirectoryEntry } from '../../contracts/fs'
 import { useT } from '../i18n'
 
 interface DirectoryListProps {
-  entries: DirectoryEntry[]
+  entries: readonly DirectoryEntry[]
   isLoading: boolean
   error: string | null
+  searchTerm: string
   selectedIndex: number
   onNavigate: (entry: DirectoryEntry) => void
   onHover: (index: number) => void
@@ -17,6 +18,7 @@ export function DirectoryList({
   entries,
   isLoading,
   error,
+  searchTerm,
   selectedIndex,
   onNavigate,
   onHover,
@@ -32,7 +34,12 @@ export function DirectoryList({
   }
 
   if (entries.length === 0) {
-    return <div className="dir-nav-empty">{t('spotlight.noSubdirs')}</div>
+    const term = searchTerm.trim()
+    return (
+      <div className="dir-nav-empty">
+        {term !== '' ? t('spotlight.noDirMatch', { term }) : t('spotlight.noSubdirs')}
+      </div>
+    )
   }
 
   // While a new directory loads, the previous rows stay visible until the
