@@ -59,12 +59,23 @@ export function firstSearchIndex(
   return 0
 }
 
+export type BackspaceAction = 'edit' | 'leave' | 'ignore'
+
 /**
- * Whether Backspace should leave the current view rather than edit the query.
+ * What Backspace should do in the picker.
  *
- * An empty field in the folder browser goes up a directory. An empty field
- * on the project list closes the picker, which is what the footer advertises.
+ * The field value is the live input, not React state. Keydown runs before
+ * the character is deleted, so an empty React query with text still in the
+ * box must edit, not leave. Key-repeat after the last character would
+ * otherwise walk up past home.
  */
-export function backspaceLeavesQuery(query: string): boolean {
-  return query.length === 0
+export function backspaceAction(input: {
+  fieldValue: string
+  repeat: boolean
+  composing: boolean
+}): BackspaceAction {
+  if (input.composing) return 'ignore'
+  if (input.fieldValue.length > 0) return 'edit'
+  if (input.repeat) return 'ignore'
+  return 'leave'
 }

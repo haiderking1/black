@@ -4,7 +4,7 @@ import { SourcesList } from './SourcesList'
 import { DirectoryList } from './DirectoryList'
 import type { ProjectItemData } from './ProjectList'
 import { filterDirectories, filterProjects, matchesHaystack } from './filter'
-import { backspaceLeavesQuery, clampIndex, firstSearchIndex, isSearchTextKey, nextIndex } from './keys'
+import { backspaceAction, clampIndex, firstSearchIndex, isSearchTextKey, nextIndex } from './keys'
 import { useDirectoryListing } from './useDirectoryListing'
 import { useT } from '../i18n'
 import './spotlight.css'
@@ -230,8 +230,17 @@ export function SpotlightModal({
       }
 
       if (e.key === 'Backspace') {
-        if (e.isComposing) return
-        if (!backspaceLeavesQuery(searchQuery)) {
+        const fieldValue =
+          e.target === inputRef.current && inputRef.current !== null
+            ? inputRef.current.value
+            : searchQuery
+        const action = backspaceAction({
+          fieldValue,
+          repeat: e.repeat,
+          composing: e.isComposing,
+        })
+        if (action === 'ignore') return
+        if (action === 'edit') {
           if (e.target !== inputRef.current) {
             e.preventDefault()
             setSearchQuery((prev) => prev.slice(0, -1))

@@ -8,7 +8,7 @@ import {
   matchesHaystack,
 } from '../../frontend/spotlight/filter'
 import {
-  backspaceLeavesQuery,
+  backspaceAction,
   clampIndex,
   firstSearchIndex,
   isSearchTextKey,
@@ -185,9 +185,23 @@ describe('isSearchTextKey', () => {
   })
 })
 
-describe('backspaceLeavesQuery', () => {
-  it('is true only when there is nothing left to delete', () => {
-    expect(backspaceLeavesQuery('')).toBe(true)
-    expect(backspaceLeavesQuery('a')).toBe(false)
+describe('backspaceAction', () => {
+  it('edits while the field still has text, including held Backspace', () => {
+    expect(backspaceAction({ fieldValue: 'src', repeat: false, composing: false })).toBe('edit')
+    expect(backspaceAction({ fieldValue: 's', repeat: false, composing: false })).toBe('edit')
+    expect(backspaceAction({ fieldValue: 'sr', repeat: true, composing: false })).toBe('edit')
+  })
+
+  it('does not leave the folder on key-repeat after the field is empty', () => {
+    expect(backspaceAction({ fieldValue: '', repeat: true, composing: false })).toBe('ignore')
+  })
+
+  it('leaves only on a fresh Backspace against an empty field', () => {
+    expect(backspaceAction({ fieldValue: '', repeat: false, composing: false })).toBe('leave')
+  })
+
+  it('does not steal composing Backspace', () => {
+    expect(backspaceAction({ fieldValue: 'س', repeat: false, composing: true })).toBe('ignore')
+    expect(backspaceAction({ fieldValue: '', repeat: false, composing: true })).toBe('ignore')
   })
 })
