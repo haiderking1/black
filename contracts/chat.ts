@@ -187,6 +187,7 @@ export const ChatStreamEvent = Schema.Struct({
     'thinking',
     'done',
     'error',
+    'retry',
     'compacted',
     'tool_calls',
     'tool_result',
@@ -226,8 +227,14 @@ export const ChatStreamEvent = Schema.Struct({
   /** Automatic checkpoint, applied to later provider history without erasing the UI. */
   summary: Schema.optional(Schema.String),
   firstKeptMessageId: Schema.optional(Schema.String),
-  /** Present for 'error'. */
+  /** Present for 'error' and 'retry'. */
   message: Schema.optional(Schema.String),
+  /** Present for 'retry'. 1-indexed attempt about to run. */
+  attempt: Schema.optional(Schema.Int),
+  /** Present for 'retry'. How many retries the loop will take. */
+  maxAttempts: Schema.optional(Schema.Int),
+  /** Present for 'retry'. Backoff before the next attempt, in ms. */
+  delayMs: Schema.optional(Schema.Int),
 })
 export type ChatStreamEvent = typeof ChatStreamEvent.Type
 

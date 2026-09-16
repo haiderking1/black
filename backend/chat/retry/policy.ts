@@ -38,6 +38,7 @@ const RETRYABLE_PROVIDER_ERROR_PATTERN = buildProviderErrorPattern([
 	"service.?unavailable",
 	"server.?error",
 	"internal.?error",
+	"internal.?server.?error",
 
 	// Wrapper/provider text for transient upstream failures, including OpenRouter
 	// "Provider returned error" responses (#2264).

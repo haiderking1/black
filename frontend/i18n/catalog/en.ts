@@ -209,6 +209,8 @@ export const en = {
   'work.interrupted': 'Interrupted',
   'work.limit': 'Response limit reached',
   'work.failed': 'Failed',
+  'work.retrying': 'Retrying {attempt} of {max}',
+  'work.retry': 'Retry',
   'work.empty': 'Empty reply',
   'work.streamFailed': 'The stream failed.',
   'work.orphanTool': 'Received a tool result without its call.',

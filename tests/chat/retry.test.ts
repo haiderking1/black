@@ -4,6 +4,18 @@ import type { ChatStreamEvent } from '../../backend/providers/types'
 
 async function collect(stream: AsyncGenerator<ChatStreamEvent>) { const events: ChatStreamEvent[] = []; for await (const event of stream) events.push(event); return events }
 
+test('retries Internal server error even when OpenRouter tags it invalid_request', async () => {
+  let calls = 0
+  const stream = async function* (): AsyncGenerator<ChatStreamEvent> {
+    calls++
+    yield { type: 'error', message: 'Internal server error', errorCode: '500 invalid_request_error', errorStatus: 500 }
+  }
+  const events = await collect(retryModelStream(stream, undefined, async () => {}))
+  expect(calls).toBe(5)
+  expect(events.filter(event => event.type === 'retry').map(event => event.attempt)).toEqual([1, 2, 3, 4])
+  expect(events.at(-1)).toEqual({ type: 'error', message: 'Internal server error', errorCode: '500 invalid_request_error', errorStatus: 500 })
+})
+
 test('makes four retries after the initial failure with five second waits configured', async () => {
   let calls = 0
   let waits = 0
@@ -12,7 +24,8 @@ test('makes four retries after the initial failure with five second waits config
   expect(calls).toBe(5)
   expect(waits).toBe(4)
   expect(MODEL_RETRY_DELAY_MS).toBe(5000)
-  expect(events).toEqual([{ type: 'error', message: 'service unavailable' }])
+  expect(events.filter(event => event.type === 'retry')).toHaveLength(4)
+  expect(events.at(-1)).toEqual({ type: 'error', message: 'service unavailable' })
 })
 
 test('recovers from an exception without exposing intermediate errors', async () => {
@@ -21,7 +34,12 @@ test('recovers from an exception without exposing intermediate errors', async ()
     if (++calls < 3) throw new Error('network')
     yield { type: 'text', text: 'answer' }; yield { type: 'done', stopReason: 'stop' }
   }
-  expect(await collect(retryModelStream(stream, undefined, async () => {}))).toEqual([{ type: 'text', text: 'answer' }, { type: 'done', stopReason: 'stop' }])
+  expect(await collect(retryModelStream(stream, undefined, async () => {}))).toEqual([
+    { type: 'retry', attempt: 1, maxAttempts: 4, delayMs: 5000, message: 'network' },
+    { type: 'retry', attempt: 2, maxAttempts: 4, delayMs: 5000, message: 'network' },
+    { type: 'text', text: 'answer' },
+    { type: 'done', stopReason: 'stop' },
+  ])
   expect(calls).toBe(3)
 })
 
@@ -37,5 +55,10 @@ test('Stop interrupts the actual retry timer', async () => {
   const controller = new AbortController()
   const stream = async function* (): AsyncGenerator<ChatStreamEvent> { yield { type: 'error', message: 'network' } }
   const timer = setTimeout(() => controller.abort(), 10)
-  try { expect(await collect(retryModelStream(stream, controller.signal))).toEqual([{ type: 'done', stopReason: 'aborted' }]) } finally { clearTimeout(timer) }
+  try {
+    expect(await collect(retryModelStream(stream, controller.signal))).toEqual([
+      { type: 'retry', attempt: 1, maxAttempts: 4, delayMs: 5000, message: 'network' },
+      { type: 'done', stopReason: 'aborted' },
+    ])
+  } finally { clearTimeout(timer) }
 })

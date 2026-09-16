@@ -15,3 +15,9 @@ test('saved timestamps supply a missing elapsed duration', () => {
 test('legacy work does not invent a duration', () => {
   expect(workLabel(undefined, false, 999999)).toBe('Work history')
 })
+test('live retry replaces the working timer', () => {
+  expect(workLabel({
+    ...startWork(1000),
+    retry: { attempt: 2, maxAttempts: 4, delayMs: 5000, error: 'Internal server error' },
+  }, true, 8000)).toBe('Retrying 2 of 4')
+})

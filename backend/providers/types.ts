@@ -64,7 +64,7 @@ export interface ChatMessage {
 
 /** One event on a streamed reply. */
 export interface ChatStreamEvent {
-  type: 'text' | 'thinking' | 'tool_calls' | 'tool_result' | 'done' | 'error'
+  type: 'text' | 'thinking' | 'tool_calls' | 'tool_result' | 'done' | 'error' | 'retry'
   /** Provider request within a tool turn, assigned by the loop. */
   round?: number
   thinkingSignature?: string
@@ -86,6 +86,12 @@ export interface ChatStreamEvent {
   errorStatus?: number
   errorCode?: string
   message?: string
+  /** Present for 'retry'. 1-indexed attempt about to run. */
+  attempt?: number
+  /** Present for 'retry'. How many retries the loop will take. */
+  maxAttempts?: number
+  /** Present for 'retry'. Backoff before the next attempt, in ms. */
+  delayMs?: number
 }
 
 /** How OpenRouter should pick an upstream host for one request. */

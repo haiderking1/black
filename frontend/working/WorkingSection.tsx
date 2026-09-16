@@ -6,6 +6,7 @@ import { useT } from '../i18n'
 import { useWorkLabel } from './useWorkLabel'
 import { WorkBlock } from './WorkBlock'
 import { transcriptBlocks } from './transcriptBlocks'
+import { RetryNotice } from './retry/Notice'
 import { workIsExpanded, type TurnWork, type WorkPart } from './model'
 import './working.css'
 
@@ -25,9 +26,10 @@ function statusNote(work: TurnWork | undefined, stopped: string, interrupted: st
   return undefined
 }
 
-export function WorkingSection({ message, active, onExpandedChange }: {
+export function WorkingSection({ message, active, onRetry, onExpandedChange }: {
   message: Message
   active: boolean
+  onRetry?: () => void
   onExpandedChange: (expanded: boolean, blockKey?: string) => void
 }): React.JSX.Element {
   const t = useT()
@@ -49,7 +51,11 @@ export function WorkingSection({ message, active, onExpandedChange }: {
           running={running}
           label={label} note={note}
           onExpandedChange={value => onExpandedChange(value, block.key)} />)}
-    {work?.error ? <div className="working-error" role="status">{work.error}</div>
+    {work?.retry !== undefined && !hasWork
+      ? <div className={running ? 'working-status shimmer-text' : 'working-status'} role="status">{label}</div>
+      : null}
+    {work?.retry !== undefined || work?.error !== undefined || onRetry !== undefined
+      ? <RetryNotice retry={work?.retry} error={work?.error} onRetry={onRetry} />
       : !hasWork && note ? <div className="working-status" role="status">{note}</div> : null}
     {work?.status === 'completed' && blocks.length === 0 ? <div className="working-status">{t('work.empty')}</div> : null}
   </div>

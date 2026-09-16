@@ -8,11 +8,10 @@
  */
 
 .queued-messages {
-  max-width: 800px;
+  max-width: var(--chat-column);
   width: 100%;
   /* The composer overlaps the card by this much. */
   margin: 0 auto -14px;
-  padding: 0 16px;
 }
 
 .queued-card {

@@ -1,7 +1,7 @@
 import type { ChatStreamEvent } from '../../contracts/chat'
 import type { Message } from '../chat/types'
 import { finishToolRun, startToolRun } from '../chat/toolRun'
-import { splitWork, startWork, type TurnWork, type WorkPart, type WorkStatus } from './model'
+import { splitWork, startWork, withoutRetry, type TurnWork, type WorkPart, type WorkStatus } from './model'
 
 function closeThinking(parts: WorkPart[], now: number): WorkPart[] {
   return parts.map(p => p.type === 'thinking' && p.durationMs === undefined
@@ -14,7 +14,7 @@ export function finishWork(message: Message, status: WorkStatus, now: number, er
   const parts = closeThinking(work.parts, now).map(p => p.type !== 'tools' ? p : {
     ...p, runs: p.runs.map(run => run.result !== undefined ? run : { ...run, interrupted: true })
   })
-  const next: TurnWork = { ...work, parts, status, updatedAt: now,
+  const next: TurnWork = { ...withoutRetry(work), parts, status, updatedAt: now,
     elapsedMs: Math.max(0, now - work.startedAt), ...(error === undefined ? {} : { error }) }
   return { ...message, work: next, content: splitWork(next).answer }
 }
@@ -24,6 +24,20 @@ export function applyWorkEvent(message: Message, event: ChatStreamEvent, now: nu
   const work = message.work ?? startWork(now)
   if (work.status !== 'active') return message
   if (event.type === 'error') return finishWork({ ...message, work }, 'failed', now, event.message ?? 'The stream failed.')
+  if (event.type === 'retry') {
+    const attempt = event.attempt ?? 1
+    const maxAttempts = event.maxAttempts ?? attempt
+    return { ...message, work: {
+      ...work,
+      updatedAt: now,
+      retry: {
+        attempt: Number.isSafeInteger(attempt) && attempt > 0 ? attempt : 1,
+        maxAttempts: Number.isSafeInteger(maxAttempts) && maxAttempts > 0 ? maxAttempts : 1,
+        delayMs: event.delayMs !== undefined && Number.isSafeInteger(event.delayMs) && event.delayMs >= 0 ? event.delayMs : 0,
+        error: event.message ?? 'Model request failed.',
+      },
+    } }
+  }
   if (event.type === 'done') {
     const status = event.stopReason === 'aborted' ? 'stopped' : event.stopReason === 'error' ? 'failed'
       : event.stopReason === 'length' ? 'incomplete' : 'completed'
@@ -70,6 +84,6 @@ export function applyWorkEvent(message: Message, event: ChatStreamEvent, now: nu
     })
     if (!found) return finishWork({ ...message, work }, 'failed', now, 'Received a tool result without its call.')
   }
-  const next = { ...work, parts, updatedAt: now }
+  const next = { ...withoutRetry(work), parts, updatedAt: now }
   return { ...message, work: next, content: splitWork(next).answer }
 }

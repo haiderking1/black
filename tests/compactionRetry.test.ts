@@ -113,6 +113,7 @@ describe('isRetryableSummarizationError', () => {
       'ECONNRESET: connection lost',
       '429 too many requests',
       'HTTP 503 service unavailable',
+      'Internal server error',
       'upstream is overloaded',
       'stream ended before message_stop',
       'request timed out',

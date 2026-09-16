@@ -211,6 +211,8 @@ export const ar: Record<MessageKey, string> = {
   'work.interrupted': 'انقطع',
   'work.limit': 'بلغ حد الرد',
   'work.failed': 'فشل',
+  'work.retrying': 'إعادة المحاولة {attempt} من {max}',
+  'work.retry': 'أعد المحاولة',
   'work.empty': 'رد فارغ',
   'work.streamFailed': 'فشل البث.',
   'work.orphanTool': 'وصل ناتج أداة بلا طلبها.',

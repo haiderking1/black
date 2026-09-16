@@ -1,6 +1,6 @@
 import type { Message } from '../chat/types'
 import type { ToolRun } from '../chat/toolRun'
-import type { TurnWork } from './model'
+import type { TurnRetry, TurnWork } from './model'
 import { finishWork } from './reducer'
 
 const record = (x: unknown): x is Record<string, unknown> => typeof x === 'object' && x !== null && !Array.isArray(x)
@@ -15,11 +15,20 @@ export function isToolRun(x: unknown): x is ToolRun {
     && optional(x.images, v => Array.isArray(v) && v.every(i => record(i) && typeof i.mimeType === 'string' && typeof i.data === 'string' && optional(i.name, n => typeof n === 'string')))
 }
 
+function isTurnRetry(x: unknown): x is TurnRetry {
+  return record(x)
+    && Number.isSafeInteger(x.attempt) && (x.attempt as number) >= 1
+    && Number.isSafeInteger(x.maxAttempts) && (x.maxAttempts as number) >= 1
+    && Number.isSafeInteger(x.delayMs) && (x.delayMs as number) >= 0
+    && typeof x.error === 'string'
+}
+
 export function isTurnWork(x: unknown): x is TurnWork {
   if (!record(x) || x.version !== 1 || !time(x.startedAt) || !time(x.updatedAt) || x.updatedAt < x.startedAt
     || !optional(x.elapsedMs, time) || !optional(x.expanded, v => typeof v === 'boolean')
     || !optional(x.expandedBlocks, v => record(v) && Object.entries(v).every(([k, value]) => /^work:\d+$/.test(k) && typeof value === 'boolean'))
     || !optional(x.error, v => typeof v === 'string')
+    || !optional(x.retry, isTurnRetry)
     || !['active', 'completed', 'stopped', 'failed', 'interrupted', 'incomplete'].includes(String(x.status))
     || !Array.isArray(x.parts)) return false
   let lastRound = -1

@@ -110,6 +110,10 @@ export async function consumeReply<E>(
           return
         }
 
+        if (event.type === 'retry') {
+          return
+        }
+
         if (event.type === 'error') {
           closeThinking()
           handlers.onFailure(event.message ?? 'The stream failed.')

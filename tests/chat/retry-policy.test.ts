@@ -5,7 +5,7 @@ import type { ChatResult } from '../../backend/providers/types'
 
 test('uses the reference catalog for previously missing provider failures', () => {
   for (const message of [
-    'Provider returned error', 'exceeded request buffer limit while retrying upstream',
+    'Internal server error', 'Provider returned error', 'exceeded request buffer limit while retrying upstream',
     'upstream connect error', 'reset before headers', 'other side closed',
     'The socket connection was closed unexpectedly', 'getaddrinfo failed',
     'WebSocket closed', 'WebSocket error', 'terminated',

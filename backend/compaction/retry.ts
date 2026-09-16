@@ -91,6 +91,7 @@ const RETRYABLE_PATTERN = new RegExp(
     'service.?unavailable',
     'server.?error',
     'internal.?error',
+    'internal.?server.?error',
     'provider.?returned.?error',
     'exceeded request buffer limit',
     'upstream.?connect',

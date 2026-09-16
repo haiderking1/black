@@ -50,6 +50,27 @@ for (const [stopReason, status] of [['aborted', 'stopped'], ['length', 'incomple
   })
 }
 
+it('keeps a live retry on the turn and drops it when the next attempt speaks', () => {
+  let m = applyWorkEvent(fresh(), { type: 'retry', attempt: 1, maxAttempts: 4, delayMs: 5000, message: 'Internal server error' }, 1200)
+  expect(m.work?.status).toBe('active')
+  expect(m.work?.retry).toEqual({ attempt: 1, maxAttempts: 4, delayMs: 5000, error: 'Internal server error' })
+  m = applyWorkEvent(m, { type: 'text', round: 0, text: 'hello' }, 1300)
+  expect(m.work?.retry).toBeUndefined()
+  expect(m.content).toBe('hello')
+})
+
+it('does not treat a retry announcement as the end of the stream', async () => {
+  let message = fresh()
+  await consumeWork(Stream.fromIterable([
+    { type: 'retry' as const, attempt: 1, maxAttempts: 4, delayMs: 5000, message: 'Internal server error' },
+    { type: 'text' as const, round: 0, text: 'recovered' },
+    { type: 'done' as const, stopReason: 'stop' },
+  ]), update => { message = update(message) }, () => 1800)
+  expect(message.work?.status).toBe('completed')
+  expect(message.content).toBe('recovered')
+  expect(message.work?.retry).toBeUndefined()
+})
+
 it('keeps partial answers on provider errors and ignores events after terminal status', () => {
   const m = replay([{ type: 'text', round: 0, text: 'Partial' }, { type: 'error', message: 'Provider failed' }])
   expect(m.content).toBe('Partial')

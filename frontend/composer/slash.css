@@ -7,7 +7,7 @@
  * same surface.
  */
 
-/* Inside the composer wrapper, which already carries the width and padding. It
+/* Inside the composer wrapper, which already carries the column width. It
    sits in the same slot as the queued tab, so only one of them is ever up. */
 .slash-menu {
   width: 100%;

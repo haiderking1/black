@@ -38,6 +38,13 @@ export async function* retryModelStream(
     if (!failure && completed) return
     failure ??= { type: 'error', message: 'Provider connection ended before the round finished.' }
     if (started || attempt === MODEL_RETRIES || !retryableModelError(failure)) { yield failure; return }
+    yield {
+      type: 'retry',
+      attempt: attempt + 1,
+      maxAttempts: MODEL_RETRIES,
+      delayMs: MODEL_RETRY_DELAY_MS,
+      message: failure.message,
+    }
     try { await pause(signal) } catch (error) {
       if (signal?.aborted) { yield { type: 'done', stopReason: 'aborted' }; return }
       throw error

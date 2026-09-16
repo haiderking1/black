@@ -31,5 +31,18 @@ html[dir='rtl'] .working-caret-open {
 .working-body .tool-runs { margin-bottom: 8px; }
 .working-status { color: var(--text-muted); font-size: 12.5px; }
 .working-error { margin-top: 8px; color: var(--text-secondary); white-space: pre-wrap; overflow-wrap: anywhere; }
+.working-retry { margin-top: 8px; display: flex; flex-direction: column; align-items: flex-start; gap: 8px; }
+.working-retry .working-error { margin-top: 0; }
+.working-retry-button {
+  padding: 0;
+  color: var(--text-primary);
+  font-size: 13px;
+  line-height: 1.4;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+.working-retry-button:hover { color: var(--text-secondary); }
+.working-retry-button:focus-visible { outline: 1px solid var(--text-muted); outline-offset: 3px; }
 
 .working-answer:not(:last-child) { margin-bottom: 8px; }

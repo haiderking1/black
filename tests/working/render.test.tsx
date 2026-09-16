@@ -97,6 +97,22 @@ it('restores the main group expansion choice from previously saved blocks', () =
   expect(html).toContain('Before read.')
 })
 
+it('shows the retrying label and the error that caused it', () => {
+  const message = replay([{ type: 'retry', attempt: 1, maxAttempts: 4, delayMs: 5000, message: 'Internal server error' }])
+  const html = render(message)
+  expect(html).toContain('Retrying 1 of 4')
+  expect(html).toContain('Internal server error')
+  expect(html).not.toContain('working-retry-button')
+})
+
+it('offers Retry on a failed turn when the caller can resend', () => {
+  const message = replay([{ type: 'error', message: 'Internal server error' }])
+  const html = renderToStaticMarkup(<PreviewProvider><WorkingSection message={message} active={false} onRetry={() => {}} onExpandedChange={() => {}} /></PreviewProvider>)
+  expect(html).toContain('Internal server error')
+  expect(html).toContain('working-retry-button')
+  expect(html).toContain('Retry')
+})
+
 it('keeps failed attempts and a successful retry in one running group', () => {
   const message = replay([
     ...rounds.slice(0, 4),

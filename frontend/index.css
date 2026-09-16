@@ -1,5 +1,6 @@
 @import "./fonts/fonts.css";
 @import "./focus/focus.css";
+@import "./chat/column.css";
 
 :root {
   /* Precision #0c0c0c Obsidian Palette - deep neutral dark, zero color tint */

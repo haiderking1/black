@@ -12,6 +12,7 @@ import { WorkingSection } from './working/WorkingSection'
 import { startWork } from './working/model'
 import { consumeWork } from './working/consume'
 import { finishWork } from './working/reducer'
+import { failedTurnToResend } from './working/retry/turn'
 import { conversationHistory } from './working/history'
 import { PreviewImage, PreviewProvider } from './lightbox'
 import { describeRpcError, useRpcClient } from './rpc'
@@ -498,6 +499,38 @@ export function App(): React.JSX.Element {
     handleStop()
   }
 
+  /** Drops the dead assistant turn and sends the same user message again. */
+  const handleRetryTurn = (assistantId: string): void => {
+    if (busyRef.current || activeSessionId === undefined) return
+    const sessionId = activeSessionId
+    const user = failedTurnToResend(messagesRef.current(sessionId), assistantId)
+    if (user === undefined) return
+
+    deleteMessage(sessionId, assistantId)
+
+    const model = settings.selectedModelId ?? undefined
+    const images = (user.images ?? []).map(image => ({ mimeType: image.mimeType, data: image.data }))
+    const route = providerId === 'openrouter' && model !== undefined && model !== ''
+      ? toChatRoute(readRoute(model))
+      : undefined
+
+    void runSend({
+      requestId: newRequestId(),
+      sessionId,
+      messageId: user.id,
+      content: user.content,
+      options: {
+        ...(model === undefined || model === '' ? {} : { model }),
+        thinkingLevel: settings.thinkingLevel,
+        ...(route === undefined ? {} : { route }),
+        ...(images.length === 0 ? {} : { images }),
+      },
+      providerId,
+      ...(route === undefined ? {} : { route }),
+      images,
+    })
+  }
+
   const messages = activeSessionId !== undefined ? getMessages(activeSessionId) : []
 
   // Measured from the transcript, so it is there as soon as a conversation is
@@ -607,19 +640,7 @@ export function App(): React.JSX.Element {
         >
           {messages.length === 0 ? (
             /* Empty State: Clean Greeting */
-            <div
-              style={{
-                flex: 1,
-                display: 'flex',
-                flexDirection: 'column',
-                justifyContent: 'center',
-                alignItems: 'center',
-                maxWidth: '800px',
-                width: '100%',
-                margin: '0 auto',
-                paddingBottom: '32px'
-              }}
-            >
+            <div className="chat-column chat-empty">
               <h1
                 style={{
                   fontSize: '32px',
@@ -636,23 +657,13 @@ export function App(): React.JSX.Element {
             /* Conversation Messages Stream */
             <div
               ref={contentRef}
-              style={{
-                maxWidth: '800px',
-                width: '100%',
-                margin: '0 auto',
-                display: 'flex',
-                flexDirection: 'column',
-                // Must not shrink. A flex item that shrinks to fit stays one
-                // viewport tall however long the transcript gets, so the
-                // ResizeObserver watching it never sees content arrive and the
-                // follow never fires.
-                flexShrink: 0,
-                gap: '24px',
-                paddingTop: '20px',
-                paddingBottom: '32px'
-              }}
+              className="chat-column chat-transcript"
             >
-              {messages.map((m) => (
+              {messages.map((m) => {
+                const last = messages.at(-1)
+                const canRetry = m.id === last?.id && activeReplyId === null
+                  && (m.work?.status === 'failed' || m.work?.status === 'interrupted')
+                return (
                 <div
                   key={m.id}
                   className={m.role === 'user' ? 'user-turn' : 'assistant-turn'}
@@ -678,6 +689,7 @@ export function App(): React.JSX.Element {
                         typed, so a stray asterisk is not silently emphasis. */}
                     {m.role === 'assistant' ? (
                       <WorkingSection message={m} active={m.id === activeReplyId}
+                        {...(canRetry ? { onRetry: () => handleRetryTurn(m.id) } : {})}
                         onExpandedChange={(expanded, blockKey) => {
                           if (activeSessionId === undefined) return
                           updateMessage(activeSessionId, m.id, previous => previous.work === undefined
@@ -715,7 +727,8 @@ export function App(): React.JSX.Element {
                     )}
                   </div>
                 </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </main>

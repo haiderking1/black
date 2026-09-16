@@ -387,4 +387,22 @@ describe('runToolLoop', () => {
     expect(events.map((event) => event.type)).toEqual(['tool_result', 'done'])
     expect(events[0]?.toolCallId).toBe('foreign')
   })
+
+  it('forwards a retry announcement so the UI can show it', async () => {
+    const events = await collect(
+      runToolLoop(
+        base(
+          scripted([
+            [
+              { type: 'retry', attempt: 1, maxAttempts: 4, delayMs: 5000, message: 'Internal server error' },
+              { type: 'text', text: 'ok' },
+              { type: 'done', stopReason: 'stop' },
+            ],
+          ])
+        )
+      )
+    )
+    expect(events.map((event) => event.type)).toEqual(['retry', 'text', 'done'])
+    expect(events[0]).toMatchObject({ attempt: 1, maxAttempts: 4, message: 'Internal server error' })
+  })
 })

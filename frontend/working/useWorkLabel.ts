@@ -12,6 +12,9 @@ export function workLabel(
   language: LanguagePreference = 'auto',
 ): string {
   if (work === undefined) return t(language, 'work.history')
+  if (running && work.retry !== undefined) {
+    return t(language, 'work.retrying', { attempt: work.retry.attempt, max: work.retry.maxAttempts })
+  }
   const elapsed = running ? Math.max(0, now - work.startedAt)
     : work.elapsedMs ?? Math.max(0, work.updatedAt - work.startedAt)
   const duration = formatThinkingDuration(elapsed, language)

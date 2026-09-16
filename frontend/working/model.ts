@@ -7,6 +7,14 @@ export type WorkPart =
 
 export type WorkStatus = 'active' | 'completed' | 'stopped' | 'failed' | 'interrupted' | 'incomplete'
 
+/** Live backoff announced by the model retry loop. */
+export interface TurnRetry {
+  attempt: number
+  maxAttempts: number
+  delayMs: number
+  error: string
+}
+
 /** UI transcript, not an additional copy of provider history. */
 export interface TurnWork {
   version: 1
@@ -16,9 +24,16 @@ export interface TurnWork {
   elapsedMs?: number
   status: WorkStatus
   error?: string
+  retry?: TurnRetry
   /** Only a deliberate header toggle sets this. No automatic collapsing. */
   expanded?: boolean
   expandedBlocks?: Record<string, boolean>
+}
+
+export function withoutRetry(work: TurnWork): TurnWork {
+  if (work.retry === undefined) return work
+  const { retry: _retry, ...rest } = work
+  return rest
 }
 
 export function startWork(now = Date.now()): TurnWork {
