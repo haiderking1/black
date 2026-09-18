@@ -1,22 +1,13 @@
-import React, { useEffect, useRef, useState } from 'react'
+import React, { useEffect, useState } from 'react'
 import { PanelLeft } from 'lucide-react'
 import { WorkspaceTitle } from './workspace/WorkspaceTitle'
-import { deriveSessionTitle } from './sidebar/sessionStore'
-import { Sidebar, useSessions, DEFAULT_SESSION_TITLE } from './sidebar'
-import { Composer, QueuedMessages, commandFor } from './composer'
-import { SpotlightModal, type ProjectItemData } from './spotlight'
-import * as Effect from 'effect/Effect'
-import { createMessage, historyBefore, JumpToLatest, newRequestId, useContextUsage, useConversations, useStickToBottom } from './chat'
-import type { Message } from './chat'
+import { Sidebar, useProjects, useSessions } from './sidebar'
+import { Composer, QueuedMessages } from './composer'
+import { SpotlightModal } from './spotlight'
+import { JumpToLatest, useChatTurns, useContextUsage, useConversations, useStickToBottom } from './chat'
 import { WorkingSection } from './working/WorkingSection'
-import { startWork } from './working/model'
-import { consumeWork } from './working/consume'
-import { finishWork } from './working/reducer'
-import { failedTurnToResend } from './working/retry/turn'
-import { conversationHistory } from './working/history'
 import { PreviewImage, PreviewProvider } from './lightbox'
-import { describeRpcError, useRpcClient } from './rpc'
-import type { ComposerSubmitOptions } from './composer'
+import { useRpcClient } from './rpc'
 import './chat/chat-scroll.css'
 import { useFloatingComposer } from './chat/floating-composer/useFloatingComposer'
 import './chat/message-images.css'
@@ -26,72 +17,24 @@ import { SettingsPage, useSettings } from './settings'
 import { useProviders } from './settings/useProviders'
 import { activeProviderId, pickerRail, providerDisplayName } from './settings/activeProvider'
 import { readRoute, toChatRoute } from './composer/routing/storage'
-import type { ChatRoute } from '../contracts/chat'
-
-/** A turn typed while a reply was arriving, waiting for that reply to finish. */
-interface QueuedSend {
-  requestId: string
-  sessionId: string
-  /** The user message already appended for this turn. */
-  messageId: string
-  content: string
-  options: ComposerSubmitOptions | undefined
-  providerId: string
-  route?: ChatRoute
-  /** Images that went with it, kept so the queue can resend them intact. */
-  images: Array<{ mimeType: string; data: string }>
-}
-
-const DEFAULT_PROJECTS: ProjectItemData[] = [
-  { id: 'proj-black', name: 'black', path: '/home/soka/code/black' }
-]
 
 type AppView = 'chat' | 'settings'
 
 export function App(): React.JSX.Element {
   const { settings, updateSetting, resetSettings } = useSettings()
-  const workflowRef = useRef(settings.workflow)
-  workflowRef.current = settings.workflow
-  const languageRef = useRef(settings.language)
-  languageRef.current = settings.language
   const [sidebarOpen, setSidebarOpen] = useState(() => settings.openSidebarOnLaunch)
   const [spotlightOpen, setSpotlightOpen] = useState(false)
   const [appView, setAppView] = useState<AppView>('chat')
 
-  // Project state with localStorage persistence
-  const [projects, setProjects] = useState<ProjectItemData[]>(() => {
-    try {
-      const saved = localStorage.getItem('black_projects')
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        if (
-          Array.isArray(parsed) &&
-          parsed.every(
-            (p) =>
-              p &&
-              typeof p.id === 'string' &&
-              typeof p.name === 'string' &&
-              typeof p.path === 'string'
-          )
-        ) {
-          return parsed
-        }
-      }
-    } catch {
-      // ignore
-    }
-    return DEFAULT_PROJECTS
-  })
-
-  const [activeProjectId, setActiveProjectId] = useState<string>(() => {
-    try {
-      const saved = localStorage.getItem('black_active_project_id')
-      if (saved) return saved
-    } catch {
-      // ignore
-    }
-    return DEFAULT_PROJECTS[0]?.id ?? ''
-  })
+  const {
+    projects,
+    activeProjectId,
+    activeProject,
+    currentProjectId,
+    selectProject,
+    addProject,
+    removeProject
+  } = useProjects()
 
   const {
     sessions,
@@ -99,10 +42,11 @@ export function App(): React.JSX.Element {
     setActiveSession,
     createSession,
     renameSession,
+    updateSessionMetadata,
     deleteSession,
     touchSession,
     deleteSessionsForProject
-  } = useSessions(projects, activeProjectId)
+  } = useSessions(projects, currentProjectId)
 
   const {
     getMessages,
@@ -114,70 +58,54 @@ export function App(): React.JSX.Element {
     flushConversations
   } = useConversations()
 
-  // Follows new content, and releases the moment the reader scrolls up.
   const { scrollRef, contentRef, handleScroll, isPinned, isAtBottom, jumpToBottom } = useStickToBottom(activeSessionId)
   const { frameRef, footerRef } = useFloatingComposer(scrollRef, isPinned)
   const client = useRpcClient()
-
-  // Only for the provider's display name, which the picker labels its rows with.
   const { providers } = useProviders()
-  const providerId = activeProviderId(settings.selectedProviderId, providers)
+
+  // A session may pin its own model/provider. The settings pair remains the
+  // default for sessions that have not chosen one yet.
+
+  const activeSession = activeSessionId === undefined
+    ? undefined
+    : sessions.find((session) => session.id === activeSessionId && session.projectId === currentProjectId)
+  const selectedModelId = activeSession?.model ?? settings.selectedModelId
+  const selectedProviderId = activeSession?.providerId ?? settings.selectedProviderId
+  const providerId = activeProviderId(selectedProviderId, providers)
   const providerName = providerDisplayName(providerId, providers)
   const pickerProviders = pickerRail(providers)
 
-  // The message still arriving. Only that one keeps shimmering; the rest are
-  // settled and should read as history.
-  const [activeReplyId, setActiveReplyId] = useState<string | null>(null)
+  const {
+    queuedSends,
+    activeReplyId,
+    workingSessionId,
+    sendMessage,
+    stop,
+    dismissQueued,
+    steerQueued,
+    retryTurn
+  } = useChatTurns({
+    client,
+    language: settings.language,
+    workflow: settings.workflow,
+    thinkingLevel: settings.thinkingLevel,
+    providerId,
+    selectedModelId,
+    activeProject,
+    activeSessionId,
+    sessions,
+    createSession,
+    renameSession,
+    updateSessionMetadata,
+    touchSession,
+    getMessages,
+    appendMessage,
+    updateMessage,
+    replaceMessages,
+    deleteMessage,
+    flushConversations
+  })
 
-  // The id of the turn being streamed, so it can be stopped.
-  const [activeRequestId, setActiveRequestId] = useState<string | null>(null)
-
-  // Turns typed while a reply was arriving, oldest first. The ref is what the
-  // drain reads; the state is the same list, for rendering.
-  const sendQueueRef = useRef<QueuedSend[]>([])
-  const [queuedSends, setQueuedSends] = useState<QueuedSend[]>([])
-
-  // True from the moment a send starts until its stream ends. A ref rather than
-  // a check on activeReplyId, because the reply is appended a tick later and a
-  // second turn landing in that gap would start a stream beside the first.
-  const busyRef = useRef(false)
-
-  // The queue drains from a closure created during an earlier render, so it has
-  // to read the conversation as it is now rather than as it was then.
-  const messagesRef = useRef(getMessages)
-  useEffect(() => {
-    messagesRef.current = getMessages
-  }, [getMessages])
-
-  useEffect(() => {
-    try {
-      localStorage.setItem('black_projects', JSON.stringify(projects))
-    } catch {
-      // ignore
-    }
-  }, [projects])
-
-  useEffect(() => {
-    try {
-      if (activeProjectId) {
-        localStorage.setItem('black_active_project_id', activeProjectId)
-      } else {
-        localStorage.removeItem('black_active_project_id')
-      }
-    } catch {
-      // ignore
-    }
-  }, [activeProjectId])
-
-  // Repair a stale active project id after removals or corrupt storage
-  useEffect(() => {
-    if (projects.length === 0) return
-    if (projects.some((p) => p.id === activeProjectId)) return
-    const fallback = projects[0]
-    if (fallback) setActiveProjectId(fallback.id)
-  }, [projects, activeProjectId])
-
-  // Global Ctrl+K / Cmd+K listener
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (appView !== 'chat') return
@@ -193,23 +121,11 @@ export function App(): React.JSX.Element {
     }
   }, [appView])
 
-  const activeProject = projects.find((p) => p.id === activeProjectId) ?? projects[0]
-
-  const handleSelectProject = (project: ProjectItemData) => {
-    setActiveProjectId(project.id)
-  }
-
-  const handleSidebarSelectProject = (projectId: string) => {
-    setActiveProjectId(projectId)
-  }
-
   const handleSidebarSelectSession = (sessionId: string) => {
-    if (!activeProject) return
-    setActiveSession(activeProject.id, sessionId)
-  }
-
-  const handleSidebarNewSession = (projectId: string) => {
-    createSession(projectId)
+    const session = sessions.find((candidate) => candidate.id === sessionId)
+    if (!session) return
+    selectProject(session.projectId)
+    setActiveSession(session.projectId, sessionId)
   }
 
   const handleSidebarDeleteSession = (sessionId: string) => {
@@ -217,330 +133,26 @@ export function App(): React.JSX.Element {
     deleteSession(sessionId)
   }
 
-  const handleAddProject = (project: ProjectItemData) => {
-    const exists = projects.find((p) => p.path === project.path)
-    if (exists) {
-      setActiveProjectId(exists.id)
-      return
-    }
-
-    setActiveProjectId(project.id)
-    setProjects((prev) => [project, ...prev])
-  }
-
   const handleRemoveProject = (id: string) => {
+    // Drop conversations first. Removing the project also drops its sessions,
+    // and a session gone from the tree would leave its transcript stranded.
     const removedSessionIds = sessions
-      .filter((s) => s.projectId === id)
-      .map((s) => s.id)
+      .filter((session) => session.projectId === id)
+      .map((session) => session.id)
     deleteConversations(removedSessionIds)
     deleteSessionsForProject(id)
-
-    const remaining = projects.filter((p) => p.id !== id)
-    setProjects(remaining)
-    if (activeProjectId === id) {
-      setActiveProjectId(remaining[0]?.id ?? '')
-    }
-  }
-
-  /**
-   * Folds the older turns into a checkpoint, now rather than when the window
-   * fills.
-   *
-   * The transcript is replaced, not just the request. Compaction only changes
-   * what gets sent, so leaving the old turns on screen would mean every later
-   * turn summarized the same history again at full cost.
-   */
-  const runCompact = async (sessionId: string, model: string): Promise<void> => {
-    if (client === null) return
-
-    const existing = messagesRef.current(sessionId)
-    if (existing.length === 0) return
-
-    try {
-      const result = await Effect.runPromise(
-        client['chat.compact']({
-          providerId,
-          model,
-          messages: conversationHistory(existing),
-          sessionId,
-          ...(providerId === 'openrouter' ? { route: toChatRoute(readRoute(model)) } : {})
-        })
-      )
-
-      // Saying nothing would leave the reader unsure whether the command ran.
-      // The usual cause is a conversation shorter than the recent history black
-      // always keeps, which leaves nothing to fold up.
-      if (!result.compacted) {
-        appendMessage(
-          sessionId,
-          createMessage(
-            'assistant',
-            t(settings.language, 'chat.nothingToCompact')
-          )
-        )
-        return
-      }
-
-      const cut = existing.findIndex((message) => message.id === result.firstKeptMessageId)
-      if (cut === -1) throw new Error(t(settings.language, 'chat.compactCutGone'))
-      const kept = existing.slice(cut)
-
-      replaceMessages(sessionId, [createMessage('assistant', result.summary), ...kept])
-    } catch (error) {
-      appendMessage(sessionId, createMessage('assistant', describeRpcError(error)))
-    }
-  }
-
-  /** Appends the turn, then sends it or queues it behind the one running. */
-  const handleSendMessage = async (
-    content: string,
-    options?: ComposerSubmitOptions
-  ): Promise<void> => {
-    if (!activeProject) return
-
-    let sessionId = activeSessionId
-    if (sessionId === undefined) {
-      sessionId = createSession(activeProject.id).id
-    }
-
-    // A command is an instruction about the conversation, not a turn in it, so
-    // it never reaches the transcript and never names the session.
-    const command = commandFor(content)
-    if (command !== null) {
-      const commandModel = options?.model
-      if (commandModel !== undefined && commandModel !== '') {
-        await runCompact(sessionId, commandModel)
-      }
-      return
-    }
-
-    // First message names the session. An image sent with nothing typed would
-    // otherwise name the thread with an empty string.
-    const currentSession = sessions.find((s) => s.id === sessionId)
-    if (getMessages(sessionId).length === 0 && (currentSession === undefined || currentSession.title === DEFAULT_SESSION_TITLE)) {
-      const fallback = deriveSessionTitle(content.trim() === '' ? t(settings.language, 'chat.image') : content)
-      renameSession(sessionId, fallback)
-      const titleSessionId = sessionId
-      const titleModel = options?.model || settings.selectedModelId
-      if (titleModel && client !== null) {
-        void Effect.runPromise(client['chat.title']({
-          providerId, model: titleModel, message: content, sessionId: titleSessionId,
-        })).then(({ title }) => renameSession(titleSessionId, title, fallback)).catch(() => {
-          // Naming must never interrupt a reply. Keep the first-message fallback.
-        })
-      }
-    }
-    touchSession(sessionId)
-
-    const images = options?.images ?? []
-    const userMessage: Message = {
-      ...createMessage('user', content),
-      ...(images.length === 0 ? {} : { images })
-    }
-    appendMessage(sessionId, userMessage)
-
-    const send: QueuedSend = {
-      requestId: newRequestId(),
-      sessionId,
-      messageId: userMessage.id,
-      content,
-      options,
-      providerId,
-      ...(options?.route !== undefined ? { route: options.route } : {}),
-      images
-    }
-
-    if (busyRef.current) {
-      // A reply is still arriving. Hold this turn rather than starting a second
-      // stream beside it: two replies writing into one conversation interleave,
-      // and neither can be stopped without stopping the other.
-      sendQueueRef.current = [...sendQueueRef.current, send]
-      setQueuedSends(sendQueueRef.current)
-      return
-    }
-
-    await runSend(send)
-  }
-
-  /** Runs one turn to completion, then releases whatever waited behind it. */
-  const runSend = async (send: QueuedSend): Promise<void> => {
-    const threadId = send.sessionId
-    // Capture once, including turns drained by an older queue closure.
-    const workflow = workflowRef.current
-    const model = send.options?.model
-    const stream = client
-
-    busyRef.current = true
-
-    try {
-      if (stream === null || model === undefined || model === '') {
-        appendMessage(
-          threadId,
-          createMessage(
-            'assistant',
-            t(settings.language, 'chat.noModel')
-          )
-        )
-        return
-      }
-
-      // The turn's own message is already in the transcript, so the history
-      // stops before it. Taking everything would ask the question twice.
-      // Ids travel with the turns: compaction names its cut point by entry id.
-      // Images travel with their turn. A screenshot is part of the question, so
-      // dropping it from the history would leave the model answering about a
-      // picture it can no longer see.
-      const priorTurns = conversationHistory(historyBefore(messagesRef.current(threadId), send.messageId))
-
-      // The reply is appended empty and filled in as events arrive, so the answer
-      // renders while it is still being written rather than after the last token.
-      const reply = { ...createMessage('assistant', ''), work: startWork() }
-      appendMessage(threadId, reply)
-
-      setActiveReplyId(reply.id)
-      setActiveRequestId(send.requestId)
-
-      const patch = (update: (previous: Message) => Message): void => {
-        updateMessage(threadId, reply.id, update)
-      }
-
-      try {
-        const events = stream['chat.stream']({
-          providerId: send.providerId,
-          model,
-          messages: [
-            ...priorTurns,
-            {
-              id: send.messageId,
-              role: 'user',
-              content: send.content,
-              ...(send.images.length === 0 ? {} : { images: send.images })
-            }
-          ],
-          requestId: send.requestId,
-          workflow,
-          // The conversation id doubles as the provider's routing key, so a whole
-          // thread stays on one upstream.
-          sessionId: send.sessionId,
-          // The open project is the directory this turn is about. Without it the
-          // model is asked about a repository it was never told the location of.
-          ...(activeProject?.path !== undefined && activeProject.path !== ''
-            ? { workingDirectory: activeProject.path }
-            : {}),
-          ...(send.options?.thinkingLevel !== undefined
-            ? { thinkingLevel: send.options.thinkingLevel }
-            : {}),
-          ...(send.route !== undefined ? { route: send.route } : {}),
-          language: languageRef.current,
-        })
-
-        await consumeWork(events, patch)
-      } catch (error) {
-        const at = Date.now()
-        patch(m => finishWork(m, 'interrupted', at, describeRpcError(error)))
-      }
-    } finally {
-      flushConversations()
-      busyRef.current = false
-      setActiveReplyId(null)
-      setActiveRequestId(null)
-
-      // Whatever waited for this turn goes now, oldest first.
-      const next = sendQueueRef.current[0]
-      if (next !== undefined) {
-        sendQueueRef.current = sendQueueRef.current.slice(1)
-        setQueuedSends(sendQueueRef.current)
-        void runSend(next)
-      }
-    }
-  }
-
-  /** Stops the reply that is arriving, without adding anything to the transcript. */
-  const handleStop = (): void => {
-    const requestId = activeRequestId
-    if (requestId === null || client === null) return
-
-    // A failure is not reported. Losing this race means the reply ended on its
-    // own a moment earlier, and the stream clears the UI either way.
-    void Effect.runPromise(client['chat.cancel']({ requestId })).catch(() => undefined)
-  }
-
-  /**
-   * Takes one queued turn back out, message and all.
-   *
-   * The user message was appended when the turn was queued, so dropping only the
-   * queue entry would leave a question in the transcript that nothing will ever
-   * answer.
-   */
-  const handleDismissQueued = (requestId: string): void => {
-    const queued = sendQueueRef.current.find((send) => send.requestId === requestId)
-    if (queued === undefined) return
-
-    sendQueueRef.current = sendQueueRef.current.filter((send) => send.requestId !== requestId)
-    setQueuedSends(sendQueueRef.current)
-    deleteMessage(queued.sessionId, queued.messageId)
-  }
-
-  /**
-   * Moves a queued turn to the front and stops the reply that is running.
-   *
-   * The running reply is cancelled rather than left to finish, because the point
-   * of steering is to change direction now. The queue drains the moment that
-   * stream ends, so the moved turn goes next either way.
-   */
-  const handleSteerQueued = (requestId: string): void => {
-    const queued = sendQueueRef.current
-    const target = queued.find((send) => send.requestId === requestId)
-    if (target === undefined) return
-
-    sendQueueRef.current = [target, ...queued.filter((send) => send.requestId !== requestId)]
-    setQueuedSends(sendQueueRef.current)
-
-    handleStop()
-  }
-
-  /** Drops the dead assistant turn and sends the same user message again. */
-  const handleRetryTurn = (assistantId: string): void => {
-    if (busyRef.current || activeSessionId === undefined) return
-    const sessionId = activeSessionId
-    const user = failedTurnToResend(messagesRef.current(sessionId), assistantId)
-    if (user === undefined) return
-
-    deleteMessage(sessionId, assistantId)
-
-    const model = settings.selectedModelId ?? undefined
-    const images = (user.images ?? []).map(image => ({ mimeType: image.mimeType, data: image.data }))
-    const route = providerId === 'openrouter' && model !== undefined && model !== ''
-      ? toChatRoute(readRoute(model))
-      : undefined
-
-    void runSend({
-      requestId: newRequestId(),
-      sessionId,
-      messageId: user.id,
-      content: user.content,
-      options: {
-        ...(model === undefined || model === '' ? {} : { model }),
-        thinkingLevel: settings.thinkingLevel,
-        ...(route === undefined ? {} : { route }),
-        ...(images.length === 0 ? {} : { images }),
-      },
-      providerId,
-      ...(route === undefined ? {} : { route }),
-      images,
-    })
+    removeProject(id)
   }
 
   const messages = activeSessionId !== undefined ? getMessages(activeSessionId) : []
-
   // Measured from the transcript, so it is there as soon as a conversation is
   // open rather than only after a message has been sent.
   const contextUsage = useContextUsage(
     providerId,
-    settings.selectedModelId,
+    selectedModelId,
     messages,
-    providerId === 'openrouter' && settings.selectedModelId !== null
-      ? toChatRoute(readRoute(settings.selectedModelId))
+    providerId === 'openrouter' && selectedModelId !== null
+      ? toChatRoute(readRoute(selectedModelId))
       : undefined
   )
 
@@ -564,7 +176,6 @@ export function App(): React.JSX.Element {
     <LanguageProvider language={settings.language}>
     <PreviewProvider>
     <div style={{ display: 'flex', width: '100%', height: '100%', backgroundColor: 'var(--bg-main)' }}>
-      {/* Collapsible Sidebar with project/session tree */}
       <Sidebar
         isOpen={sidebarOpen}
         onToggle={() => setSidebarOpen((prev) => !prev)}
@@ -572,9 +183,12 @@ export function App(): React.JSX.Element {
         activeProjectId={activeProject?.id}
         sessions={sessions}
         activeSessionId={activeSessionId}
-        onSelectProject={handleSidebarSelectProject}
+        workingSessionId={workingSessionId}
+        activeModelId={selectedModelId}
+        activeProviderId={providerId}
+        onSelectProject={selectProject}
         onSelectSession={handleSidebarSelectSession}
-        onNewSession={handleSidebarNewSession}
+        onNewSession={createSession}
         onRenameSession={renameSession}
         onDeleteSession={handleSidebarDeleteSession}
         onDeleteProject={handleRemoveProject}
@@ -585,9 +199,7 @@ export function App(): React.JSX.Element {
         }}
       />
 
-      {/* Main Chat Workspace */}
       <div style={{ flex: 1, display: 'flex', flexDirection: 'column', height: '100%', overflow: 'hidden', position: 'relative' }}>
-        {/* Top Header */}
         <header
           style={{
             height: '52px',
@@ -639,7 +251,6 @@ export function App(): React.JSX.Element {
           }}
         >
           {messages.length === 0 ? (
-            /* Empty State: Clean Greeting */
             <div className="chat-column chat-empty">
               <h1
                 style={{
@@ -654,7 +265,6 @@ export function App(): React.JSX.Element {
               </h1>
             </div>
           ) : (
-            /* Conversation Messages Stream */
             <div
               ref={contentRef}
               className="chat-column chat-transcript"
@@ -689,7 +299,7 @@ export function App(): React.JSX.Element {
                         typed, so a stray asterisk is not silently emphasis. */}
                     {m.role === 'assistant' ? (
                       <WorkingSection message={m} active={m.id === activeReplyId}
-                        {...(canRetry ? { onRetry: () => handleRetryTurn(m.id) } : {})}
+                        {...(canRetry ? { onRetry: () => retryTurn(m.id) } : {})}
                         onExpandedChange={(expanded, blockKey) => {
                           if (activeSessionId === undefined) return
                           updateMessage(activeSessionId, m.id, previous => previous.work === undefined
@@ -737,26 +347,27 @@ export function App(): React.JSX.Element {
         <div className="floating-composer" ref={footerRef}>
           <QueuedMessages
             messages={queuedSends}
-            onDismiss={handleDismissQueued}
-            onSteer={handleSteerQueued}
+            onDismiss={dismissQueued}
+            onSteer={steerQueued}
           />
           <Composer
-            onSendMessage={handleSendMessage}
+            onSendMessage={sendMessage}
             disabled={!activeProject}
             streaming={activeReplyId !== null}
-            onStop={handleStop}
+            onStop={stop}
             contextUsage={contextUsage}
             providerId={providerId}
             providers={pickerProviders}
-            onSelectProvider={(next) => {
-              updateSetting('selectedProviderId', next)
-              updateSetting('selectedModelId', settings.selectedModels[next] ?? null)
-            }}
-            model={settings.selectedModelId}
-            onSelectModel={(modelId) => {
+            model={selectedModelId}
+            onSelectModel={(modelId, selectedProviderId) => {
+              updateSetting('selectedProviderId', selectedProviderId)
               updateSetting('selectedModelId', modelId)
-              updateSetting('selectedModels', { ...settings.selectedModels, [providerId]: modelId })
             }}
+            {...(activeSessionId !== undefined ? {
+              onPickModel: (modelId: string, selectedProviderId: string) => {
+                updateSessionMetadata(activeSessionId, { model: modelId, providerId: selectedProviderId })
+              }
+            } : {})}
             thinkingLevel={settings.thinkingLevel}
             onSelectThinkingLevel={(level) => updateSetting('thinkingLevel', level)}
             {...(providerName !== undefined ? { providerName } : {})}
@@ -765,14 +376,13 @@ export function App(): React.JSX.Element {
         </div>
       </div>
 
-      {/* Spotlight Project & Directory Navigator Modal */}
       <SpotlightModal
         isOpen={spotlightOpen}
         onClose={() => setSpotlightOpen(false)}
         projects={projects}
         activeProjectId={activeProjectId}
-        onSelectProject={handleSelectProject}
-        onAddProject={handleAddProject}
+        onSelectProject={(project) => selectProject(project.id)}
+        onAddProject={addProject}
         onRemoveProject={handleRemoveProject}
       />
     </div>
