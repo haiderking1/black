@@ -1,6 +1,6 @@
 import { createHighlighter, type BundledLanguage, type BundledTheme, type HighlighterGeneric } from 'shiki'
 
-export type ShikiHighlighter = HighlighterGeneric<BundledTheme, BundledLanguage>
+export type ShikiHighlighter = HighlighterGeneric<BundledLanguage, BundledTheme>
 
 const THEMES: BundledTheme[] = [
   'github-dark',
@@ -71,15 +71,16 @@ export function normalizeLanguage(lang: string | undefined): string {
 let highlighterPromise: Promise<ShikiHighlighter> | null = null
 
 export function getHighlighter(): Promise<ShikiHighlighter> {
-  if (highlighterPromise === null) {
-    highlighterPromise = createHighlighter({
+  if (!highlighterPromise) {
+    const promise = createHighlighter({
       themes: THEMES,
       langs: INITIAL_LANGUAGES,
     }).catch((err) => {
-      // Allow retry on initial failure
       highlighterPromise = null
       throw err
     })
+    highlighterPromise = promise
+    return promise
   }
   return highlighterPromise
 }

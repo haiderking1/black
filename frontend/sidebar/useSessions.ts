@@ -15,8 +15,9 @@ export interface UseSessionsResult {
   sessions: SessionRecord[]
   activeSessionId: string | undefined
   setActiveSession: (projectId: string, sessionId: string) => void
-  createSession: (projectId: string) => SessionRecord
+  createSession: (projectId: string, model?: string, providerId?: string) => SessionRecord
   renameSession: (sessionId: string, title: string, expectedTitle?: string) => void
+  updateSessionMetadata: (sessionId: string, metadata: { model?: string; providerId?: string }) => void
   deleteSession: (sessionId: string) => void
   touchSession: (sessionId: string) => void
   deleteSessionsForProject: (projectId: string) => void
@@ -90,8 +91,8 @@ export function useSessions(projects: ProjectItemData[], activeProjectId: string
     setActiveByProject((prev) => ({ ...prev, [projectId]: sessionId }))
   }, [])
 
-  const createSession = useCallback((projectId: string): SessionRecord => {
-    const record = createSessionRecord(projectId)
+  const createSession = useCallback((projectId: string, model?: string, providerId?: string): SessionRecord => {
+    const record = createSessionRecord(projectId, model, providerId)
     setSessions((prev) => [...prev, record])
     setActiveByProject((prev) => ({ ...prev, [projectId]: record.id }))
     return record
@@ -117,6 +118,33 @@ export function useSessions(projects: ProjectItemData[], activeProjectId: string
     })
   }, [])
 
+  const updateSessionMetadata = useCallback(
+    (sessionId: string, metadata: { model?: string; providerId?: string }): void => {
+      setSessions((prev) => {
+        const index = prev.findIndex((s) => s.id === sessionId)
+        if (index === -1) return prev
+        const current = prev[index]
+        if (!current) return prev
+        if (
+          (metadata.model === undefined || current.model === metadata.model) &&
+          (metadata.providerId === undefined || current.providerId === metadata.providerId)
+        ) {
+          return prev
+        }
+        const updated: SessionRecord = {
+          ...current,
+          ...(metadata.model !== undefined ? { model: metadata.model } : {}),
+          ...(metadata.providerId !== undefined ? { providerId: metadata.providerId } : {})
+        }
+        const next = [...prev]
+        next[index] = updated
+        saveSessions(next)
+        return next
+      })
+    },
+    []
+  )
+
   const touchSession = useCallback((sessionId: string): void => {
     setSessions((prev) =>
       prev.map((s) => (s.id === sessionId ? { ...s, updatedAt: Date.now() } : s))
@@ -139,6 +167,7 @@ export function useSessions(projects: ProjectItemData[], activeProjectId: string
     setActiveSession,
     createSession,
     renameSession,
+    updateSessionMetadata,
     deleteSession,
     touchSession,
     deleteSessionsForProject

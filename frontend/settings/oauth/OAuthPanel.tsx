@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react'
 
 import { useT } from '../../i18n'
+import { oauthCopyKey } from './copy'
 
 interface OAuthPanelProps {
   providerId: string
@@ -96,7 +97,7 @@ export function OAuthPanel({
             disabled={busy}
             spellCheck={false}
             autoComplete="off"
-            placeholder={t('providers.pasteCodePlaceholder')}
+            placeholder={t(oauthCopyKey('providers.pasteCodePlaceholder', providerId))}
             onChange={(event) => setDraft(event.target.value)}
             onKeyDown={(event) => {
               if (event.key === 'Enter') void submit()
@@ -125,10 +126,10 @@ export function OAuthPanel({
 
   return (
     <div className="settings-provider-key">
-      <p className="settings-provider-hint">{t('providers.oauthHint')}</p>
+      <p className="settings-provider-hint">{t(oauthCopyKey('providers.oauthHint', providerId))}</p>
       <div className="settings-provider-key-field">
         <button type="button" className="settings-provider-save" disabled={busy} onClick={() => void start()}>
-          {t('providers.signIn')}
+          {t(oauthCopyKey('providers.signIn', providerId))}
         </button>
       </div>
     </div>

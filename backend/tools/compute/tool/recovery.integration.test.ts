@@ -41,7 +41,7 @@ test("uncaught provider and JavaScript errors identify their plan lines", async 
   expect(javascript.content[0].text).toContain("[plan line 2, column");
   const syntax = await executePlan(cwd, "async () => {\n  const value =\n  return value;\n}");
   expect(syntax.isError).toBe(true);
-  expect(syntax.content[0].text).toContain("[plan line 3]");
+  expect(syntax.content[0].text).toContain("[plan line 3");
 }, 20000);
 
 test("large successful output remains recoverable without repeating a side effect", async () => {

@@ -42,13 +42,15 @@ export interface ComposerProps {
   /** Display name of that provider, from its descriptor. */
   providerName?: string
   providers?: readonly { id: string; name: string }[]
-  onSelectProvider?: (providerId: string) => void
   /**
    * Selected model, or null to fall back to the provider's first. Controlled so
    * the choice survives a remount, which it did not when held locally.
    */
   model: string | null
-  onSelectModel: (modelId: string) => void
+  /** Fires for catalog fallback too, when the stored id is not served. */
+  onSelectModel: (modelId: string, providerId: string) => void
+  /** Only clicks in the model picker land here, never the catalog fallback. */
+  onPickModel?: (modelId: string, providerId: string) => void
   thinkingLevel: string
   onSelectThinkingLevel: (level: string) => void
   /** True while a reply is arriving. Turns send into stop. */
@@ -66,12 +68,12 @@ export function Composer({
   providerId = 'opencode-go',
   providerName,
   providers = [],
-  onSelectProvider,
   model,
   onSelectModel,
   thinkingLevel,
   onSelectThinkingLevel,
   streaming = false,
+  onPickModel,
   onStop,
   contextUsage = null
 }: ComposerProps): React.JSX.Element {
@@ -95,8 +97,8 @@ export function Composer({
   useEffect(() => {
     if (isLoading || models.length === 0) return
     if (activeModelId === null || activeModelId === model) return
-    onSelectModel(activeModelId)
-  }, [activeModelId, isLoading, model, models.length, onSelectModel])
+    onSelectModel(activeModelId, providerId)
+  }, [activeModelId, isLoading, model, models.length, onSelectModel, providerId])
 
   const { endpoints, error: routeError, ready: endpointsReady } = useEndpoints(providerId, activeModelId)
   const [route, setRoute] = useState<StoredRoute>(() => readRoute(activeModelId ?? ''))
@@ -295,11 +297,13 @@ export function Composer({
             <ModelPicker
               models={models}
               selectedModelId={activeModelId}
-              onSelect={onSelectModel}
+              onSelect={(modelId, selectedProviderId) => {
+                onPickModel?.(modelId, selectedProviderId)
+                onSelectModel(modelId, selectedProviderId)
+              }}
               providerId={providerId}
               {...(providerName !== undefined ? { providerName } : {})}
               providers={providers}
-              {...(onSelectProvider !== undefined ? { onSelectProvider } : {})}
               isLoading={isLoading}
               error={error}
             />

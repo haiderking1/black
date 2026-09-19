@@ -5,6 +5,8 @@ import type { MethodEnv } from "../core/types.ts";
 import { getProviders } from "../providers/catalog.ts";
 import { killGroupPid, killProcessGroup } from "../providers/process/runner.ts";
 import { resolveProviderCall } from "./bridge.ts";
+import { formatPlanError } from "./errors.mjs";
+import { stripPlanTypes } from "./strip-types.ts";
 import { ComputeTrace } from "./trace.ts";
 import { workerPath } from "./worker-path.ts";
 
@@ -28,6 +30,13 @@ export async function runWorker(
 	trace: ComputeTrace,
 	model?: { input?: string[] } | undefined,
 ): Promise<string> {
+	let plan: string;
+	try {
+		plan = stripPlanTypes(code);
+	} catch (error) {
+		throw new Error(formatPlanError(error, "compile"));
+	}
+
 	// One AbortController drives every cancellation path, exactly like Raid's
 	// accumulate-into-one-cancel-token design. Feeding BOTH the session abort
 	// signal AND the optional compute timeout into a single signal guarantees
@@ -120,7 +129,7 @@ export async function runWorker(
 		child.stdin.write(
 			`${JSON.stringify({
 				type: "start",
-				code,
+				code: plan,
 				providers: getProviders().map((provider) => ({ name: provider.name, methods: provider.methods.map((m) => m.name) })),
 				cwd,
 			})}\n`,

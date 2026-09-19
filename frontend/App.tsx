@@ -4,6 +4,7 @@ import { WorkspaceTitle } from './workspace/WorkspaceTitle'
 import { Sidebar, useProjects, useSessions } from './sidebar'
 import { Composer, QueuedMessages } from './composer'
 import { SpotlightModal } from './spotlight'
+import { refreshProjectGit } from './sidebar/useProjectGit'
 import { JumpToLatest, useChatTurns, useContextUsage, useConversations, useStickToBottom } from './chat'
 import { WorkingSection } from './working/WorkingSection'
 import { PreviewImage, PreviewProvider } from './lightbox'
@@ -15,6 +16,7 @@ import { LanguageProvider, directionFor, langFor } from './language'
 import { t } from './i18n'
 import { SettingsPage, useSettings } from './settings'
 import { useProviders } from './settings/useProviders'
+import { usePrefetchCatalogs } from './composer/models/usePrefetchCatalogs'
 import { activeProviderId, pickerRail, providerDisplayName } from './settings/activeProvider'
 import { readRoute, toChatRoute } from './composer/routing/storage'
 
@@ -62,6 +64,7 @@ export function App(): React.JSX.Element {
   const { frameRef, footerRef } = useFloatingComposer(scrollRef, isPinned)
   const client = useRpcClient()
   const { providers } = useProviders()
+  usePrefetchCatalogs(providers)
 
   // A session may pin its own model/provider. The settings pair remains the
   // default for sessions that have not chosen one yet.
@@ -103,7 +106,8 @@ export function App(): React.JSX.Element {
     updateMessage,
     replaceMessages,
     deleteMessage,
-    flushConversations
+    flushConversations,
+    onToolResult: refreshProjectGit
   })
 
   useEffect(() => {

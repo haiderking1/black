@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Folder, MoreHorizontal, SquarePen, Trash2 } from 'lucide-react'
-
+import { ChevronDown, ChevronRight, Folder, GitBranch, MoreHorizontal, SquarePen, Trash2 } from 'lucide-react'
 import { useT } from '../i18n'
 
-interface ProjectRowProps {
+export interface ProjectRowProps {
   name: string
   path: string
+  gitBranch?: string | null
   isActive: boolean
   isExpanded: boolean
   onSelect: () => void
@@ -18,6 +18,7 @@ interface ProjectRowProps {
 export function ProjectRow({
   name,
   path,
+  gitBranch = null,
   isActive,
   isExpanded,
   onSelect,
@@ -69,7 +70,7 @@ export function ProjectRow({
       >
         <button
           type="button"
-          className="project-folder"
+          className="project-expand-btn"
           onClick={(e) => {
             e.stopPropagation()
             onToggle()
@@ -77,10 +78,22 @@ export function ProjectRow({
           aria-label={isExpanded ? t('sidebar.collapseProject', { name }) : t('sidebar.expandProject', { name })}
           title={isExpanded ? t('sidebar.collapse') : t('sidebar.expand')}
         >
-          <Folder size={18} strokeWidth={1.8} />
+          {isExpanded ? <ChevronDown size={14} strokeWidth={2} /> : <ChevronRight size={14} strokeWidth={2} />}
         </button>
 
+        <span className="project-folder-icon" aria-hidden="true">
+          <Folder size={15} strokeWidth={1.8} />
+        </span>
+
         <span className="project-row-name">{name}</span>
+
+        {gitBranch && (
+          <span className="project-git-pill" title={`Git branch: ${gitBranch}`}>
+            <GitBranch size={10} strokeWidth={1.8} />
+            <span>{gitBranch}</span>
+          </span>
+        )}
+        <span className="project-row-spacer" />
 
         <span className="project-row-actions">
           <span className="project-menu-wrap" ref={menuRef}>
@@ -96,7 +109,7 @@ export function ProjectRow({
               aria-expanded={menuOpen}
               title={t('sidebar.projectActionsTitle')}
             >
-              <MoreHorizontal size={15} strokeWidth={2} />
+              <MoreHorizontal size={14} strokeWidth={2} />
             </button>
 
             {menuOpen && (
@@ -132,7 +145,7 @@ export function ProjectRow({
             aria-label={t('sidebar.newSessionIn', { name })}
             title={t('sidebar.newSession')}
           >
-            <SquarePen size={15} strokeWidth={1.8} />
+            <SquarePen size={14} strokeWidth={1.8} />
           </button>
         </span>
       </div>

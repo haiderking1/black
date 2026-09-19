@@ -5,6 +5,7 @@ import { FsError } from '../../../contracts/errors'
 import { METHODS } from '../../../contracts/methods'
 import { openDirectoryDialog } from '../../fs/dialog'
 import { listDirectory } from '../../fs/navigator'
+import { getGitBranch } from '../../fs/git'
 import { openInFiles } from '../../fs/open'
 
 /**
@@ -46,6 +47,12 @@ export function fsHandlers(context: FsHandlerContext) {
     [METHODS.getHomeDir]: () => Effect.sync(() => homedir()),
 
     [METHODS.getCwd]: () => Effect.sync(() => process.cwd()),
+
+    [METHODS.getGitBranch]: (payload: { path: string }) =>
+      Effect.tryPromise({
+        try: () => getGitBranch(payload.path),
+        catch: asFsError,
+      }),
   }
 }
 

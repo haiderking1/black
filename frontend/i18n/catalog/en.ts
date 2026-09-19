@@ -74,6 +74,10 @@ export const en = {
   'providers.oauthHint': 'ChatGPT Plus or Pro. A browser window opens to finish sign-in.',
   'providers.oauthConnected': 'Signed in. Tokens stay on this machine and refresh on their own.',
   'providers.submitCode': 'Continue',
+  'providers.signIn.cline': 'Sign in with ClinePass',
+  'providers.oauthHint.cline': 'ClinePass. A browser window opens to finish sign-in.',
+  'providers.enabledWithOAuth.cline': 'Signed in with ClinePass',
+  'providers.pasteCodePlaceholder.cline': 'http://127.0.0.1:48801/auth?code=…',
 
   'instructions.unsaved': 'Unsaved',
   'instructions.title': 'Instructions',

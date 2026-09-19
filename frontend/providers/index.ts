@@ -1,5 +1,6 @@
 export { OpenCodeLogo } from './OpenCodeLogo'
 export { OpenRouterLogo } from './OpenRouterLogo'
 export { CodexLogo } from './CodexLogo'
+export { ClineLogo } from './ClineLogo'
 export { ProviderLogo } from './ProviderLogo'
 export type { ProviderLogoProps } from './ProviderLogo'

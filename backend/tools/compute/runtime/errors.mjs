@@ -24,12 +24,18 @@ function field(error, key) {
   }
 }
 
-function planLocation(error) {
-  const match = field(error, "stack")?.match(/compute-plan\.js:(\d+)(?::(\d+))?/);
-  if (!match) return "";
-  const line = Number(match[1]) - PLAN_LINE_OFFSET;
+function formatLine(line, column) {
   if (line < 1) return "";
-  return "\n[plan line " + line + (match[2] ? ", column " + match[2] : "") + "]";
+  return "\n[plan line " + line + (column ? ", column " + column : "") + "]";
+}
+
+function planLocation(error) {
+  const stack = field(error, "stack")?.match(/compute-plan\.js:(\d+)(?::(\d+))?/);
+  if (stack) return formatLine(Number(stack[1]) - PLAN_LINE_OFFSET, stack[2]);
+  // Sucrase reports against the raw plan, not the wrapped vm filename.
+  const stripped = field(error, "message")?.match(/compute-plan\.ts:[^]*?\((\d+):(\d+)\)/);
+  if (stripped) return formatLine(Number(stripped[1]), stripped[2]);
+  return "";
 }
 
 function bounded(text) {
@@ -59,7 +65,7 @@ export function formatPlanError(error, phase) {
     if (name && name !== "Error") message = name + ": " + message;
   }
   const guidance = phase === "compile"
-    ? "Plan did not compile. Nothing ran. Pass one JavaScript function expression, for example: async () => { return 42; }\nDo not add a semicolon after the closing brace, invoke the function, use Markdown fences, or add TypeScript syntax. Semicolons inside the body are valid. Fix the reported syntax before retrying.\n"
+    ? "Plan did not compile. Nothing ran. Pass one async arrow function expression, for example: async () => { return 42; }\nDo not add a semicolon after the closing brace, invoke the function, or use Markdown fences. Type annotations are erased before the plan runs; leftover syntax errors are JavaScript. Semicolons inside the body are valid. Fix the reported syntax before retrying.\n"
     : phase === "execute"
       ? "Plan execution failed. Earlier operations may have succeeded. Check the completed-call trace and current state before repeating writes or commands.\n"
       : "";

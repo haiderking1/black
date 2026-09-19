@@ -10,6 +10,12 @@ test("provider errors retain identity through allSettled and JSON", async () => 
   ]);
 });
 
+test("type-strip compile errors report the raw plan line", () => {
+  const error = new SyntaxError("Error transforming compute-plan.ts: Unexpected token (3:3)");
+  expect(formatPlanError(error, "compile")).toContain("[plan line 3, column 3]");
+  expect(formatPlanError(error, "compile")).toContain("Nothing ran");
+});
+
 test("cross-realm errors report source locations without dumping host stacks", () => {
   let error: unknown;
   try { runInNewContext("\n\n\nmissingVariable", {}, { filename: "compute-plan.js" }); }

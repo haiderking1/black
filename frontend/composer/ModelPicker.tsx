@@ -1,22 +1,23 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { ChevronDown } from 'lucide-react'
 
 import type { ModelInfo } from '../../contracts/providers'
 import { Dropdown } from './Dropdown'
 import { ModelPanel } from './ModelPanel'
 import { displayName } from './modelRow'
+import { ProviderLogo } from '../providers'
 import { useT } from '../i18n'
+import { useModels } from './useModels'
 
 export interface ModelPickerProps {
   models: readonly ModelInfo[]
   selectedModelId: string | null
-  onSelect: (modelId: string) => void
+  onSelect: (modelId: string, providerId: string) => void
   /** Provider serving this catalog. */
   providerId?: string
   /** Display name of the serving provider, from its descriptor. */
   providerName?: string
   providers?: readonly { id: string; name: string }[]
-  onSelectProvider?: (providerId: string) => void
   isLoading?: boolean
   error?: string | null
 }
@@ -43,7 +44,6 @@ export function ModelPicker({
   providerId = 'opencode-go',
   providerName,
   providers = [],
-  onSelectProvider,
   isLoading = false,
   error = null,
 }: ModelPickerProps): React.JSX.Element {
@@ -61,37 +61,67 @@ export function ModelPicker({
       menuClassName="composer-picker-menu-wide"
       label={
         <>
+          <ProviderLogo
+            providerId={providerId}
+            size={14}
+            {...(providerName !== undefined ? { fallbackLabel: providerName } : {})}
+          />
           <span className="composer-picker-label">{shortName(label)}</span>
           <ChevronDown size={13} aria-hidden="true" />
         </>
       }
     >
       {(close) => (
-        <>
-          {isLoading ? <div className="composer-picker-note">{t('model.loading')}</div> : null}
-
-          {!isLoading && error !== null ? (
-            <div className="composer-picker-note composer-picker-note-error">{error}</div>
-          ) : null}
-
-          {!isLoading && error === null && models.length === 0 ? (
-            <div className="composer-picker-note">{t('model.empty')}</div>
-          ) : null}
-
-          {models.length > 0 || providers.length > 0 ? (
-            <ModelPanel
-              models={models}
-              selectedModelId={selectedModelId}
-              providerId={providerId}
-              providerName={servingName}
-              providers={providers}
-              {...(onSelectProvider !== undefined ? { onSelectProvider } : {})}
-              onSelect={onSelect}
-              close={close}
-            />
-          ) : null}
-        </>
+        <ModelCatalogMenu
+          models={models}
+          selectedModelId={selectedModelId}
+          providerId={providerId}
+          providerName={servingName}
+          providers={providers}
+          isLoading={isLoading}
+          error={error}
+          onSelect={onSelect}
+          close={close}
+        />
       )}
     </Dropdown>
+  )
+}
+
+/** Mounted only while open; browsing never changes the committed selection. */
+function ModelCatalogMenu({
+  models, selectedModelId, providerId = 'opencode-go', providerName,
+  providers = [], isLoading = false, error = null, onSelect, close,
+}: ModelPickerProps & { close: () => void }): React.JSX.Element {
+  const t = useT()
+  const [browsedProviderId, setBrowsedProviderId] = useState(providerId)
+  const isSelectedProvider = browsedProviderId === providerId
+  const catalog = useModels(isSelectedProvider ? '' : browsedProviderId)
+  const visibleModels = isSelectedProvider ? models : catalog.models
+  const loading = isSelectedProvider ? isLoading : catalog.isLoading
+  const catalogError = isSelectedProvider ? error : catalog.error
+  const browsedProviderName = isSelectedProvider ? providerName ?? t('model.provider')
+    : providers.find(provider => provider.id === browsedProviderId)?.name ?? browsedProviderId
+
+  return (
+    <>
+      {loading ? <div className="composer-picker-note">{t('model.loading')}</div> : null}
+      {!loading && catalogError !== null ? (
+        <div className="composer-picker-note composer-picker-note-error">{catalogError}</div>
+      ) : null}
+      {!loading && catalogError === null && visibleModels.length === 0 ? (
+        <div className="composer-picker-note">{t('model.empty')}</div>
+      ) : null}
+      <ModelPanel
+        models={visibleModels}
+        selectedModelId={isSelectedProvider ? selectedModelId : null}
+        providerId={browsedProviderId}
+        providerName={browsedProviderName}
+        providers={providers}
+        onBrowseProvider={setBrowsedProviderId}
+        onSelect={modelId => onSelect(modelId, browsedProviderId)}
+        close={close}
+      />
+    </>
   )
 }

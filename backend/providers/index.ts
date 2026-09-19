@@ -34,7 +34,7 @@ export function createProviderRegistry(providers: Provider[]): ProviderRegistry 
 export function createDefaultRegistry(): ProviderRegistry {
   const providers: Provider[] = []
 
-  for (const id of ['opencode-go', 'openrouter', 'openai-codex'] as const) {
+  for (const id of ['opencode-go', 'openrouter', 'openai-codex', 'cline'] as const) {
     const apiKey = resolveApiKey(id)
     if (apiKey === undefined) continue
     const provider = createProvider(id, apiKey)
@@ -52,6 +52,7 @@ export { createProvider } from './create'
 export { createOpenCodeProvider, type OpenCodeProvider, type OpenCodeProviderOptions } from './opencode'
 export { createOpenRouterProvider, type OpenRouterProvider, type OpenRouterProviderOptions } from './openrouter'
 export { createCodexProvider, type CodexProviderOptions } from './codex'
+export { createClineProvider, type ClineProvider, type ClineProviderOptions } from './cline'
 export { createCatalog, DEFAULT_CATALOG_TTL_MS, type Catalog, type CatalogOptions } from './opencode/catalog'
 export { createChatClient, type ChatClientOptions } from './opencode/client'
 export {
@@ -67,7 +68,7 @@ export {
   CHAT_COMPLETIONS_PATH,
   MODELS_PATH,
   OPENCODE_GO_BASE_URL,
+  OPENCODE_GO_BASE_URL as DEFAULT_BASE_URL,
   OPENCODE_ZEN_BASE_URL,
   joinUrl
 } from './opencode/endpoints'
-export { OPENCODE_GO_BASE_URL as DEFAULT_BASE_URL }

@@ -11,8 +11,12 @@ import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 import { getAgentDir } from '../config/agentDir'
-import { readOAuth, writeOAuth } from './credentialStore'
+import { clearApiKey, readOAuth, writeOAuth } from './credentialStore'
+import { isClineAuthRefreshError, refreshClineToken } from './cline/oauth'
+import { PROVIDER_ID as CLINE_ID } from './cline/oauth/constants'
 import { refreshOpenAICodexToken, type FetchLike } from './codex/oauth'
+import { PROVIDER_ID as CODEX_ID } from './codex/oauth/constants'
+import type { OAuthCredential } from './codex/oauth/types'
 
 /** Environment variable per provider, checked before the credentials file. */
 const ENV_BY_PROVIDER: Record<string, string> = {
@@ -128,12 +132,31 @@ export async function resolveAccessToken(
     const timeout = AbortSignal.timeout(DEFAULT_OAUTH_REFRESH_TIMEOUT_MS)
     const signal =
       options.signal === undefined ? timeout : AbortSignal.any([options.signal, timeout])
-    const next = await refreshOpenAICodexToken(
-      current.refresh,
-      signal,
-      options.fetchImpl,
-    )
-    writeOAuth(providerId, next)
-    return next.access
+    try {
+      const next = await refreshStoredToken(providerId, current, signal, options.fetchImpl)
+      writeOAuth(providerId, next)
+      return next.access
+    } catch (error) {
+      if (providerId === CLINE_ID && isClineAuthRefreshError(error)) {
+        clearApiKey(providerId)
+        return undefined
+      }
+      throw error
+    }
   })
+}
+
+async function refreshStoredToken(
+  providerId: string,
+  current: OAuthCredential,
+  signal: AbortSignal,
+  fetchImpl?: FetchLike,
+): Promise<OAuthCredential> {
+  if (providerId === CLINE_ID) {
+    return refreshClineToken(current, signal, fetchImpl)
+  }
+  if (providerId === CODEX_ID) {
+    return refreshOpenAICodexToken(current.refresh, signal, fetchImpl)
+  }
+  throw new Error(providerId + ' does not use browser sign-in')
 }

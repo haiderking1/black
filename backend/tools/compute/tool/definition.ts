@@ -15,7 +15,7 @@ export function makeComputeToolDefinition() {
 		promptSnippet: "Run one isolated JavaScript plan composing workspace, system, and mcp providers, returning only the final value",
 		promptGuidelines: [
 			"Prefer compute for any multi-step file, search, or process work instead of many separate read/bash/write calls.",
-			"Write a single async arrow function that loops, branches, filters, and shapes results inside the plan.",
+			"Write a single async arrow function that loops, branches, filters, and shapes results inside the plan. TypeScript type syntax is erased and not typechecked.",
 			"Return the smallest useful value (a slice, a summary, a boolean). Do not dump large arrays back to the model.",
 			"For independent calls that can fail separately, use Promise.allSettled and retain only needed fulfilled values and provider error messages. Check system.exec exitCode separately.",
 			"If output was saved to a temporary file, read or filter that file. Do not rerun a completed plan to recover its output, especially if it changed files.",
@@ -33,7 +33,7 @@ export function makeComputeToolDefinition() {
 				}),
 				code: Type.String({
 					description:
-						"Exactly one async JavaScript arrow function expression: async () => { ... }. No invocation, Markdown fences, TypeScript, or semicolon after the closing brace. Semicolons inside the body are valid. Call only declared providers and return the smallest useful result.",
+						"Exactly one async arrow function expression: async () => { ... }. TypeScript type syntax is erased and not typechecked. No invocation, Markdown fences, or semicolon after the closing brace. Semicolons inside the body are valid. Call only declared providers and return the smallest useful result.",
 				}),
 				timeout: Type.Optional(
 					Type.Integer({

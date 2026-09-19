@@ -31,7 +31,6 @@ describe('settings persistence', () => {
       reduceMotion: true,
       selectedModelId: 'glm-5.3',
       selectedProviderId: 'openrouter',
-      selectedModels: { 'opencode-go': 'glm-5.3' },
       thinkingLevel: 'high' as const,
       language: 'ar' as const,
     }
@@ -58,7 +57,6 @@ describe('settings persistence', () => {
       reduceMotion: true,
       selectedModelId: 'glm-5.3',
       selectedProviderId: null,
-      selectedModels: {},
       thinkingLevel: 'nonsense',
       language: 'auto',
     })
@@ -71,14 +69,12 @@ describe('settings persistence', () => {
       ...DEFAULT_SETTINGS,
       selectedModelId: 'kimi-k3',
       selectedProviderId: 'openrouter',
-      selectedModels: { openrouter: 'kimi-k3' },
       thinkingLevel: 'max',
     })
     const restored = readSettings(storage)
 
     expect(restored.selectedModelId).toBe('kimi-k3')
     expect(restored.selectedProviderId).toBe('openrouter')
-    expect(restored.selectedModels).toEqual({ openrouter: 'kimi-k3' })
     expect(restored.thinkingLevel).toBe('max')
   })
 
@@ -105,12 +101,8 @@ describe('settings persistence', () => {
     expect(parseSettings({ ...DEFAULT_SETTINGS, thinkingLevel: 'xhigh' }).thinkingLevel).toBe('xhigh')
   })
 
-  it('drops invalid selectedModels entries and empty provider ids', () => {
-    const parsed = parseSettings({
-      selectedModels: { openrouter: 'x', '': 'no', bad: 1 },
-      selectedProviderId: '',
-    })
-    expect(parsed.selectedModels).toEqual({ openrouter: 'x' })
+  it('falls back to no provider when the saved provider id is empty', () => {
+    const parsed = parseSettings({ selectedProviderId: '' })
     expect(parsed.selectedProviderId).toBe(null)
   })
 

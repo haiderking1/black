@@ -11,13 +11,21 @@ import { clearResourceCache, writeCached } from '../../../frontend/rpc/resourceC
 import '../../../frontend/index.css'
 import { scenarios } from './scenarios'
 import { prepareCacheRestart, verifyCacheRestart } from './cacheScenarios'
+import { providerBrowsingScenarios, verifyProviderSelectionReload } from './providerBrowsingScenarios'
 
 let root: Root | undefined
 let sent: ComposerSubmitOptions | undefined
+let pickedModel: string | undefined
 function Fixture() {
   const { settings, updateSetting } = useSettings()
   return <Composer model={settings.selectedModelId} thinkingLevel={settings.thinkingLevel}
-    onSelectModel={id => updateSetting('selectedModelId', id)}
+    providerId={settings.selectedProviderId ?? 'opencode-go'}
+    providers={[{ id: 'opencode-go', name: 'OpenCode' }, { id: 'openai-codex', name: 'Codex' }]}
+    onSelectModel={(id, providerId) => {
+      updateSetting('selectedProviderId', providerId)
+      updateSetting('selectedModelId', id)
+    }}
+    onPickModel={id => { pickedModel = id }}
     onSelectThinkingLevel={value => updateSetting('thinkingLevel', value)}
     onSendMessage={(_, options) => { sent = options }} />
 }
@@ -33,14 +41,17 @@ export const harness = {
     root = createRoot(document.getElementById('root')!)
     flushSync(() => root!.render(<SettingsFixture />))
   },
-  mount(models?: readonly ModelInfo[]) {
+  mount(models?: readonly ModelInfo[], otherCatalogs: Record<string, readonly ModelInfo[]> = {}) {
     if (root) flushSync(() => root!.unmount())
     clearResourceCache()
     if (models) writeCached('providers.listModels:opencode-go', models)
+    for (const [providerId, catalog] of Object.entries(otherCatalogs)) writeCached('providers.listModels:' + providerId, catalog)
     sent = undefined
+    pickedModel = undefined
     root = createRoot(document.getElementById('root')!)
     flushSync(() => root!.render(<Fixture />))
   },
   sent: () => sent,
+  pickedModel: () => pickedModel,
 }
-Object.assign(window, { composerHarness: { scenarios: async () => [...await scenarios(harness), ...await workflowScenarios(harness)], prepareCacheRestart, verifyCacheRestart: () => verifyCacheRestart(harness) } })
+Object.assign(window, { composerHarness: { scenarios: async () => [...await scenarios(harness), ...await providerBrowsingScenarios(harness), ...await workflowScenarios(harness)], prepareCacheRestart, verifyCacheRestart: () => verifyCacheRestart(harness), providerBrowsing: () => providerBrowsingScenarios(harness), verifyProviderSelectionReload: () => verifyProviderSelectionReload(harness) } })

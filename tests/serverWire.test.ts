@@ -39,6 +39,7 @@ function stubHandlers(events: readonly ChatStreamEvent[] = [{ type: 'text', text
     [METHODS.openInFiles]: () => Effect.succeed(''),
     [METHODS.getHomeDir]: () => Effect.succeed('/home/stub'),
     [METHODS.getCwd]: () => Effect.succeed('/stub-cwd'),
+    [METHODS.getGitBranch]: () => Effect.succeed({ isRepo: true, branch: 'main' }),
     [METHODS.listProviders]: () => Effect.succeed([]),
     [METHODS.setApiKey]: () =>
       Effect.succeed({

@@ -17,7 +17,7 @@ export interface ModelPanelProps {
   providerName: string
   /** Enabled, authenticated providers shown on the rail. */
   providers?: readonly { id: string; name: string }[]
-  onSelectProvider?: (providerId: string) => void
+  onBrowseProvider?: (providerId: string) => void
   onSelect: (modelId: string) => void
   close: () => void
 }
@@ -34,7 +34,7 @@ export function ModelPanel({
   providerId,
   providerName,
   providers = [],
-  onSelectProvider,
+  onBrowseProvider: onBrowseProvider,
   onSelect,
   close,
 }: ModelPanelProps): React.JSX.Element {
@@ -105,7 +105,7 @@ export function ModelPanel({
             className={'model-rail-item' + (provider.id === providerId ? ' active' : '')}
             title={provider.name}
             aria-pressed={provider.id === providerId}
-            onClick={() => onSelectProvider?.(provider.id)}
+            onClick={() => onBrowseProvider?.(provider.id)}
           >
             <span className="model-rail-mark">
               <ProviderLogo providerId={provider.id} size={20} fallbackLabel={provider.name} />

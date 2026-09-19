@@ -2,15 +2,17 @@ import React, { useId, useState } from 'react'
 import { ChevronDown, Eye, EyeOff, Trash2 } from 'lucide-react'
 
 import type { ProviderStatus } from '../../contracts/providers'
-import { CodexLogo, OpenCodeLogo, OpenRouterLogo } from '../providers'
+import { ClineLogo, CodexLogo, OpenCodeLogo, OpenRouterLogo } from '../providers'
 import { useT } from '../i18n'
 import { OAuthPanel } from './oauth/OAuthPanel'
+import { oauthCopyKey } from './oauth/copy'
 
 /** The logo per provider. A provider without an entry falls back to its initial. */
 const LOGOS: Record<string, (props: { size?: number }) => React.JSX.Element> = {
   'opencode-go': OpenCodeLogo,
   openrouter: OpenRouterLogo,
   'openai-codex': CodexLogo,
+  cline: ClineLogo,
 }
 
 function NetworkMark(): React.JSX.Element {
@@ -54,7 +56,7 @@ export function ProviderRow({
   const canSave = draft.trim() !== '' && !isSaving
   const oauth = provider.authKind === 'oauth'
   const ready = provider.enabled && provider.authenticated
-  const readyLabel = oauth ? t('providers.enabledWithOAuth') : t('providers.enabledWithKey')
+  const readyLabel = oauth ? t(oauthCopyKey('providers.enabledWithOAuth', provider.id)) : t('providers.enabledWithKey')
 
   const handleSave = async (): Promise<void> => {
     if (!canSave) return

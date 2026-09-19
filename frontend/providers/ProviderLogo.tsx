@@ -3,6 +3,7 @@ import React from 'react'
 import { OpenCodeLogo } from './OpenCodeLogo'
 import { OpenRouterLogo } from './OpenRouterLogo'
 import { CodexLogo } from './CodexLogo'
+import { ClineLogo } from './ClineLogo'
 import './logo.css'
 
 export interface ProviderLogoProps {
@@ -32,6 +33,9 @@ export function ProviderLogo({
   }
   if (providerId === 'openai-codex') {
     return <CodexLogo size={size} />
+  }
+  if (providerId === 'cline') {
+    return <ClineLogo size={size} />
   }
 
   const label = (fallbackLabel ?? providerId).trim()

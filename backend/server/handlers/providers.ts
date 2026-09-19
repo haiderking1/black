@@ -6,6 +6,8 @@ import { clearApiKey, readProviderEnabled, writeApiKey, writeOAuth, writeProvide
 import { resolveAccessToken, resolveApiKey } from '../../providers/credentials'
 import { findDescriptor, PROVIDER_DESCRIPTORS, type ProviderAuthKind } from '../../providers/descriptors'
 import { createProvider } from '../../providers/create'
+import { clearClineCatalogCache } from '../../providers/cline/catalogStore'
+import { PROVIDER_ID as CLINE_ID } from '../../providers/cline/oauth/constants'
 import {
   cancelBrowserLogin,
   startBrowserLogin,
@@ -73,11 +75,20 @@ async function describeProvider(providerId: string): Promise<ProviderStatus> {
     throw new Error('Unknown provider: ' + providerId)
   }
 
-  const apiKey = resolveApiKey(providerId)
+  let apiKey: string | undefined
+  if (descriptor.authKind === 'oauth') {
+    try {
+      apiKey = await resolveAccessToken(providerId)
+    } catch {
+      apiKey = resolveApiKey(providerId)
+    }
+  } else {
+    apiKey = resolveApiKey(providerId)
+  }
   const authenticated = apiKey !== undefined
 
   let modelCount: number | null = null
-  if (authenticated) {
+  if (apiKey !== undefined) {
     try {
       const provider = buildProvider(providerId, apiKey)
       if (provider !== undefined) modelCount = (await provider.listModels()).length
@@ -130,7 +141,7 @@ export function providerHandlers(options: ProviderHandlerOptions) {
         try: async () => {
           const descriptor = findDescriptor(payload.providerId)
           if (descriptor?.authKind === 'oauth') {
-            throw new Error(descriptor.name + ' uses ChatGPT sign-in, not an API key')
+            throw new Error(descriptor.name + ' uses browser sign-in, not an API key')
           }
           writeApiKey(payload.providerId, payload.apiKey)
           return await describeProvider(payload.providerId)
@@ -143,6 +154,7 @@ export function providerHandlers(options: ProviderHandlerOptions) {
         try: async () => {
           cancelBrowserLogin(payload.providerId)
           clearApiKey(payload.providerId)
+          if (payload.providerId === CLINE_ID) clearClineCatalogCache()
           return await describeProvider(payload.providerId)
         },
         catch: asProviderError,

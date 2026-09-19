@@ -76,6 +76,10 @@ export const ar: Record<MessageKey, string> = {
   'providers.oauthHint': 'ChatGPT Plus أو Pro. تفتح نافذة متصفح لإكمال الدخول.',
   'providers.oauthConnected': 'تم الدخول. التوكن يبقى على الجهاز ويتجدد وحده.',
   'providers.submitCode': 'متابعة',
+  'providers.signIn.cline': 'دخول عبر ClinePass',
+  'providers.oauthHint.cline': 'ClinePass. تفتح نافذة متصفح لإكمال الدخول.',
+  'providers.enabledWithOAuth.cline': 'مسجّل دخول بـ ClinePass',
+  'providers.pasteCodePlaceholder.cline': 'http://127.0.0.1:48801/auth?code=…',
 
   'instructions.unsaved': 'غير محفوظ',
   'instructions.title': 'التعليمات',

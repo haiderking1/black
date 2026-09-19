@@ -8,7 +8,7 @@ export interface ProjectItemData {
 }
 
 interface ProjectListProps {
-  projects: ProjectItemData[]
+  projects: readonly ProjectItemData[]
   activeProjectId?: string
   /** Row highlighted by hover or keyboard, -1 for none */
   selectedProjectIndex: number

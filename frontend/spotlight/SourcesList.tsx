@@ -7,7 +7,7 @@ import { useT } from '../i18n'
 interface SourcesListProps {
   showLocalFolder: boolean
   searchTerm: string
-  projects: ProjectItemData[]
+  projects: readonly ProjectItemData[]
   activeProjectId?: string
   /** Row currently highlighted, -1 for none */
   selectedIndex: number

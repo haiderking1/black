@@ -8,6 +8,8 @@
 
 import { OPENCODE_GO_BASE_URL } from './opencode/endpoints'
 import { OPENROUTER_BASE_URL } from './openrouter/endpoints'
+import { CLINE_API_BASE_URL } from './cline/endpoints'
+import { PROVIDER_ID as CLINE_PROVIDER_ID } from './cline/oauth/constants'
 import { CODEX_BASE_URL } from './codex/endpoints'
 import { PROVIDER_ID as CODEX_PROVIDER_ID } from './codex/oauth/constants'
 
@@ -42,6 +44,13 @@ export const PROVIDER_DESCRIPTORS: readonly ProviderDescriptor[] = [
     name: 'OpenAI Codex',
     baseUrl: CODEX_BASE_URL,
     keyHint: 'ChatGPT Plus or Pro',
+    authKind: 'oauth',
+  },
+  {
+    id: CLINE_PROVIDER_ID,
+    name: 'ClinePass',
+    baseUrl: CLINE_API_BASE_URL,
+    keyHint: 'ClinePass subscription',
     authKind: 'oauth',
   },
 ]

@@ -67,5 +67,25 @@ export async function scenarios(fixture: typeof harness): Promise<string[]> {
   await settle()
   assert(label() === 'High', 'Metadata recovery failed to restore preferred level')
   passed.push('missing metadata and incompatible models never overwrite the preference')
+
+  const primary: ModelInfo = { ...model, id: 'known/model', thinkingKind: 'effort', thinkingLevels: ['low'] }
+  const unlisted: ModelInfo = { id: 'unlisted/model', ownedBy: 'fixture', created: 1 }
+  writeSettings(localStorage, { ...DEFAULT_SETTINGS, selectedModelId: 'gone/model' })
+  fixture.mount([primary, unlisted])
+  await settle()
+  assert(label() === 'Default' || label() === 'Low', 'Catalog did not load for fallback scenario')
+  assert(document.querySelector<HTMLButtonElement>('button[aria-label="Choose a model"]')!.textContent!.includes('known/model'), 'Fallback did not resolve the first catalog model')
+  assert(fixture.pickedModel() === undefined, 'Catalog fallback fired the user-pick callback')
+  passed.push('catalog fallback resolves the composer without a user pick')
+
+  document.querySelector<HTMLButtonElement>('button[aria-label="Choose a model"]')!.click()
+  await settle()
+  const row = [...document.querySelectorAll<HTMLButtonElement>('button[role=option]')].find(button => button.querySelector('.model-name')?.textContent === 'known/model')
+  assert(row, 'Missing model row for explicit pick; rows=' + JSON.stringify([...document.querySelectorAll('button[role=option]')].map(button => ({ text: button.textContent, name: button.querySelector('.model-name')?.textContent }))))
+  row.click()
+  await settle()
+  assert(readSettings(localStorage).selectedModelId === 'known/model', 'Explicit pick was not saved')
+  assert(fixture.pickedModel() === 'known/model', 'Explicit pick skipped the user-pick callback')
+  passed.push('explicit model pick fires the user-pick callback')
   return passed
 }

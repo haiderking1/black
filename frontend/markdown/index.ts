@@ -1,5 +1,5 @@
 export { Markdown } from './Markdown'
-export type { MarkdownProps } from './Markdown'
+export type { MarkdownProps } from './types'
 export { CodeBlock } from './CodeBlock'
 export type { CodeBlockProps, AlertKind, AlertPresentation } from './types'
 export { AlertCallout, isAlertKind } from './AlertCallout'

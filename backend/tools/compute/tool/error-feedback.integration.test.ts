@@ -44,6 +44,34 @@ test('runtime SyntaxError preserves completed writes and warns against replay', 
   expect(await readFile(join(cwd, 'marker'), 'utf8')).toBe('once');
 }, 20000);
 
+test('TypeScript as-assertions and annotations run after types are erased', async () => {
+  const cwd = await temporary();
+  const result = await executePlan(cwd, `async (): Promise<string> => {
+  await workspace.write({ path: "marker", content: "typed" });
+  const listed = ["marker"] as string[];
+  const name: string = listed[0];
+  const text = await workspace.read({ path: name });
+  return (text as string).trim();
+}`);
+  expect(result.isError).not.toBe(true);
+  expect(result.content[0].text).toBe('typed');
+  expect(await readFile(join(cwd, 'marker'), 'utf8')).toBe('typed');
+}, 20000);
+
+test('a JavaScript syntax error after erased types still reports the plan line', async () => {
+  const cwd = await temporary();
+  const result = await executePlan(cwd, `async () => {
+  const files = [] as string[];
+  return JSON.parse("invalid");
+}`);
+  expect(result.isError).toBe(true);
+  const text = result.content[0].text;
+  expect(text).toContain('SyntaxError');
+  expect(text).toContain('Plan execution failed');
+  expect(text).toContain('[plan line 3');
+  expect(text).not.toContain('Unexpected identifier');
+}, 20000);
+
 test('provider failures retain method identity alongside recovery guidance', async () => {
   const result = await executePlan(await temporary(), 'async () => await workspace.read({ path: "missing.txt" })');
   expect(result.isError).toBe(true);

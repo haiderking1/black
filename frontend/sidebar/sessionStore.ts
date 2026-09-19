@@ -18,14 +18,16 @@ export function generateId(prefix: string): string {
   return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 10)}`
 }
 
-export function createSessionRecord(projectId: string): SessionRecord {
+export function createSessionRecord(projectId: string, model?: string, providerId?: string): SessionRecord {
   const now = Date.now()
   return {
     id: generateId('session'),
     projectId,
     title: DEFAULT_SESSION_TITLE,
     createdAt: now,
-    updatedAt: now
+    updatedAt: now,
+    ...(model ? { model } : {}),
+    ...(providerId ? { providerId } : {})
   }
 }
 
@@ -57,7 +59,9 @@ export function loadSessions(): SessionRecord[] {
         projectId,
         title: title.trim() || DEFAULT_SESSION_TITLE,
         createdAt: createdAtNum,
-        updatedAt: updatedAtNum
+        updatedAt: updatedAtNum,
+        ...(typeof item['model'] === 'string' && item['model'].trim() !== '' ? { model: item['model'].trim() } : {}),
+        ...(typeof item['providerId'] === 'string' && item['providerId'].trim() !== '' ? { providerId: item['providerId'].trim() } : {})
       })
     }
 

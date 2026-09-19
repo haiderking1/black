@@ -1,6 +1,7 @@
 import { afterEach, expect, test } from 'bun:test'
 import type { ModelInfo } from '../../../contracts/providers'
 import { clearResourceCache } from '../../../frontend/rpc/resourceCache'
+import { resetCatalogSession } from '../../../frontend/composer/models/prefetch'
 import { invalidateModelCache, modelCacheKey, readModelCache, writeModelCache, type ModelCacheStorage } from '../../../frontend/composer/models/cache'
 
 const model: ModelInfo = { id: 'model', ownedBy: 'vendor', created: 1, reasoning: true, thinkingKind: 'effort', thinkingLevels: ['low', 'max'] }
@@ -8,7 +9,10 @@ function storage(): ModelCacheStorage {
   const values = new Map<string, string>()
   return { getItem: key => values.get(key) ?? null, setItem: (key, value) => { values.set(key, value) }, removeItem: key => { values.delete(key) } }
 }
-afterEach(clearResourceCache)
+afterEach(() => {
+  resetCatalogSession()
+  clearResourceCache()
+})
 
 test('restores model IDs and complete thinking metadata after memory is cleared', () => {
   const disk = storage()

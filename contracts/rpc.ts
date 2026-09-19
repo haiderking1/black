@@ -3,7 +3,7 @@ import * as Rpc from 'effect/unstable/rpc/Rpc'
 import * as RpcGroup from 'effect/unstable/rpc/RpcGroup'
 
 import { FsError, ProviderConfigError } from './errors'
-import { DirectoryResult, ListDirectoryInput, OpenInFilesInput } from './fs'
+import { DirectoryResult, GitBranchInput, GitBranchResult, ListDirectoryInput, OpenInFilesInput } from './fs'
 import {
   ChatCancelInput,
   ChatCancelResult,
@@ -54,6 +54,13 @@ const OpenInFilesRpc = Rpc.make(METHODS.openInFiles, {
   success: Schema.String,
   error: FsError,
 })
+
+const GetGitBranchRpc = Rpc.make(METHODS.getGitBranch, {
+  payload: GitBranchInput,
+  success: GitBranchResult,
+  error: FsError,
+})
+
 
 const GetHomeDirRpc = Rpc.make(METHODS.getHomeDir, {
   success: Schema.String,
@@ -165,6 +172,7 @@ export const ServerRpcs = RpcGroup.make(
   ListDirectoryRpc,
   OpenDirectoryDialogRpc,
   OpenInFilesRpc,
+  GetGitBranchRpc,
   GetHomeDirRpc,
   GetCwdRpc,
   ListProvidersRpc,

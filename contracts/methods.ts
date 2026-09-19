@@ -15,6 +15,7 @@ export const FS_METHODS = {
   openInFiles: 'fs.openInFiles',
   getHomeDir: 'fs.getHomeDir',
   getCwd: 'fs.getCwd',
+  getGitBranch: 'fs.getGitBranch',
 } as const
 
 /** Provider configuration. Credentials live on the server, never in the renderer. */

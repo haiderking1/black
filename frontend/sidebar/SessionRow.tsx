@@ -1,12 +1,20 @@
 import React, { useEffect, useRef, useState } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
+import { GitBranch, Pencil, Trash2 } from 'lucide-react'
 import type { SessionRecord } from './types'
 import { DEFAULT_SESSION_TITLE } from './sessionStore'
+import { formatRelativeTime } from './formatTime'
+import { formatModelName } from './formatModel'
+import { ProviderLogo } from '../providers'
 import { useT } from '../i18n'
 
-interface SessionRowProps {
+export interface SessionRowProps {
   session: SessionRecord
   isActive: boolean
+  isWorking?: boolean
+  gitBranch?: string | null
+  fallbackModelId?: string | null
+  fallbackProviderId?: string
+  catalogModelName?: string
   onSelect: () => void
   onRename: (title: string) => void
   onDelete: () => void
@@ -15,6 +23,11 @@ interface SessionRowProps {
 export function SessionRow({
   session,
   isActive,
+  isWorking = false,
+  gitBranch = null,
+  fallbackModelId = null,
+  fallbackProviderId = 'openai-codex',
+  catalogModelName,
   onSelect,
   onRename,
   onDelete
@@ -25,6 +38,11 @@ export function SessionRow({
   const [draftTitle, setDraftTitle] = useState(displayed)
   const inputRef = useRef<HTMLInputElement>(null)
   const cancelBlurRef = useRef(false)
+
+  const effectiveModelId = session.model || fallbackModelId || undefined
+  const effectiveProviderId = session.providerId || fallbackProviderId
+  const modelName = formatModelName(effectiveModelId, catalogModelName)
+  const timeAgo = formatRelativeTime(session.updatedAt)
 
   useEffect(() => {
     if (!isRenaming) setDraftTitle(displayed)
@@ -72,6 +90,14 @@ export function SessionRow({
     }
   }
 
+  const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>): void => {
+    if (isRenaming) return
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault()
+      onSelect()
+    }
+  }
+
   const handleDelete = (event: React.MouseEvent<HTMLButtonElement>): void => {
     event.stopPropagation()
     onDelete()
@@ -79,48 +105,88 @@ export function SessionRow({
 
   return (
     <div
-      className={`session-row ${isActive ? 'active' : ''} ${isRenaming ? 'renaming' : ''}`}
-      onClick={isRenaming ? undefined : onSelect}
+      className={`session-row ${isActive ? 'active' : ''} ${isWorking ? 'working' : ''} ${isRenaming ? 'renaming' : ''}`}
+      onClick={() => {
+        if (!isRenaming) {
+          onSelect()
+        }
+      }}
+      onKeyDown={handleKeyDown}
+      tabIndex={0}
+      role="button"
+      aria-pressed={isActive}
       title={displayed}
     >
-      {isRenaming ? (
-        <input
-          ref={inputRef}
-          className="session-rename-input"
-          value={draftTitle}
-          onChange={(event) => setDraftTitle(event.target.value)}
-          onClick={(event) => event.stopPropagation()}
-          onKeyDown={handleInputKeyDown}
-          onBlur={commitRename}
-          aria-label={t('sidebar.rename', { title: displayed })}
-          maxLength={80}
-        />
-      ) : (
-        <span className="session-row-title">{displayed}</span>
-      )}
+      {/* One line: working dot, title, provider mark + model, hover actions */}
+      <div className="session-row-top">
+        {isWorking && (
+          <span
+            className="session-status-dot working"
+            title="Working…"
+            aria-label="Working"
+          />
+        )}
 
-      <span className="session-row-actions">
-        {!isRenaming && (
+        {isRenaming ? (
+          <input
+            ref={inputRef}
+            className="session-rename-input"
+            value={draftTitle}
+            onChange={(event) => setDraftTitle(event.target.value)}
+            onClick={(event) => event.stopPropagation()}
+            onKeyDown={handleInputKeyDown}
+            onBlur={commitRename}
+            aria-label={t('sidebar.rename', { title: displayed })}
+            maxLength={80}
+          />
+        ) : (
+          <>
+            <span className="session-row-title">{displayed}</span>
+          </>
+        )}
+
+        <span className="session-row-actions">
+          {!isRenaming && (
+            <button
+              type="button"
+              className="sidebar-row-action"
+              onClick={startRename}
+              aria-label={t('sidebar.rename', { title: displayed })}
+              title={t('sidebar.renameTitle')}
+            >
+              <Pencil size={11} strokeWidth={2} />
+            </button>
+          )}
           <button
             type="button"
-            className="sidebar-row-action"
-            onClick={startRename}
-            aria-label={t('sidebar.rename', { title: displayed })}
-            title={t('sidebar.renameTitle')}
+            className="sidebar-row-action sidebar-row-delete"
+            onClick={handleDelete}
+            aria-label={t('sidebar.delete', { title: displayed })}
+            title={t('sidebar.deleteTitle')}
           >
-            <Pencil size={11} strokeWidth={2} />
+            <Trash2 size={11} strokeWidth={2} />
           </button>
-        )}
-        <button
-          type="button"
-          className="sidebar-row-action sidebar-row-delete"
-          onClick={handleDelete}
-          aria-label={t('sidebar.delete', { title: displayed })}
-          title={t('sidebar.deleteTitle')}
-        >
-          <Trash2 size={11} strokeWidth={2} />
-        </button>
-      </span>
+        </span>
+      </div>
+
+      {/* Second line: model mark + name, then git branch & time on the right */}
+      <div className="session-row-meta">
+        <div className="session-meta-left">
+          <ProviderLogo providerId={effectiveProviderId} size={12} />
+          <span className="session-model-name" title={effectiveModelId ?? modelName}>
+            {modelName}
+          </span>
+        </div>
+        <div className="session-meta-right">
+          {gitBranch && (
+            <span className="session-git-badge" title={`Branch: ${gitBranch}`}>
+              <GitBranch size={11} strokeWidth={1.8} />
+              <span className="session-git-name">{gitBranch}</span>
+            </span>
+          )}
+          {timeAgo && <span className="session-time-ago">{timeAgo}</span>}
+        </div>
+      </div>
     </div>
   )
 }

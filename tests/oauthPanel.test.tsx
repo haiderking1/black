@@ -42,3 +42,24 @@ describe('Codex OAuth panel', () => {
     expect(html).toContain('دخول عبر ChatGPT')
   })
 })
+
+describe('Cline OAuth panel', () => {
+  it('offers ClinePass sign-in, not ChatGPT copy', () => {
+    const html = renderToStaticMarkup(
+      <LanguageProvider language="en">
+        <OAuthPanel
+          providerId="cline"
+          authenticated={false}
+          onStart={noop}
+          onCancel={noop}
+          onSubmitCode={noop}
+          onSignOut={noop}
+        />
+      </LanguageProvider>,
+    )
+    expect(html).toContain('Sign in with ClinePass')
+    expect(html).toContain('ClinePass. A browser window opens')
+    expect(html).not.toContain('Sign in with ChatGPT')
+    expect(html).not.toContain('ChatGPT Plus')
+  })
+})

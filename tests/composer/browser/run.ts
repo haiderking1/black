@@ -70,6 +70,14 @@ try {
     await Bun.sleep(50)
   }
   passed.push(await evaluate('window.composerHarness.verifyCacheRestart()'))
+  await evaluate('window.composerHarness.providerBrowsing()')
+  await evaluate('window.composerHarness = undefined')
+  await protocol.send('Page.reload')
+  for (let i = 0; i < 100; i++) {
+    if (await evaluate('Boolean(window.composerHarness)')) break
+    await Bun.sleep(50)
+  }
+  passed.push(await evaluate('window.composerHarness.verifyProviderSelectionReload()'))
   if (protocol.errors.length) throw new Error(JSON.stringify(protocol.errors))
   console.log(JSON.stringify({ passed }, null, 2))
 } finally {

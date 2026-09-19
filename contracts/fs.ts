@@ -43,3 +43,14 @@ export type DirectoryResult = typeof DirectoryResult.Type
 export const OpenInFilesInput = Schema.Struct({
   path: Schema.NonEmptyString,
 })
+
+export const GitBranchInput = Schema.Struct({
+  path: Schema.String,
+})
+
+export const GitBranchResult = Schema.Struct({
+  isRepo: Schema.Boolean,
+  branch: Schema.NullOr(Schema.String),
+})
+
+export type GitBranchResult = typeof GitBranchResult.Type

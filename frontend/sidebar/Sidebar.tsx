@@ -1,5 +1,5 @@
 import React from 'react'
-import { PanelLeft, Search, Settings } from 'lucide-react'
+import { PanelLeft, Search, Settings, SquarePen } from 'lucide-react'
 import type { ProjectItemData } from '../spotlight'
 import { ProjectTree } from './ProjectTree'
 import { useExpandedProjects } from './useExpandedProjects'
@@ -14,8 +14,11 @@ export interface SidebarProps {
   activeProjectId?: string
   sessions: SessionRecord[]
   activeSessionId?: string
+  workingSessionId?: string | null
+  activeModelId?: string | null
+  activeProviderId?: string
   onSelectProject: (projectId: string) => void
-  onSelectSession: (sessionId: string) => void
+  onSelectSession: (sessionId: string, projectId?: string) => void
   onNewSession: (projectId: string) => void
   onRenameSession: (sessionId: string, title: string) => void
   onDeleteSession: (sessionId: string) => void
@@ -31,6 +34,9 @@ export function Sidebar({
   activeProjectId,
   sessions,
   activeSessionId,
+  workingSessionId,
+  activeModelId,
+  activeProviderId,
   onSelectProject,
   onSelectSession,
   onNewSession,
@@ -53,6 +59,13 @@ export function Sidebar({
     onSelectProject(projectId)
   }
 
+  const handleQuickNewChat = (): void => {
+    const targetProjectId = activeProjectId || projects[0]?.id
+    if (targetProjectId) {
+      handleNewSession(targetProjectId)
+    }
+  }
+
   return (
     <aside className={`sidebar-container ${isOpen ? '' : 'collapsed'}`}>
       <div className="sidebar-header">
@@ -63,7 +76,7 @@ export function Sidebar({
           title={t('sidebar.searchTitle')}
         >
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px', overflow: 'hidden' }}>
-            <Search size={15} style={{ flexShrink: 0, opacity: 0.8 }} />
+            <Search size={14} style={{ flexShrink: 0, opacity: 0.8 }} />
             <span style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
               {t('sidebar.search')}
             </span>
@@ -75,11 +88,22 @@ export function Sidebar({
         <button
           type="button"
           className="sidebar-icon-btn"
+          onClick={handleQuickNewChat}
+          title={t('sidebar.newChat')}
+          aria-label={t('sidebar.newChat')}
+          disabled={projects.length === 0}
+        >
+          <SquarePen size={16} strokeWidth={1.8} />
+        </button>
+
+        <button
+          type="button"
+          className="sidebar-icon-btn"
           onClick={onToggle}
           title={t('sidebar.close')}
           aria-label={t('sidebar.close')}
         >
-          <PanelLeft size={18} className="rtl-flip" />
+          <PanelLeft size={17} className="rtl-flip" />
         </button>
       </div>
 
@@ -102,6 +126,9 @@ export function Sidebar({
               sessions={sessions}
               activeProjectId={activeProjectId}
               activeSessionId={activeSessionId}
+              workingSessionId={workingSessionId}
+              activeModelId={activeModelId}
+              activeProviderId={activeProviderId}
               expandedIds={expandedIds}
               onSelectProject={handleSelectProject}
               onToggleProject={toggleProject}
@@ -122,7 +149,7 @@ export function Sidebar({
           onClick={onOpenSettings}
           title={t('sidebar.settings')}
         >
-          <Settings size={17} />
+          <Settings size={16} />
           <span>{t('sidebar.settings')}</span>
         </button>
       </div>

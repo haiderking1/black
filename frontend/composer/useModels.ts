@@ -1,9 +1,9 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import * as Effect from 'effect/Effect'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 
 import type { ModelInfo } from '../../contracts/providers'
 import { describeRpcError, useRpcClient } from '../rpc'
-import { readModelCache, writeModelCache } from './models/cache'
+import { readModelCache } from './models/cache'
+import { isCatalogWarmed, loadProviderModels } from './models/prefetch'
 
 export interface UseModelsResult {
   models: readonly ModelInfo[]
@@ -18,37 +18,40 @@ function cachedState(providerId: string) {
   return { providerId, models: models ?? [], isLoading: providerId !== '' && models === undefined, error: null as string | null }
 }
 
-/** Paint the persisted catalog immediately, then refresh it in the background. */
+/** Paint cache immediately. Network happens at app start unless this catalog is still cold. */
 export function useModels(providerId: string): UseModelsResult {
   const client = useRpcClient()
   const initial = useMemo(() => cachedState(providerId), [providerId])
   const [state, setState] = useState(initial)
-  const pending = useRef<AbortController | null>(null)
 
   const reload = useCallback(async (): Promise<void> => {
     if (client === null || providerId === '') return
-    pending.current?.abort()
-    const controller = new AbortController()
-    pending.current = controller
     setState(cachedState(providerId))
     try {
-      const models = await Effect.runPromise(client['providers.listModels']({ providerId }), { signal: controller.signal })
-      if (controller.signal.aborted || pending.current !== controller) return
-      writeModelCache(providerId, models)
+      await loadProviderModels(client, providerId, { force: true })
       setState({ ...cachedState(providerId), isLoading: false })
     } catch (caught) {
-      if (controller.signal.aborted || pending.current !== controller) return
       setState({ ...cachedState(providerId), isLoading: false, error: describeRpcError(caught) })
-    } finally {
-      if (pending.current === controller) pending.current = null
     }
   }, [client, providerId])
 
   useEffect(() => {
     setState(cachedState(providerId))
-    void reload()
-    return () => { pending.current?.abort(); pending.current = null }
-  }, [providerId, reload])
+    if (client === null || providerId === '' || isCatalogWarmed(providerId)) return
+    let cancelled = false
+    void loadProviderModels(client, providerId)
+      .then(() => {
+        if (cancelled) return
+        setState({ ...cachedState(providerId), isLoading: false })
+      })
+      .catch((caught: unknown) => {
+        if (cancelled) return
+        setState({ ...cachedState(providerId), isLoading: false, error: describeRpcError(caught) })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [client, providerId])
 
   // Do not show the previous provider's catalog for one render during a switch.
   const visible = state.providerId === providerId ? state : initial

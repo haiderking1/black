@@ -1,6 +1,7 @@
 import * as Schema from 'effect/Schema'
 import { ModelInfo } from '../../../contracts/providers'
 import { readCached, writeCached } from '../../rpc/resourceCache'
+import { forgetCatalogWarm } from './session'
 
 export interface ModelCacheStorage {
   getItem(key: string): string | null
@@ -59,6 +60,7 @@ export function writeModelCache(providerId: string, models: readonly ModelInfo[]
 
 /** Credential/configuration changes must not reuse the previous account's list. */
 export function invalidateModelCache(providerId: string, storage = browserStorage()): void {
+  forgetCatalogWarm(providerId)
   // Also masks the old disk entry during this run if removal is denied.
   writeCached(memoryKey(providerId), [])
   try { storage?.removeItem(modelCacheKey(providerId)) } catch { /* Storage may be unavailable. */ }

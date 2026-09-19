@@ -13,6 +13,7 @@ import { openInFiles } from './open'
  */
 
 export { listDirectory, openDirectoryDialog, openInFiles }
+export { getGitBranch } from './git'
 export type { DirectoryEntry, DirectoryResult }
 
 export function getHomeDir(): string {

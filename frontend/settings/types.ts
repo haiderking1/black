@@ -27,8 +27,6 @@ export interface AppSettings {
    * authenticated, enabled provider.
    */
   selectedProviderId: string | null
-  /** Last model chosen per provider, so switching catalogs restores the pick. */
-  selectedModels: Record<string, string>
   /**
    * Reasoning effort chosen in the composer. A plain string because the value
    * is the vendor's own, and vendors do not share a vocabulary: GLM takes
