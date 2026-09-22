@@ -58,8 +58,11 @@ async function runSummarization(
   if (failure !== undefined) throw new Error(failure)
   if (summarizationTriedToolCall(response)) throw new Error(label + ' attempted to call a tool')
 
+  const text = extractSummarizationText(response)
+  if (text.trim() === '') throw new Error(label + ' failed: the provider returned an empty summary.')
+
   return {
-    text: extractSummarizationText(response),
+    text,
     usage: isUsage(response.usage) ? response.usage : zeroUsage()
   }
 }

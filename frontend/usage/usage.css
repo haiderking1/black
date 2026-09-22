@@ -1,0 +1,343 @@
+.codex-usage-page {
+  width: 100%;
+  max-width: 760px;
+  margin: 0;
+}
+
+.codex-usage-panel {
+  position: relative;
+  overflow: hidden;
+  padding: 22px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 16px;
+  background: var(--bg-sidebar);
+}
+
+.codex-usage-panel::before {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 2px;
+  background: linear-gradient(90deg, #7ccdb4, #78a8ef 62%, transparent);
+  content: '';
+}
+
+.codex-usage-panel-topline,
+.codex-usage-provider,
+.codex-usage-panel-actions {
+  display: flex;
+  align-items: center;
+}
+
+.codex-usage-panel-topline {
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.codex-usage-provider {
+  min-width: 0;
+  gap: 12px;
+}
+
+.codex-usage-provider-mark {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid rgba(124, 205, 180, 0.26);
+  border-radius: 12px;
+  background: rgba(124, 205, 180, 0.09);
+  color: #8ed8c1;
+}
+
+.codex-usage-provider > div {
+  display: grid;
+  gap: 3px;
+}
+
+.codex-usage-provider-label,
+.codex-usage-window-kicker {
+  color: var(--text-dim);
+  font-size: 10px;
+  font-weight: 650;
+  letter-spacing: 0.09em;
+  line-height: 1.3;
+  text-transform: uppercase;
+}
+
+.codex-usage-provider strong {
+  color: var(--text-primary);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.codex-usage-panel-actions {
+  gap: 10px;
+}
+
+.codex-usage-updated {
+  color: var(--text-dim);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+
+.codex-usage-refresh {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  border: 1px solid var(--border-subtle);
+  border-radius: 9px;
+  color: var(--text-secondary);
+  transition: color 140ms ease, border-color 140ms ease, background-color 140ms ease;
+}
+
+.codex-usage-refresh:hover:not(:disabled) {
+  border-color: var(--border-medium);
+  background: var(--bg-surface-hover);
+  color: var(--text-primary);
+}
+
+.codex-usage-refresh:disabled {
+  cursor: wait;
+  opacity: 0.58;
+}
+
+.codex-usage-refresh:focus-visible,
+.codex-usage-error button:focus-visible {
+  outline: 2px solid #8ed8c1;
+  outline-offset: 2px;
+}
+
+.codex-usage-refresh .is-spinning {
+  animation: codex-usage-spin 1s linear infinite;
+}
+
+.codex-usage-plan {
+  width: fit-content;
+  margin: 10px 0 0 50px;
+  padding: 3px 8px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 999px;
+  color: var(--text-muted);
+  font-size: 10px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.codex-usage-windows {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 12px;
+  margin-top: 23px;
+}
+
+.codex-usage-window {
+  --usage-accent: #8ed8c1;
+  min-width: 0;
+  padding: 17px 17px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 13px;
+  background: var(--bg-main);
+}
+
+.codex-usage-window-fiveHour {
+  --usage-accent: #91baf5;
+}
+
+.codex-usage-window[data-level='mid'] {
+  --usage-accent: #e7bd70;
+}
+
+.codex-usage-window[data-level='high'] {
+  --usage-accent: #ec887e;
+}
+
+.codex-usage-window-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.codex-usage-window-heading > div {
+  min-width: 0;
+}
+
+.codex-usage-window-heading h2 {
+  margin-top: 6px;
+  color: var(--text-primary);
+  font-size: 15px;
+  font-weight: 600;
+  line-height: 1.2;
+}
+
+.codex-usage-percent {
+  display: inline-flex;
+  align-items: baseline;
+  flex: 0 0 auto;
+  color: var(--usage-accent);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+}
+
+.codex-usage-percent strong {
+  font-size: 31px;
+  font-weight: 600;
+  letter-spacing: -0.06em;
+}
+
+.codex-usage-percent span {
+  margin-inline-start: 2px;
+  font-size: 13px;
+  font-weight: 550;
+}
+
+.codex-usage-meter {
+  height: 5px;
+  overflow: hidden;
+  margin-top: 21px;
+  border-radius: 99px;
+  background: var(--bg-surface-hover);
+}
+
+.codex-usage-meter > span {
+  height: 100%;
+  display: block;
+  border-radius: inherit;
+  background: var(--usage-accent);
+  transition: width 300ms ease;
+}
+
+.codex-usage-window-footer {
+  margin-top: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--text-dim);
+  font-size: 11px;
+}
+
+.codex-usage-reset {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 5px;
+  color: var(--text-secondary);
+  font-variant-numeric: tabular-nums;
+  text-align: end;
+}
+
+.codex-usage-reset svg {
+  flex: 0 0 auto;
+  color: var(--text-dim);
+}
+
+.codex-usage-missing,
+.codex-usage-empty {
+  padding: 18px;
+  border: 1px dashed var(--border-medium);
+  border-radius: 13px;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.5;
+}
+
+.codex-usage-error {
+  margin-top: 17px;
+  padding: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  border: 1px solid rgba(255, 120, 120, 0.25);
+  border-radius: 11px;
+  background: rgba(255, 120, 120, 0.07);
+  color: #ff9c9c;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.codex-usage-error > svg {
+  flex: 0 0 auto;
+  margin-top: 1px;
+}
+
+.codex-usage-error > div {
+  min-width: 0;
+  display: grid;
+  gap: 2px;
+}
+
+.codex-usage-error strong {
+  font-weight: 600;
+}
+
+.codex-usage-error span {
+  overflow-wrap: anywhere;
+  color: var(--text-secondary);
+}
+
+.codex-usage-error button {
+  margin-inline-start: auto;
+  flex: 0 0 auto;
+  padding: 3px 5px;
+  color: var(--text-primary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.codex-usage-loading {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr));
+  gap: 12px;
+  margin-top: 23px;
+}
+
+.codex-usage-loading span {
+  height: 116px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 13px;
+  background: linear-gradient(100deg, var(--bg-main) 25%, var(--bg-surface-hover) 45%, var(--bg-main) 65%);
+  background-size: 220% 100%;
+  animation: codex-usage-shimmer 1.4s ease-in-out infinite;
+}
+
+@keyframes codex-usage-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes codex-usage-shimmer {
+  to { background-position-x: -220%; }
+}
+
+@media (max-width: 680px) {
+  .codex-usage-page .settings-content-header {
+    margin-bottom: 28px;
+  }
+
+  .codex-usage-panel {
+    padding: 16px;
+  }
+}
+
+@media (max-width: 560px) {
+  .codex-usage-updated {
+    max-width: 86px;
+    text-align: end;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .codex-usage-refresh,
+  .codex-usage-meter > span {
+    transition: none;
+  }
+
+  .codex-usage-refresh .is-spinning,
+  .codex-usage-loading span {
+    animation: none;
+  }
+}

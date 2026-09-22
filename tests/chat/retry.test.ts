@@ -28,6 +28,15 @@ test('makes four retries after the initial failure with five second waits config
   expect(events.at(-1)).toEqual({ type: 'error', message: 'service unavailable' })
 })
 
+test('preserves diagnostics carried by a terminal error event', async () => {
+  const stream = async function* (): AsyncGenerator<ChatStreamEvent> {
+    yield { type: 'done', stopReason: 'error', message: 'invalid request body', errorStatus: 400 }
+  }
+  expect(await collect(retryModelStream(stream, undefined, async () => {}))).toEqual([
+    { type: 'error', message: 'invalid request body', errorStatus: 400 },
+  ])
+})
+
 test('recovers from an exception without exposing intermediate errors', async () => {
   let calls = 0
   const stream = async function* (): AsyncGenerator<ChatStreamEvent> {

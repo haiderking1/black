@@ -1,0 +1,16 @@
+.chat-column.chat-transcript-virtual {
+  position: relative;
+  display: block;
+  flex: none;
+  gap: 0;
+  overflow-anchor: none;
+  padding: 0;
+}
+
+.chat-transcript-virtual-row {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  will-change: transform;
+}

@@ -1,3 +1,4 @@
+import { describeError, messageFromBody, readErrorBody } from '../../errors'
 import { CLIENT_ID, TOKEN_URL } from './constants'
 import { accountIdFromAccessToken } from './jwt'
 import type { OAuthCredential, OAuthToken } from './types'
@@ -21,10 +22,9 @@ async function fetchWithLoginCancellation(
 
 async function readTokenResponse(response: Response, operation: TokenOperation): Promise<OAuthToken> {
   if (!response.ok) {
-    const text = await response.text().catch(() => '')
-    throw new Error(
-      'OpenAI Codex token ' + operation + ' failed (' + String(response.status) + '): ' + (text || response.statusText),
-    )
+    const body = await readErrorBody(response)
+    const detail = messageFromBody(body, response.statusText || 'The token service returned no error details.')
+    throw new Error('OpenAI Codex token ' + operation + ' failed (' + String(response.status) + '): ' + detail)
   }
 
   const rawJson: unknown = await response.json()
@@ -101,7 +101,7 @@ export async function refreshAccessToken(
     })
   } catch (error) {
     if (signal.aborted) throw new Error('Login cancelled')
-    throw new Error('OpenAI Codex token refresh error: ' + (error instanceof Error ? error.message : String(error)))
+    throw new Error('OpenAI Codex token refresh error: ' + describeError(error))
   }
   return readTokenResponse(response, 'refresh')
 }

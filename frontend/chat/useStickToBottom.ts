@@ -103,10 +103,17 @@ export function useStickToBottom(resetKey: string | undefined): UseStickToBottom
   useEffect(() => {
     pin(true)
     scrollToBottom('auto')
-    // Rebased for the new conversation, so its first scroll event is not
-    // compared against the previous conversation's position.
-    lastScrollTopRef.current = scrollRef.current?.scrollTop ?? 0
-    updateBottomPosition()
+    const frame = requestAnimationFrame(() => {
+      // Virtualized content may not have its measured total height until the
+      // first layout. Repeat once after that layout so a reopened long thread
+      // starts at its newest message rather than at the first rendered row.
+      if (pinnedRef.current) scrollToBottom('auto')
+      // Rebased for the new conversation, so its first scroll event is not
+      // compared against the previous conversation's position.
+      lastScrollTopRef.current = scrollRef.current?.scrollTop ?? 0
+      updateBottomPosition()
+    })
+    return () => cancelAnimationFrame(frame)
   }, [resetKey, pin, scrollToBottom, updateBottomPosition])
 
   // (2) Stay at the bottom while content grows.

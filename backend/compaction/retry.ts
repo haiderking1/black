@@ -254,7 +254,7 @@ export function retrySummarizationCall(
       const errorMessage =
         typeof response.errorMessage === 'string' && response.errorMessage !== ''
           ? response.errorMessage
-          : 'Unknown error'
+          : 'The provider returned an error without details.'
       lastRetry = { attempt, errorMessage }
 
       const delayMs = retryDelayMs(activePolicy, attempt)

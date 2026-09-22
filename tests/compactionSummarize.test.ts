@@ -68,9 +68,9 @@ describe('getSummarizationFailure', () => {
     expect(failure).toContain('socket closed')
   })
 
-  it('falls back to a generic reason when the provider sends no message', () => {
+  it('says when the provider omitted its error details instead of claiming the cause is unknown', () => {
     const failure = getSummarizationFailure(assistant({ stopReason: 'error' }), 'Summarization')
-    expect(failure).toContain('Unknown error')
+    expect(failure).toBe('Summarization failed: The provider returned an error without details.')
   })
 })
 
@@ -110,6 +110,12 @@ describe('generateSummary', () => {
     const { call } = recorder(assistant({ usage: { ...ZERO_USAGE, input: 3, totalTokens: 3 } }))
     const text = await generateSummary(MESSAGES, { reserveTokens: 1000, call })
     expect(text).toBe('TEXT')
+  })
+
+  it('reports an empty summary as a provider failure instead of a no-op compaction', async () => {
+    const { call } = recorder(assistant({ content: [{ type: 'text', text: '  ' }] }))
+    await expect(generateSummary(MESSAGES, { reserveTokens: 1000, call }))
+      .rejects.toThrow('Summarization failed: the provider returned an empty summary.')
   })
 
   it('returns text and usage from the full call', async () => {

@@ -21,6 +21,8 @@ export interface ReplyHandlers {
   onFailure(message: string): void
   /** The turn ended, with what the provider reported about it. */
   onDone(report: ReplyReport): void
+  /** Automatic context compaction has started. */
+  onCompacting(): void
   /** Older turns were folded into a summary before this turn was sent. */
   onCompacted(before: number, after: number | undefined): void
   /**
@@ -84,6 +86,11 @@ export async function consumeReply<E>(
           return
         }
 
+        if (event.type === 'compacting') {
+          handlers.onCompacting()
+          return
+        }
+
         if (event.type === 'compacted') {
           handlers.onCompacted(event.tokensBefore ?? 0, event.tokensAfter)
           return
@@ -116,7 +123,7 @@ export async function consumeReply<E>(
 
         if (event.type === 'error') {
           closeThinking()
-          handlers.onFailure(event.message ?? 'The stream failed.')
+          handlers.onFailure(event.message ?? 'The provider stream failed without an error message.')
           return
         }
 

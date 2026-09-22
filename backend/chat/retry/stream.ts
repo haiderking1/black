@@ -25,7 +25,13 @@ export async function* retryModelStream(
         if (signal?.aborted) { yield { type: 'done', stopReason: 'aborted' }; return }
         if (event.type === 'error') { failure = event; break }
         if (event.type === 'done' && event.stopReason === 'error') {
-          failure = { type: 'error', message: 'Model request failed.' }; break
+          failure = {
+            type: 'error',
+            message: event.message ?? 'The provider reported an error without details.',
+            ...(event.errorStatus === undefined ? {} : { errorStatus: event.errorStatus }),
+            ...(event.errorCode === undefined ? {} : { errorCode: event.errorCode }),
+          }
+          break
         }
         if (event.type === 'done') completed = true
         if ((event.type === 'text' && event.text) || (event.type === 'thinking' && event.text) || event.type === 'tool_calls') started = true

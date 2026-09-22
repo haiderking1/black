@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
 
+import { describeError } from '../../contracts/errorMessage'
 import { connectToDesktop } from './bootstrap'
 import type { Connection, ServerClient } from './client'
 
@@ -22,12 +23,7 @@ interface ConnectionState {
 const ConnectionContext = createContext<ConnectionState>({ client: null, error: null })
 
 function messageOf(error: unknown): string {
-  if (error instanceof Error) return error.message
-  if (typeof error === 'object' && error !== null) {
-    const candidate = (error as { message?: unknown }).message
-    if (typeof candidate === 'string' && candidate !== '') return candidate
-  }
-  return String(error)
+  return describeError(error, 'The desktop connection failed without an error message.')
 }
 
 export function ConnectionProvider({ children }: { children: ReactNode }): React.JSX.Element {

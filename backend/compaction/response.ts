@@ -22,7 +22,7 @@ export function getSummarizationFailure(response: AssistantMessage, label: strin
     const reason =
       typeof response.errorMessage === 'string' && response.errorMessage !== ''
         ? response.errorMessage
-        : 'Unknown error'
+        : 'The provider returned an error without details.'
     return label + ' failed: ' + reason
   }
   if (response.stopReason === 'length') {

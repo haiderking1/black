@@ -4,10 +4,12 @@ import { generateSessionTitle } from '../../sessions/title/generate'
 import * as Stream from 'effect/Stream'
 
 import { ProviderConfigError } from '../../../contracts/errors'
+import { describeError } from '../../../contracts/errorMessage'
 import type { ChatMessage as WireMessage, ChatStreamEvent } from '../../../contracts/chat'
 import { METHODS } from '../../../contracts/methods'
 import { abortRequest, beginRequest, endRequest } from '../../chat/inflight'
 import { fitContext, measureContext } from '../../chat/fitContext'
+import { createSummarizationCall } from '../../chat/summarizationCall'
 import type { TranscriptMessage } from '../../chat/transcript'
 import { withSystemPrompt } from '../../chat/systemPrompt'
 import { withLanguagePolicy } from '../../chat/language'
@@ -24,7 +26,6 @@ import { findDescriptor } from '../../providers/descriptors'
 import { createProvider } from '../../providers/create'
 import type {
   ChatRoute,
-  ChatStopReason,
   Provider,
 } from '../../providers/types'
 import type { ResolvedCompactionSettings, SummarizationCall } from '../../compaction'
@@ -38,7 +39,7 @@ import type { ResolvedCompactionSettings, SummarizationCall } from '../../compac
  */
 
 function asProviderError(error: unknown): ProviderConfigError {
-  return new ProviderConfigError({ message: error instanceof Error ? error.message : String(error) })
+  return new ProviderConfigError({ message: describeError(error) })
 }
 
 function buildProvider(providerId: string, apiKey: string): Provider | undefined {
@@ -87,57 +88,6 @@ function compactionSettings(contextWindow: number): ResolvedCompactionSettings {
   }
 }
 
-function asStopReason(reason: ChatStopReason): 'stop' | 'length' | 'error' | 'aborted' {
-  if (reason === 'length' || reason === 'aborted' || reason === 'error') return reason
-  return 'stop'
-}
-
-/**
- * One summarization round trip over the same provider the turn uses.
- *
- * The summary is asked for at a lower ceiling than the answer, because it is a
- * compression task and there is no reader waiting on its prose.
- */
-function summarizationCallFor(
-  provider: Provider,
-  providerId: string,
-  model: string,
-  signal: AbortSignal | undefined,
-  route?: ChatRoute
-): SummarizationCall {
-  return async (request) => {
-    const result = await provider.chat({
-      model,
-      messages: [
-        { role: 'system', content: request.systemPrompt },
-        { role: 'user', content: request.text }
-      ],
-      maxTokens: request.maxTokens,
-      ...(request.sessionId !== undefined ? { sessionId: request.sessionId } : {}),
-      ...(signal !== undefined ? { signal } : {}),
-      ...(route !== undefined ? { route } : {})
-    })
-
-    return {
-      role: 'assistant',
-      content: [{ type: 'text', text: result.text }],
-      api: 'chat',
-      provider: providerId,
-      model,
-      usage: {
-        input: Math.floor(result.usage.input),
-        output: Math.floor(result.usage.output),
-        cacheRead: 0,
-        cacheWrite: 0,
-        totalTokens: Math.floor(result.usage.total),
-        cost: { input: 0, output: 0, cacheRead: 0, cacheWrite: 0, total: 0 }
-      },
-      stopReason: asStopReason(result.stopReason),
-      timestamp: Date.now()
-    }
-  }
-}
-
 /**
  * The turns to actually send, once the transcript has been measured.
  *
@@ -154,7 +104,8 @@ async function fitRequest(
     sessionId?: string
     route?: ChatRoute
   },
-  signal: AbortSignal | undefined
+  signal: AbortSignal | undefined,
+  onCompactionStart?: () => void
 ): Promise<{
   messages: readonly TranscriptMessage[]
   contextWindow: number | undefined
@@ -183,8 +134,9 @@ async function fitRequest(
     messages: transcript,
     contextWindow,
     settings: compactionSettings(contextWindow),
-    call: summarizationCallFor(provider, providerId, payload.model, signal, payload.route),
-    ...(payload.sessionId !== undefined ? { sessionId: payload.sessionId } : {})
+    call: createSummarizationCall(provider, providerId, payload.model, signal, payload.route),
+    ...(payload.sessionId !== undefined ? { sessionId: payload.sessionId } : {}),
+    ...(onCompactionStart !== undefined ? { onCompactionStart } : {})
   })
 
   return {
@@ -299,12 +251,28 @@ export function chatHandlers() {
         activeController = controller
 
         try {
-          const fitted = await fitRequest(
+          let signalCompactionStart: () => void = () => undefined
+          const compactionStarted = new Promise<void>((resolve) => {
+            signalCompactionStart = resolve
+          })
+          const fitPromise = fitRequest(
             resolved.provider,
             payload.providerId,
             payload,
-            controller?.signal
+            controller?.signal,
+            signalCompactionStart
           )
+          const fitStart = await Promise.race([
+            fitPromise.then((fitted) => ({ type: 'fitted' as const, fitted })),
+            compactionStarted.then(() => ({ type: 'compacting' as const }))
+          ])
+          let fitted: Awaited<ReturnType<typeof fitRequest>>
+          if (fitStart.type === 'compacting') {
+            yield { type: 'compacting' }
+            fitted = await fitPromise
+          } else {
+            fitted = fitStart.fitted
+          }
 
           const provider = resolved.provider
           const workingDirectory = payload.workingDirectory
@@ -449,17 +417,12 @@ export function chatHandlers() {
             tokensAfter: 0
           }
 
-          let contextWindow: number
-          try {
-            contextWindow = await provider.contextWindowFor(payload.model, payload.route)
-          } catch {
-            return nothing
-          }
+          const contextWindow = await provider.contextWindowFor(payload.model, payload.route)
 
           const fitted = await fitContext({
             messages: transcript,
             contextWindow,
-            call: summarizationCallFor(provider, payload.providerId, payload.model, undefined, payload.route),
+            call: createSummarizationCall(provider, payload.providerId, payload.model, undefined, payload.route),
             // The same settings the automatic path uses. What differs is that
             // nothing here consults the context window, so a manual checkpoint
             // runs whenever there is something to fold up, not only when the

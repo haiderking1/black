@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useRef, useState } from 'react'
 import { PanelLeft } from 'lucide-react'
 import { WorkspaceTitle } from './workspace/WorkspaceTitle'
 import { Sidebar, useProjects, useSessions } from './sidebar'
@@ -6,13 +6,16 @@ import { Composer, QueuedMessages } from './composer'
 import { SpotlightModal } from './spotlight'
 import { refreshProjectGit } from './sidebar/useProjectGit'
 import { JumpToLatest, useChatTurns, useContextUsage, useConversations, useStickToBottom } from './chat'
-import { WorkingSection } from './working/WorkingSection'
-import { PreviewImage, PreviewProvider } from './lightbox'
+import { CompactionProgress } from './compaction'
+import { PreviewProvider } from './lightbox'
+import { MessageRow } from './chat/virtual/MessageRow'
+import { VirtualTranscript } from './chat/virtual/VirtualTranscript'
+import type { Message } from './chat/types'
 import { useRpcClient } from './rpc'
 import './chat/chat-scroll.css'
 import { useFloatingComposer } from './chat/floating-composer/useFloatingComposer'
 import './chat/message-images.css'
-import { LanguageProvider, directionFor, langFor } from './language'
+import { LanguageProvider } from './language'
 import { t } from './i18n'
 import { SettingsPage, useSettings } from './settings'
 import { useProviders } from './settings/useProviders'
@@ -21,6 +24,10 @@ import { activeProviderId, pickerRail, providerDisplayName } from './settings/ac
 import { readRoute, toChatRoute } from './composer/routing/storage'
 
 type AppView = 'chat' | 'settings'
+
+function messageKey(message: Message): string {
+  return message.id
+}
 
 export function App(): React.JSX.Element {
   const { settings, updateSetting, resetSettings } = useSettings()
@@ -82,6 +89,7 @@ export function App(): React.JSX.Element {
     queuedSends,
     activeReplyId,
     workingSessionId,
+    compactingSessionId,
     sendMessage,
     stop,
     dismissQueued,
@@ -109,6 +117,9 @@ export function App(): React.JSX.Element {
     flushConversations,
     onToolResult: refreshProjectGit
   })
+  const retryTurnRef = useRef(retryTurn)
+  retryTurnRef.current = retryTurn
+  const retryTurnStable = useCallback((messageId: string): void => retryTurnRef.current(messageId), [])
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -159,6 +170,14 @@ export function App(): React.JSX.Element {
       ? toChatRoute(readRoute(selectedModelId))
       : undefined
   )
+  const lastMessageId = messages.at(-1)?.id
+  const updateWorkExpanded = useCallback((messageId: string, expanded: boolean, blockKey?: string): void => {
+    if (activeSessionId === undefined) return
+    updateMessage(activeSessionId, messageId, previous => previous.work === undefined
+      ? { ...previous, workExpanded: expanded }
+      : { ...previous, work: { ...previous.work, ...(blockKey === undefined ? { expanded }
+        : { expandedBlocks: { ...previous.work.expandedBlocks, [blockKey]: expanded } }) } })
+  }, [activeSessionId, updateMessage])
 
   if (appView === 'settings') {
     return (
@@ -269,81 +288,24 @@ export function App(): React.JSX.Element {
               </h1>
             </div>
           ) : (
-            <div
-              ref={contentRef}
-              className="chat-column chat-transcript"
-            >
-              {messages.map((m) => {
-                const last = messages.at(-1)
-                const canRetry = m.id === last?.id && activeReplyId === null
-                  && (m.work?.status === 'failed' || m.work?.status === 'interrupted')
-                return (
-                <div
-                  key={m.id}
-                  className={m.role === 'user' ? 'user-turn' : 'assistant-turn'}
-                  style={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    width: '100%'
-                  }}
-                >
-                  <div
-                    style={{
-                      maxWidth: m.role === 'user' ? '75%' : '100%',
-                      padding: m.role === 'user' ? '10px 16px' : '4px 0',
-                      borderRadius: m.role === 'user' ? '18px' : '0',
-                      backgroundColor: m.role === 'user' ? 'var(--bg-surface)' : 'transparent',
-                      border: m.role === 'user' ? '1px solid var(--border-subtle)' : 'none',
-                      color: 'var(--text-primary)',
-                      fontSize: '15px',
-                      lineHeight: '1.6'
-                    }}
-                  >
-                    {/* Assistant turns are markdown. User text is left exactly as
-                        typed, so a stray asterisk is not silently emphasis. */}
-                    {m.role === 'assistant' ? (
-                      <WorkingSection message={m} active={m.id === activeReplyId}
-                        {...(canRetry ? { onRetry: () => retryTurn(m.id) } : {})}
-                        onExpandedChange={(expanded, blockKey) => {
-                          if (activeSessionId === undefined) return
-                          updateMessage(activeSessionId, m.id, previous => previous.work === undefined
-                            ? { ...previous, workExpanded: expanded }
-                            : { ...previous, work: { ...previous.work, ...(blockKey === undefined ? { expanded }
-                              : { expandedBlocks: { ...previous.work.expandedBlocks, [blockKey]: expanded } }) } })
-                        }} />
-                    ) : (
-                      <>
-                        {/* Above the text, in the order the message reads: the
-                            picture, then what was said about it. */}
-                        {m.images === undefined || m.images.length === 0 ? null : (
-                          <div className="message-images">
-                            {m.images.map((image, index) => (
-                              <PreviewImage
-                                key={String(index) + image.mimeType}
-                                className="message-image"
-                                src={'data:' + image.mimeType + ';base64,' + image.data}
-                                {...(image.name === undefined ? {} : { name: image.name })}
-                                alt={t(settings.language, 'chat.attachedImage')}
-                              />
-                            ))}
-                          </div>
-                        )}
-                        {m.content === '' ? null : (
-                          <span
-                            className="user-message-text"
-                            dir={directionFor(settings.language, m.content)}
-                            lang={langFor(settings.language, m.content)}
-                          >
-                            {m.content}
-                          </span>
-                        )}
-                      </>
-                    )}
-                  </div>
-                </div>
-                )
-              })}
-            </div>
+            <VirtualTranscript
+              key={activeSessionId ?? '__no-active-session__'}
+              items={messages}
+              scrollRef={scrollRef}
+              contentRef={contentRef}
+              itemKey={messageKey}
+              renderItem={(message) => (
+                <MessageRow
+                  message={message}
+                  active={message.id === activeReplyId}
+                  canRetry={message.id === lastMessageId && activeReplyId === null
+                    && (message.work?.status === 'failed' || message.work?.status === 'interrupted')}
+                  onRetry={retryTurnStable}
+                  onExpandedChange={updateWorkExpanded}
+                />
+              )}
+              footer={compactingSessionId === activeSessionId ? <CompactionProgress /> : null}
+            />
           )}
         </main>
         <JumpToLatest visible={!isAtBottom} onClick={() => jumpToBottom()} />

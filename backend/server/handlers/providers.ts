@@ -1,7 +1,10 @@
 import * as Effect from 'effect/Effect'
 
 import { ProviderConfigError } from '../../../contracts/errors'
+import { describeError } from '../../../contracts/errorMessage'
 import { METHODS } from '../../../contracts/methods'
+import { PROVIDER_ID as CODEX_ID } from '../../providers/codex/oauth/constants'
+import { fetchCodexUsage } from '../../providers/codex/usage'
 import { clearApiKey, readProviderEnabled, writeApiKey, writeOAuth, writeProviderEnabled } from '../../providers/credentialStore'
 import { resolveAccessToken, resolveApiKey } from '../../providers/credentials'
 import { findDescriptor, PROVIDER_DESCRIPTORS, type ProviderAuthKind } from '../../providers/descriptors'
@@ -37,7 +40,7 @@ export interface ProviderHandlerOptions {
 }
 
 function asProviderError(error: unknown): ProviderConfigError {
-  return new ProviderConfigError({ message: error instanceof Error ? error.message : String(error) })
+  return new ProviderConfigError({ message: describeError(error) })
 }
 
 function missingCredentialMessage(name: string, authKind: ProviderAuthKind): string {
@@ -135,6 +138,16 @@ async function requireProvider(providerId: string): Promise<Provider> {
 export function providerHandlers(options: ProviderHandlerOptions) {
   return {
     [METHODS.listProviders]: () => Effect.promise(() => listProviderStatuses()),
+
+    [METHODS.codexUsage]: () =>
+      Effect.tryPromise({
+        try: async () => {
+          const accessToken = await resolveAccessToken(CODEX_ID)
+          if (accessToken === undefined) throw new Error('Sign in to OpenAI Codex first.')
+          return await fetchCodexUsage({ accessToken })
+        },
+        catch: asProviderError,
+      }),
 
     [METHODS.setApiKey]: (payload: { providerId: string; apiKey: string }) =>
       Effect.tryPromise({

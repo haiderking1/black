@@ -21,6 +21,8 @@ export interface FitContextOptions {
   call: SummarizationCall
   /** Compact regardless of how full the context is. */
   force?: boolean
+  /** Called immediately before summary generation starts. */
+  onCompactionStart?: () => void
   sessionId?: string
 }
 
@@ -52,7 +54,7 @@ export interface FittedContext {
  * permanently. The first is recoverable by the reader, the second is not.
  */
 export async function fitContext(options: FitContextOptions): Promise<FittedContext> {
-  const { messages, contextWindow, settings, call, force = false, sessionId } = options
+  const { messages, contextWindow, settings, call, force = false, sessionId, onCompactionStart } = options
 
   const entries = toEntries(messages)
   const tokensBefore = measureContext(messages)
@@ -65,6 +67,8 @@ export async function fitContext(options: FitContextOptions): Promise<FittedCont
   if (preparation === undefined) {
     return { messages, compacted: false, tokensBefore, tokensAfter: tokensBefore }
   }
+
+  onCompactionStart?.()
 
   const summarization: SummarizationOptions = {
     reserveTokens: settings.reserveTokens,

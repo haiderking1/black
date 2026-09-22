@@ -6,7 +6,7 @@
  * Zen and Go both serve.
  */
 
-import { ProviderError, messageFromBody } from '../errors'
+import { ProviderError, describeError, messageFromBody, readErrorBody } from '../errors'
 import type { FetchLike, ModelInfo } from '../types'
 import { createTtlCache, type TtlCache } from '../cache'
 import { MODELS_PATH, joinUrl } from './endpoints'
@@ -63,17 +63,12 @@ export function createCatalog(options: CatalogOptions): Catalog {
       throw new ProviderError(
         options.providerId,
         'network',
-        error instanceof Error ? error.message : String(error),
+        describeError(error),
       )
     }
 
     if (!response.ok) {
-      let body: unknown
-      try {
-        body = await response.json()
-      } catch {
-        body = undefined
-      }
+      const body = await readErrorBody(response)
       throw new ProviderError(
         options.providerId,
         response.status === 429 ? 'rate_limit' : 'server',

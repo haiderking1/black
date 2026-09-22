@@ -3,6 +3,7 @@ import { describe, expect, it } from 'bun:test'
 import { ProviderError, type ProviderErrorCode } from '../backend/providers/errors'
 import { createCatalog } from '../backend/providers/opencode/catalog'
 import { createChatClient } from '../backend/providers/opencode/client'
+import { createStreamingClient } from '../backend/providers/opencode/stream'
 import { joinUrl } from '../backend/providers/opencode/endpoints'
 
 const BASE = 'https://example.test/zen/go/v1'
@@ -95,14 +96,28 @@ describe('catalog', () => {
       providerId: 'opencode-go',
       baseUrl: BASE,
       fetchImpl: async () => {
-        throw new Error('dns exploded')
+        throw new Error('fetch failed', { cause: new Error('getaddrinfo ENOTFOUND models.test') })
       },
     })
     try {
       await catalog.list()
     } catch (error) {
       expect((error as ProviderError).code).toBe('network')
+      expect((error as ProviderError).message).toBe('getaddrinfo ENOTFOUND models.test')
     }
+  })
+})
+
+describe('stream errors', () => {
+  it('preserves non-JSON HTTP error details', async () => {
+    const streaming = createStreamingClient({
+      baseUrl: BASE,
+      apiKey: 'k',
+      fetchImpl: async () => new Response('invalid reasoning mode', { status: 400 }),
+    })
+    const events = []
+    for await (const event of streaming.stream({ model: 'm', messages: [] })) events.push(event)
+    expect(events[0]).toMatchObject({ type: 'error', message: 'invalid reasoning mode', errorStatus: 400 })
   })
 })
 

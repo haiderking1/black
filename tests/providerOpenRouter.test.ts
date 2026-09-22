@@ -317,6 +317,21 @@ describe('openrouter stream', () => {
     return new Response(body, { status, headers: { 'Content-Type': 'text/event-stream' } })
   }
 
+  it('surfaces a plain-text HTTP error body', async () => {
+    const client = createStreamingClient({
+      baseUrl: BASE,
+      apiKey: 'k',
+      fetchImpl: async () => new Response('unsupported parameter: max_output_tokens', { status: 400 }),
+    })
+    const events = []
+    for await (const event of client.stream({ model: 'm', messages: [] })) events.push(event)
+    expect(events[0]).toMatchObject({
+      type: 'error',
+      message: 'unsupported parameter: max_output_tokens',
+      errorStatus: 400,
+    })
+  })
+
   it('carries mid-stream error_type and status', async () => {
     const client = createStreamingClient({
       baseUrl: BASE,

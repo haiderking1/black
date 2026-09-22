@@ -64,6 +64,7 @@ export interface UseChatTurnsResult {
   activeReplyId: string | null
   activeRequestId: string | null
   workingSessionId: string | null
+  compactingSessionId: string | null
   sendMessage: (content: string, options?: ComposerSubmitOptions) => Promise<void>
   stop: () => void
   dismissQueued: (requestId: string) => void
@@ -105,6 +106,7 @@ export function useChatTurns(options: UseChatTurnsOptions): UseChatTurnsResult {
   const [activeReplyId, setActiveReplyId] = useState<string | null>(null)
   const [activeRequestId, setActiveRequestId] = useState<string | null>(null)
   const [workingSessionId, setWorkingSessionId] = useState<string | null>(null)
+  const [compactingSessionId, setCompactingSessionId] = useState<string | null>(null)
 
   const sendQueueRef = useRef<QueuedSend[]>([])
   const [queuedSends, setQueuedSends] = useState<QueuedSend[]>([])
@@ -116,16 +118,32 @@ export function useChatTurns(options: UseChatTurnsOptions): UseChatTurnsResult {
   }, [getMessages])
 
   const runCompact = async (sessionId: string, model: string): Promise<void> => {
-    await compactConversation({
-      client: clientRef.current,
-      sessionId,
-      model,
-      providerId,
-      language: languageRef.current,
-      getMessages: messagesRef.current,
-      appendMessage,
-      replaceMessages
-    })
+    if (busyRef.current || clientRef.current === null || messagesRef.current(sessionId).length === 0) return
+    busyRef.current = true
+    setWorkingSessionId(sessionId)
+    setCompactingSessionId(sessionId)
+    try {
+      await compactConversation({
+        client: clientRef.current,
+        sessionId,
+        model,
+        providerId,
+        language: languageRef.current,
+        getMessages: messagesRef.current,
+        appendMessage,
+        replaceMessages
+      })
+    } finally {
+      setCompactingSessionId(null)
+      setWorkingSessionId(null)
+      busyRef.current = false
+      const drained = takeNextSend(sendQueueRef.current)
+      if (drained !== undefined) {
+        sendQueueRef.current = drained.rest
+        setQueuedSends(drained.rest)
+        void runSend(drained.next)
+      }
+    }
   }
 
   const sendMessage = async (
@@ -337,6 +355,7 @@ export function useChatTurns(options: UseChatTurnsOptions): UseChatTurnsResult {
     activeReplyId,
     activeRequestId,
     workingSessionId,
+    compactingSessionId,
     sendMessage,
     stop,
     dismissQueued,

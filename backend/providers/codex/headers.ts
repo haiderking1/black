@@ -11,6 +11,8 @@ export function buildCodexHeaders(options: {
   accessToken: string
   accountId: string
   sessionId?: string
+  accept?: string
+  contentType?: string | null
 }): Headers {
   const headers = new Headers()
   headers.set('Authorization', 'Bearer ' + options.accessToken)
@@ -18,8 +20,8 @@ export function buildCodexHeaders(options: {
   headers.set('originator', ORIGINATOR)
   headers.set('User-Agent', userAgent())
   headers.set('OpenAI-Beta', OPENAI_BETA_RESPONSES)
-  headers.set('accept', 'text/event-stream')
-  headers.set('content-type', 'application/json')
+  headers.set('accept', options.accept ?? 'text/event-stream')
+  if (options.contentType !== null) headers.set('content-type', options.contentType ?? 'application/json')
   if (options.sessionId !== undefined && options.sessionId !== '') {
     headers.set('session-id', options.sessionId)
     headers.set('x-client-request-id', options.sessionId)

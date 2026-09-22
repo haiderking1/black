@@ -25,6 +25,7 @@ export interface TurnWork {
   status: WorkStatus
   error?: string
   retry?: TurnRetry
+  compacting?: boolean
   /** Only a deliberate header toggle sets this. No automatic collapsing. */
   expanded?: boolean
   expandedBlocks?: Record<string, boolean>

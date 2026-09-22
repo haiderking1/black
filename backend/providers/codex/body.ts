@@ -16,7 +16,6 @@ export interface CodexRequestBody {
   tool_choice: 'auto'
   parallel_tool_calls: true
   temperature?: number
-  max_output_tokens?: number
   tools?: unknown[]
   reasoning?: { effort: string; summary: 'auto' }
 }
@@ -42,9 +41,6 @@ export function buildRequestBody(request: ChatRequest): CodexRequestBody {
     ...(cacheKey !== undefined ? { prompt_cache_key: cacheKey } : {}),
   }
 
-  if (request.maxTokens !== undefined) {
-    body['max_output_tokens'] = request.maxTokens
-  }
   if (request.temperature !== undefined) body.temperature = request.temperature
 
   if (request.tools !== undefined && request.tools.length > 0) {

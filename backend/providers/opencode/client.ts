@@ -10,7 +10,7 @@ import { buildMessage } from './message'
 
 import { randomUUID } from 'node:crypto'
 
-import { ProviderError, codeFromStatus, messageFromBody } from '../errors'
+import { ProviderError, codeFromStatus, describeError, messageFromBody, readErrorBody } from '../errors'
 import type { ChatRequest, ChatResult, ChatStopReason, FetchLike } from '../types'
 import { CHAT_COMPLETIONS_PATH, joinUrl } from './endpoints'
 import { extractContent } from './reasoning'
@@ -128,7 +128,17 @@ export function createChatClient(options: ChatClientOptions) {
         throw new ProviderError(
           options.providerId,
           'network',
-          error instanceof Error ? error.message : String(error),
+          describeError(error),
+        )
+      }
+
+      if (!response.ok) {
+        const body = await readErrorBody(response)
+        throw new ProviderError(
+          options.providerId,
+          codeFromStatus(response.status),
+          messageFromBody(body, 'Request failed with status ' + response.status),
+          response.status,
         )
       }
 
@@ -138,16 +148,6 @@ export function createChatClient(options: ChatClientOptions) {
       } catch {
         parsed = undefined
       }
-
-      if (!response.ok) {
-        throw new ProviderError(
-          options.providerId,
-          codeFromStatus(response.status),
-          messageFromBody(parsed, 'Request failed with status ' + response.status),
-          response.status,
-        )
-      }
-
       const completion = parseCompletion(parsed, options.providerId)
       return {
         text: completion.text,

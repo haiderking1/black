@@ -1,3 +1,4 @@
+import { describeError, messageFromBody, readErrorBody } from '../../errors'
 import type { OAuthCredential } from '../../codex/oauth/types'
 import { CLIENT_TYPE, REFRESH_URL, TOKEN_URL } from './constants'
 
@@ -106,10 +107,9 @@ function readTokenResponse(
 
 async function readJsonResponse(response: Response, operation: TokenOperation): Promise<unknown> {
   if (!response.ok) {
-    const text = await response.text().catch(() => '')
-    throw new Error(
-      'Cline token ' + operation + ' failed (' + String(response.status) + '): ' + (text || response.statusText),
-    )
+    const body = await readErrorBody(response)
+    const detail = messageFromBody(body, response.statusText || 'The token service returned no error details.')
+    throw new Error('Cline token ' + operation + ' failed (' + String(response.status) + '): ' + detail)
   }
   return response.json()
 }
@@ -156,7 +156,7 @@ export async function refreshClineToken(
     })
   } catch (error) {
     if (signal.aborted) throw new Error('Login cancelled')
-    throw new Error('Cline token refresh error: ' + (error instanceof Error ? error.message : String(error)))
+    throw new Error('Cline token refresh error: ' + describeError(error))
   }
   if (!response.ok && (response.status === 400 || response.status === 401 || response.status === 403)) {
     const text = await response.text().catch(() => '')

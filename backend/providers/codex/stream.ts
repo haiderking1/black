@@ -1,4 +1,4 @@
-import { messageFromBody, providerErrorIdentifier } from '../errors'
+import { describeError, messageFromBody, providerErrorIdentifier, readErrorBody } from '../errors'
 import type { ChatRequest, ChatStopReason, ChatStreamEvent, ChatUsage, FetchLike, ToolCall } from '../types'
 import { accountIdFromAccessToken } from './oauth/jwt'
 import { buildRequestBody } from './body'
@@ -120,14 +120,10 @@ function eventType(event: Record<string, unknown>): string {
 
 function errorFromEvent(event: Record<string, unknown>): string | undefined {
   const type = eventType(event)
-  if (type === 'error') {
-    const nested = asRecord(event['error'])
-    return asString(event['message']) ?? asString(nested?.['message']) ?? 'Codex error'
-  }
+  if (type === 'error') return messageFromBody(event, 'Codex stream returned an error without details.')
   if (type === 'response.failed') {
     const response = asRecord(event['response'])
-    const error = asRecord(response?.['error'])
-    return asString(error?.['message']) ?? 'Codex response failed'
+    return messageFromBody(response?.['error'], 'Codex response failed without error details.')
   }
   return undefined
 }
@@ -145,7 +141,7 @@ export function createStreamingClient(options: StreamChatOptions): StreamingClie
       try {
         accountId = accountIdFromAccessToken(options.apiKey)
       } catch (error) {
-        yield { type: 'error', message: error instanceof Error ? error.message : String(error), errorCode: 'auth' }
+        yield { type: 'error', message: describeError(error), errorCode: 'auth' }
         return
       }
 
@@ -173,17 +169,12 @@ export function createStreamingClient(options: StreamChatOptions): StreamingClie
           yield { type: 'done', stopReason: 'aborted', usage: { input: 0, output: 0, total: 0 } }
           return
         }
-        yield { type: 'error', message: error instanceof Error ? error.message : String(error) }
+        yield { type: 'error', message: describeError(error) }
         return
       }
 
       if (!response.ok) {
-        let parsed: unknown
-        try {
-          parsed = await response.json()
-        } catch {
-          parsed = undefined
-        }
+        const parsed = await readErrorBody(response)
         yield {
           type: 'error',
           message: usageLimitMessage(parsed, messageFromBody(parsed, 'Streaming request failed with status ' + String(response.status))),
@@ -309,7 +300,7 @@ export function createStreamingClient(options: StreamChatOptions): StreamingClie
           yield { type: 'done', stopReason: 'aborted', usage: readUsage(usageRecord) }
           return
         }
-        yield { type: 'error', message: error instanceof Error ? error.message : String(error) }
+        yield { type: 'error', message: describeError(error) }
         return
       } finally {
         request.signal?.removeEventListener('abort', onAbort)

@@ -188,6 +188,7 @@ export const ChatStreamEvent = Schema.Struct({
     'done',
     'error',
     'retry',
+    'compacting',
     'compacted',
     'tool_calls',
     'tool_result',

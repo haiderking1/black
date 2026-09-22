@@ -14,7 +14,7 @@ export function finishWork(message: Message, status: WorkStatus, now: number, er
   const parts = closeThinking(work.parts, now).map(p => p.type !== 'tools' ? p : {
     ...p, runs: p.runs.map(run => run.result !== undefined ? run : { ...run, interrupted: true })
   })
-  const next: TurnWork = { ...withoutRetry(work), parts, status, updatedAt: now,
+  const next: TurnWork = { ...withoutRetry(work), parts, status, updatedAt: now, compacting: false,
     elapsedMs: Math.max(0, now - work.startedAt), ...(error === undefined ? {} : { error }) }
   return { ...message, work: next, content: splitWork(next).answer }
 }
@@ -23,7 +23,7 @@ export function finishWork(message: Message, status: WorkStatus, now: number, er
 export function applyWorkEvent(message: Message, event: ChatStreamEvent, now: number): Message {
   const work = message.work ?? startWork(now)
   if (work.status !== 'active') return message
-  if (event.type === 'error') return finishWork({ ...message, work }, 'failed', now, event.message ?? 'The stream failed.')
+  if (event.type === 'error') return finishWork({ ...message, work }, 'failed', now, event.message ?? 'The provider stream failed without an error message.')
   if (event.type === 'retry') {
     const attempt = event.attempt ?? 1
     const maxAttempts = event.maxAttempts ?? attempt
@@ -34,20 +34,21 @@ export function applyWorkEvent(message: Message, event: ChatStreamEvent, now: nu
         attempt: Number.isSafeInteger(attempt) && attempt > 0 ? attempt : 1,
         maxAttempts: Number.isSafeInteger(maxAttempts) && maxAttempts > 0 ? maxAttempts : 1,
         delayMs: event.delayMs !== undefined && Number.isSafeInteger(event.delayMs) && event.delayMs >= 0 ? event.delayMs : 0,
-        error: event.message ?? 'Model request failed.',
+        error: event.message ?? 'The provider returned no details for this retry.',
       },
     } }
   }
   if (event.type === 'done') {
     const status = event.stopReason === 'aborted' ? 'stopped' : event.stopReason === 'error' ? 'failed'
       : event.stopReason === 'length' ? 'incomplete' : 'completed'
-    return finishWork({ ...message, work }, status, now, status === 'failed' ? 'The stream failed.' : undefined)
+    return finishWork({ ...message, work }, status, now, status === 'failed' ? 'The provider stream ended with an error but supplied no details.' : undefined)
   }
+  if (event.type === 'compacting') return { ...message, work: { ...work, compacting: true, updatedAt: now } }
   if (event.type === 'compacted') return { ...message, compacted: {
     before: event.tokensBefore ?? 0, ...(event.tokensAfter === undefined ? {} : { after: event.tokensAfter }),
     ...(event.summary === undefined ? {} : { summary: event.summary }),
     ...(event.firstKeptMessageId === undefined ? {} : { firstKeptMessageId: event.firstKeptMessageId })
-  }, work: { ...work, updatedAt: now } }
+  }, work: { ...work, compacting: false, updatedAt: now } }
 
   // Old live servers do not supply rounds. Do not infer them from accumulated fields.
   // New servers always attach a round to activity events.

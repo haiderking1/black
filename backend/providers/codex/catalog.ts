@@ -21,11 +21,8 @@ const STANDARD_EFFORT = ['low', 'medium', 'high', 'xhigh']
 const MAX_EFFORT = ['low', 'medium', 'high', 'xhigh', 'max']
 
 /**
- * Models the ChatGPT Codex backend currently serves.
- *
- * The vendor does not publish a public catalog for this subscription path, so
- * the list is the one Codex itself accepts. A model added here shows up in the
- * picker; one removed here is dropped.
+ * Bundled Codex metadata for known model capabilities. The live model list
+ * comes from the authenticated Codex models endpoint.
  */
 export const CODEX_MODELS: readonly CodexModel[] = [
   {

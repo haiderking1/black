@@ -5,7 +5,7 @@
  * sent.
  */
 
-import { messageFromBody, providerErrorIdentifier } from '../errors'
+import { describeError, messageFromBody, providerErrorIdentifier, readErrorBody } from '../errors'
 import type { ChatRequest, ChatStopReason, ChatStreamEvent, ChatUsage, FetchLike } from '../types'
 import { extractStreamParts } from '../opencode/reasoning'
 import { ToolCallAccumulator } from '../opencode/toolCalls'
@@ -146,17 +146,12 @@ export function createStreamingClient(options: StreamChatOptions): StreamingClie
           yield { type: 'done', stopReason: 'aborted', usage: { input: 0, output: 0, total: 0 } }
           return
         }
-        yield { type: 'error', message: error instanceof Error ? error.message : String(error) }
+        yield { type: 'error', message: describeError(error) }
         return
       }
 
       if (!response.ok) {
-        let parsed: unknown
-        try {
-          parsed = await response.json()
-        } catch {
-          parsed = undefined
-        }
+        const parsed = await readErrorBody(response)
         yield {
           type: 'error',
           message: messageFromBody(parsed, 'Streaming request failed with status ' + response.status),
@@ -226,7 +221,7 @@ export function createStreamingClient(options: StreamChatOptions): StreamingClie
           yield { type: 'done', stopReason: 'aborted', usage: readUsage(usage) }
           return
         }
-        yield { type: 'error', message: error instanceof Error ? error.message : String(error) }
+        yield { type: 'error', message: describeError(error) }
         return
       } finally {
         reader.releaseLock()

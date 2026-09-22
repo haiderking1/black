@@ -2,6 +2,7 @@ import { expect, it } from 'bun:test'
 import React from 'react'
 import { renderToStaticMarkup } from 'react-dom/server'
 import { WorkingSection } from '../../frontend/working/WorkingSection'
+import { applyWorkEvent } from '../../frontend/working/reducer'
 import { PreviewProvider } from '../../frontend/lightbox/PreviewContext'
 import { replay, rounds, fresh } from './fixtures'
 import type { Message } from '../../frontend/chat/types'
@@ -28,6 +29,13 @@ it('does not add redundant work to an ordinary text-only reply', () => {
   const html = render(replay([{ type: 'text', round: 0, text: 'Hello' }, { type: 'done', stopReason: 'stop' }]))
   expect(html).not.toContain('working-header')
   expect(html).toContain('Hello')
+})
+
+it('shows context compaction while an automatic checkpoint is running', () => {
+  const message = applyWorkEvent(fresh(), { type: 'compacting' }, 1200)
+  expect(render(message)).toContain('Compacting context')
+  expect(render(applyWorkEvent(message, { type: 'compacted', tokensBefore: 100, tokensAfter: 50 }, 1300)))
+    .not.toContain('Compacting context')
 })
 
 it('shows Working only for live activity, not completed or cancelled turns', () => {

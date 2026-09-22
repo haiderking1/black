@@ -28,6 +28,7 @@ export function isTurnWork(x: unknown): x is TurnWork {
     || !optional(x.elapsedMs, time) || !optional(x.expanded, v => typeof v === 'boolean')
     || !optional(x.expandedBlocks, v => record(v) && Object.entries(v).every(([k, value]) => /^work:\d+$/.test(k) && typeof value === 'boolean'))
     || !optional(x.error, v => typeof v === 'string')
+    || !optional(x.compacting, v => typeof v === 'boolean')
     || !optional(x.retry, isTurnRetry)
     || !['active', 'completed', 'stopped', 'failed', 'interrupted', 'incomplete'].includes(String(x.status))
     || !Array.isArray(x.parts)) return false

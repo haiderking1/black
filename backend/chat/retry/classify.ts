@@ -1,3 +1,4 @@
+import { describeError } from '../../../contracts/errorMessage'
 import { isRetryableAssistantError } from './policy'
 import { ProviderError } from '../../providers/errors'
 import type { ChatStreamEvent } from '../../providers/types'
@@ -32,7 +33,7 @@ export function retryableModelError(error: Pick<ChatStreamEvent, 'message' | 'er
 export function modelErrorEvent(error: unknown): ChatStreamEvent {
   return {
     type: 'error',
-    message: error instanceof Error ? error.message : String(error),
+    message: describeError(error),
     ...(error instanceof ProviderError ? { errorCode: error.code, ...(error.status === undefined ? {} : { errorStatus: error.status }) } : {}),
   }
 }

@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useState } from 'react'
-import { ArrowLeft, Palette, Plug, SlidersHorizontal } from 'lucide-react'
+import { ArrowLeft, Gauge, Palette, Plug, SlidersHorizontal } from 'lucide-react'
 import { AppearanceSettings } from './AppearanceSettings'
 import { GeneralSettings } from './GeneralSettings'
 import { ProvidersSettings } from './ProvidersSettings'
 import { InstructionsSettings } from './instructions/InstructionsSettings'
+import { CodexUsagePage } from '../usage/CodexUsagePage'
 import type { AppSettings } from './types'
 import type { ProjectItemData } from '../spotlight'
 import { useT } from '../i18n'
@@ -17,7 +18,7 @@ export interface SettingsPageProps {
   onClose: () => void
 }
 
-type SettingsSection = 'general' | 'appearance' | 'providers' | 'instructions'
+type SettingsSection = 'general' | 'appearance' | 'providers' | 'usage' | 'instructions'
 
 export function SettingsPage({
   settings,
@@ -79,6 +80,15 @@ export function SettingsPage({
             <Plug size={16} aria-hidden="true" />
             <span>{t('settings.nav.providers')}</span>
           </button>
+          <button
+            type="button"
+            className={`settings-navigation-item ${activeSection === 'usage' ? 'active' : ''}`}
+            aria-current={activeSection === 'usage' ? 'page' : undefined}
+            onClick={() => selectSection('usage')}
+          >
+            <Gauge size={16} aria-hidden="true" />
+            <span>{t('settings.nav.usage')}</span>
+          </button>
           <button type="button" className={`settings-navigation-item ${activeSection === 'instructions' ? 'active' : ''}`} aria-current={activeSection === 'instructions' ? 'page' : undefined} onClick={() => selectSection('instructions')}>
             <SlidersHorizontal size={16} aria-hidden="true" /><span>{t('settings.nav.instructions')}</span>
           </button>
@@ -97,6 +107,8 @@ export function SettingsPage({
           <AppearanceSettings settings={settings} onChange={onChange} />
         ) : activeSection === 'instructions' ? (
           <InstructionsSettings projects={projects} onDirtyChange={setInstructionsDirty} />
+        ) : activeSection === 'usage' ? (
+          <CodexUsagePage />
         ) : (
           <ProvidersSettings />
         )}

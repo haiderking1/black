@@ -50,6 +50,13 @@ for (const [stopReason, status] of [['aborted', 'stopped'], ['length', 'incomple
   })
 }
 
+it('shows compaction in progress and clears it when compaction or the turn ends', () => {
+  const compacted = applyWorkEvent(fresh(), { type: 'compacting' }, 1200)
+  expect(compacted.work?.compacting).toBe(true)
+  expect(applyWorkEvent(compacted, { type: 'compacted', tokensBefore: 100, tokensAfter: 50 }, 1300).work?.compacting).toBe(false)
+  expect(applyWorkEvent(compacted, { type: 'done', stopReason: 'aborted' }, 1400).work?.compacting).toBe(false)
+})
+
 it('keeps a live retry on the turn and drops it when the next attempt speaks', () => {
   let m = applyWorkEvent(fresh(), { type: 'retry', attempt: 1, maxAttempts: 4, delayMs: 5000, message: 'Internal server error' }, 1200)
   expect(m.work?.status).toBe('active')
@@ -69,6 +76,11 @@ it('does not treat a retry announcement as the end of the stream', async () => {
   expect(message.work?.status).toBe('completed')
   expect(message.content).toBe('recovered')
   expect(message.work?.retry).toBeUndefined()
+})
+
+it('uses a specific fallback when a provider error event has no message', () => {
+  const m = replay([{ type: 'error' }])
+  expect(m.work?.error).toBe('The provider stream failed without an error message.')
 })
 
 it('keeps partial answers on provider errors and ignores events after terminal status', () => {

@@ -4,7 +4,8 @@ import { arch, platform, release } from 'node:os'
 import { createCodexProvider } from '../backend/providers/codex'
 import { buildRequestBody } from '../backend/providers/codex/body'
 import { listCodexModels, thinkingFor, imagesFor, contextWindowFor } from '../backend/providers/codex/catalog'
-import { resolveCodexUrl } from '../backend/providers/codex/endpoints'
+import { resolveCodexModelsUrl, resolveCodexUrl } from '../backend/providers/codex/endpoints'
+import { CODEX_CLIENT_VERSION } from '../backend/providers/codex/remoteCatalog'
 import { buildCodexHeaders, userAgent } from '../backend/providers/codex/headers'
 import { convertMessages, convertTools } from '../backend/providers/codex/messages'
 import { ORIGINATOR } from '../backend/providers/codex/oauth/constants'
@@ -34,6 +35,63 @@ describe('Codex catalog', () => {
     expect(ids).toContain('gpt-5.6-sol')
     expect(ids).toContain('gpt-6-astra')
     expect(ids).toContain('gpt-5.3-codex-spark')
+  })
+
+  it('discovers newly released models from the authenticated Codex catalog', async () => {
+    let requestedUrl = ''
+    let requestedHeaders: Headers | undefined
+    const provider = createCodexProvider({
+      baseUrl: 'https://chatgpt.test/backend-api',
+      apiKey: accessToken('acct'),
+      fetchImpl: async (input, init) => {
+        requestedUrl = input
+        requestedHeaders = new Headers(init?.headers)
+        return jsonResponse({
+          models: [
+            {
+              slug: 'gpt-7-codex',
+              display_name: 'GPT-7 Codex',
+              visibility: 'list',
+              supported_in_api: true,
+              context_window: 256_000,
+              minimal_client_version: '0.155.0',
+              supported_reasoning_levels: [{ effort: 'medium' }, { effort: 'high' }, { effort: 'xhigh' }, { effort: 'ultra' }],
+              shell_type: 'shell_command',
+              input_modalities: ['text', 'image'],
+            },
+          ],
+        })
+      },
+    })
+
+    const models = await provider.listModels()
+    expect(models).toContainEqual({
+      id: 'gpt-7-codex',
+      ownedBy: 'openai',
+      created: 0,
+      name: 'GPT-7 Codex',
+    })
+    expect(new URL(requestedUrl).pathname).toBe('/backend-api/codex/models')
+    expect(new URL(requestedUrl).searchParams.get('client_version')).toBe(CODEX_CLIENT_VERSION)
+    expect(CODEX_CLIENT_VERSION).toBe('0.155.0')
+    expect(requestedHeaders?.get('chatgpt-account-id')).toBe('acct')
+    expect(await provider.contextWindowFor('gpt-7-codex')).toBe(256_000)
+    expect(await provider.thinkingFor('gpt-7-codex')).toEqual({
+      reasoning: true,
+      kind: 'effort',
+      levels: ['medium', 'high', 'xhigh', 'ultra'],
+    })
+    expect(await provider.supportsImages('gpt-7-codex')).toBe(true)
+    expect(await provider.supportsToolCalls('gpt-7-codex')).toBe(true)
+  })
+
+  it('surfaces model-discovery failures instead of silently returning the bundled list', async () => {
+    const provider = createCodexProvider({
+      apiKey: accessToken('acct'),
+      fetchImpl: async () => jsonResponse({ message: 'models endpoint denied this token' }, 403),
+    })
+
+    await expect(provider.listModels()).rejects.toThrow('models endpoint denied this token')
   })
 
   it('exposes effort levels the Responses API accepts', () => {
@@ -116,6 +174,15 @@ describe('Codex request conversion', () => {
     expect(body.stream).toBe(true)
   })
 
+  it('omits maxTokens because the Codex Responses endpoint rejects max_output_tokens', () => {
+    const body = buildRequestBody({
+      model: 'gpt-6-luna',
+      messages: [{ role: 'user', content: 'Summarize this conversation.' }],
+      maxTokens: 20_000,
+    })
+    expect(body).not.toHaveProperty('max_output_tokens')
+  })
+
   it('maps minimal effort to low and omits off', () => {
     expect(
       buildRequestBody({
@@ -135,10 +202,14 @@ describe('Codex request conversion', () => {
 })
 
 describe('Codex headers and URL', () => {
-  it('points at the ChatGPT Responses endpoint', () => {
+  it('points at the ChatGPT Responses and model catalog endpoints', () => {
     expect(resolveCodexUrl()).toBe('https://chatgpt.com/backend-api/codex/responses')
     expect(resolveCodexUrl('https://chatgpt.com/backend-api/')).toBe(
       'https://chatgpt.com/backend-api/codex/responses',
+    )
+    expect(resolveCodexModelsUrl()).toBe('https://chatgpt.com/backend-api/codex/models')
+    expect(resolveCodexModelsUrl('https://chatgpt.com/backend-api/codex/responses')).toBe(
+      'https://chatgpt.com/backend-api/codex/models',
     )
   })
 
@@ -235,6 +306,28 @@ describe('Codex stream', () => {
     expect(events[0]?.type).toBe('error')
     expect(events[0]?.message).toMatch(/ChatGPT usage limit \(plus plan\)/)
     expect(events[0]?.errorStatus).toBe(429)
+  })
+
+  it('surfaces validation details from a rejected summary or chat request', async () => {
+    const streaming = createStreamingClient({
+      baseUrl: 'https://chatgpt.com/backend-api',
+      apiKey: accessToken('acct'),
+      fetchImpl: async () => jsonResponse({ detail: [{ loc: ['body', 'max_output_tokens'], msg: 'value is too large' }] }, 400),
+    })
+    const events = []
+    for await (const event of streaming.stream({ model: 'gpt-6-luna', messages: [] })) events.push(event)
+    expect(events[0]).toMatchObject({ type: 'error', errorStatus: 400, message: 'value is too large' })
+  })
+
+  it('preserves a plain-text provider rejection instead of showing only its status', async () => {
+    const streaming = createStreamingClient({
+      baseUrl: 'https://chatgpt.com/backend-api',
+      apiKey: accessToken('acct'),
+      fetchImpl: async () => new Response('invalid max_output_tokens', { status: 400 }),
+    })
+    const events = []
+    for await (const event of streaming.stream({ model: 'gpt-6-luna', messages: [] })) events.push(event)
+    expect(events[0]).toMatchObject({ type: 'error', errorStatus: 400, message: 'invalid max_output_tokens' })
   })
 
   it('reports truncated EOF rather than completing a partial answer', async () => {

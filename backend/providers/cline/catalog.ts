@@ -8,7 +8,7 @@
  * `recommended` stays out.
  */
 
-import { ProviderError, messageFromBody } from '../errors'
+import { ProviderError, describeError, messageFromBody, readErrorBody } from '../errors'
 import { createTtlCache, type TtlCache } from '../cache'
 import type { FetchLike, ModelInfo, ThinkingSupport } from '../types'
 import { authorOf, CLINE_REASONING_EFFORTS, FALLBACK_CONTEXT_WINDOW, readCapabilities } from './capabilities'
@@ -323,17 +323,12 @@ async function fetchJson(
     throw new ProviderError(
       providerId,
       'network',
-      error instanceof Error ? error.message : String(error),
+      describeError(error),
     )
   }
 
   if (!response.ok) {
-    let body: unknown
-    try {
-      body = await response.json()
-    } catch {
-      body = undefined
-    }
+    const body = await readErrorBody(response)
     throw new ProviderError(
       providerId,
       response.status === 429 ? 'rate_limit' : response.status === 401 || response.status === 403 ? 'auth' : 'server',

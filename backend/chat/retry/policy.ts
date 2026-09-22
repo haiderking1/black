@@ -205,7 +205,7 @@ export async function retryAssistantCall(
 		}
 
 		attempt++;
-		lastRetry = { attempt, errorMessage: response.errorMessage || "Unknown error" };
+		lastRetry = { attempt, errorMessage: response.errorMessage || "Provider returned an error without details." };
 		const delayMs = retryDelayMs(policy!, attempt);
 		await callbacks?.onRetryScheduled?.(attempt, maxAttempts, delayMs, lastRetry.errorMessage);
 

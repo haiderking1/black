@@ -11,7 +11,7 @@
  */
 
 import { createTtlCache, type TtlCache } from '../cache'
-import { ProviderError } from '../errors'
+import { ProviderError, describeError, messageFromBody, readErrorBody } from '../errors'
 import type { FetchLike, ThinkingSupport } from '../types'
 
 export const MODELS_DEV_URL = 'https://models.dev/api.json'
@@ -176,14 +176,15 @@ export function createLimitsSource(options: LimitsOptions = {}): LimitsSource {
     try {
       response = await doFetch(MODELS_DEV_URL)
     } catch (error) {
-      throw new ProviderError('opencode-go', 'network', error instanceof Error ? error.message : String(error))
+      throw new ProviderError('opencode-go', 'network', describeError(error))
     }
 
     if (!response.ok) {
+      const body = await readErrorBody(response)
       throw new ProviderError(
         'opencode-go',
         'server',
-        'Model limits request failed with status ' + response.status,
+        messageFromBody(body, 'Model limits request failed with status ' + response.status),
         response.status,
       )
     }

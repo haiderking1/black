@@ -3,6 +3,7 @@ import * as Rpc from 'effect/unstable/rpc/Rpc'
 import * as RpcGroup from 'effect/unstable/rpc/RpcGroup'
 
 import { FsError, ProviderConfigError } from './errors'
+import { CodexUsage } from './codexUsage'
 import { DirectoryResult, GitBranchInput, GitBranchResult, ListDirectoryInput, OpenInFilesInput } from './fs'
 import {
   ChatCancelInput,
@@ -72,6 +73,11 @@ const GetCwdRpc = Rpc.make(METHODS.getCwd, {
 
 const ListProvidersRpc = Rpc.make(METHODS.listProviders, {
   success: Schema.Array(ProviderStatus),
+})
+
+const CodexUsageRpc = Rpc.make(METHODS.codexUsage, {
+  success: CodexUsage,
+  error: ProviderConfigError,
 })
 
 const SetApiKeyRpc = Rpc.make(METHODS.setApiKey, {
@@ -176,6 +182,7 @@ export const ServerRpcs = RpcGroup.make(
   GetHomeDirRpc,
   GetCwdRpc,
   ListProvidersRpc,
+  CodexUsageRpc,
   SetApiKeyRpc,
   ClearApiKeyRpc,
   SetEnabledRpc,

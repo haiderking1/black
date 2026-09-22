@@ -41,6 +41,7 @@ function stubHandlers(events: readonly ChatStreamEvent[] = [{ type: 'text', text
     [METHODS.getCwd]: () => Effect.succeed('/stub-cwd'),
     [METHODS.getGitBranch]: () => Effect.succeed({ isRepo: true, branch: 'main' }),
     [METHODS.listProviders]: () => Effect.succeed([]),
+    [METHODS.codexUsage]: () => Effect.succeed({ planType: null, fetchedAt: 0, weekly: null, fiveHour: null }),
     [METHODS.setApiKey]: () =>
       Effect.succeed({
         id: 'opencode-go',
@@ -190,6 +191,8 @@ describe('rpc wire', () => {
       expect(await Effect.runPromise(connection.client[METHODS.getCwd]())).toBe('/stub-cwd')
       const providers = await Effect.runPromise(connection.client[METHODS.listProviders]())
       expect(providers).toEqual([])
+      const usage = await Effect.runPromise(connection.client[METHODS.codexUsage]())
+      expect(usage).toEqual({ planType: null, fetchedAt: 0, weekly: null, fiveHour: null })
       const endpoints = await Effect.runPromise(
         connection.client[METHODS.listEndpoints]({ providerId: 'openrouter', model: 'anthropic/claude-sonnet-4' }),
       )

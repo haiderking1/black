@@ -574,6 +574,17 @@ describe('Cline chat errors', () => {
 })
 
 describe('Cline stream', () => {
+  it('shows the Cline HTTP error body when it is plain text', async () => {
+    const streaming = createStreamingClient({
+      baseUrl: BASE,
+      apiKey: 'tok',
+      fetchImpl: async () => new Response('model is not available', { status: 404 }),
+    })
+    const events = []
+    for await (const event of streaming.stream({ model: 'm', messages: [] })) events.push(event)
+    expect(events[0]).toMatchObject({ type: 'error', message: 'model is not available', errorStatus: 404 })
+  })
+
   it('posts completions to api.cline.bot and yields text', async () => {
     let seen = ''
     let posted: Record<string, unknown> = {}

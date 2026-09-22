@@ -29,6 +29,7 @@ export const PROVIDER_METHODS = {
   startOAuth: 'providers.startOAuth',
   cancelOAuth: 'providers.cancelOAuth',
   submitOAuthCode: 'providers.submitOAuthCode',
+  codexUsage: 'providers.codexUsage',
 } as const
 
 /** Chat completions. */

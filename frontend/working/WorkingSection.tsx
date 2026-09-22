@@ -1,6 +1,6 @@
 import React from 'react'
 import type { Message } from '../chat/types'
-import { CompactionNotice } from '../compaction'
+import { CompactionNotice, CompactionProgress } from '../compaction'
 import { Markdown } from '../markdown'
 import { useT } from '../i18n'
 import { useWorkLabel } from './useWorkLabel'
@@ -42,6 +42,7 @@ export function WorkingSection({ message, active, onRetry, onExpandedChange }: {
   const label = useWorkLabel(work, running)
   const hasWork = blocks.some(block => block.type === 'work')
   return <div className="assistant-turn">
+    {work?.compacting === true ? <CompactionProgress /> : null}
     {message.compacted === undefined ? null : <CompactionNotice tokensBefore={message.compacted.before}
       tokensAfter={message.compacted.after} isStreaming={running && blocks.length === 0} />}
     {blocks.map(block => block.type === 'text'

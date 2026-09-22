@@ -6,7 +6,7 @@
  * not consulted: its ids do not match OpenRouter slugs.
  */
 
-import { ProviderError, messageFromBody } from '../errors'
+import { ProviderError, describeError, messageFromBody, readErrorBody } from '../errors'
 import { createTtlCache, type TtlCache } from '../cache'
 import type { FetchLike, ModelInfo, ThinkingSupport } from '../types'
 import { authorOf, readCapabilities } from './capabilities'
@@ -98,17 +98,12 @@ export function createCatalog(options: CatalogOptions): Catalog {
       throw new ProviderError(
         options.providerId,
         'network',
-        error instanceof Error ? error.message : String(error),
+        describeError(error),
       )
     }
 
     if (!response.ok) {
-      let body: unknown
-      try {
-        body = await response.json()
-      } catch {
-        body = undefined
-      }
+      const body = await readErrorBody(response)
       throw new ProviderError(
         options.providerId,
         response.status === 429 ? 'rate_limit' : response.status === 401 || response.status === 403 ? 'auth' : 'server',
