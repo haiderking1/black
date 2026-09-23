@@ -20,6 +20,8 @@ export interface ChatClientOptions {
   baseUrl: string
   apiKey: string
   fetchImpl?: FetchLike
+  /** OpenCode requires a session header; other OpenAI-compatible gateways do not. */
+  sessionHeader?: boolean
 }
 
 interface ParsedCompletion {
@@ -97,6 +99,7 @@ export function createChatClient(options: ChatClientOptions) {
         messages: request.messages.map(buildMessage),
       }
       if (request.maxTokens !== undefined) body['max_tokens'] = request.maxTokens
+      if (request.tools !== undefined && request.tools.length > 0) body['tools'] = request.tools
       if (request.temperature !== undefined) body['temperature'] = request.temperature
       // 'default' means send nothing at all, leaving the model to decide.
       // 'off' is accepted too, for settings saved before it was renamed, and is
@@ -115,7 +118,7 @@ export function createChatClient(options: ChatClientOptions) {
             Authorization: 'Bearer ' + options.apiKey,
             // Go rejects a request without this header outright, so it is always
             // sent rather than only when a caller thought to provide one.
-            [SESSION_HEADER]: request.sessionId ?? fallbackSessionId,
+            ...(options.sessionHeader === false ? {} : { [SESSION_HEADER]: request.sessionId ?? fallbackSessionId }),
           },
           body: JSON.stringify(body),
           ...(request.signal !== undefined ? { signal: request.signal } : {}),

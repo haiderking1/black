@@ -58,4 +58,22 @@ describe('pickerRail', () => {
       { id: 'openrouter', name: 'openrouter' },
     ])
   })
+
+  it('keeps Jev off the rail even when TypeSafe is enabled and keyed', () => {
+    expect(
+      pickerRail([
+        status('opencode-go'),
+        status('typesafe', { role: 'service' }),
+      ]),
+    ).toEqual([{ id: 'opencode-go', name: 'opencode-go' }])
+  })
+})
+
+describe('activeProviderId with Jev', () => {
+  it('does not pick TypeSafe as the chat provider', () => {
+    expect(activeProviderId('typesafe', [
+      status('typesafe', { role: 'service' }),
+      status('opencode-go'),
+    ])).toBe('opencode-go')
+  })
 })

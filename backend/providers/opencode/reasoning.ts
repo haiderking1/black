@@ -1,3 +1,5 @@
+import { serializeReasoningDetails } from './reasoningDetails'
+
 /**
  * Extracting reasoning from a completion.
  *
@@ -113,17 +115,8 @@ function serializeSignatures(signatures: string[]): string | undefined {
 
 /** Serialize replay metadata, which arrives as an array of details. */
 function signatureOf(candidate: Record<string, unknown>): string | undefined {
-  const details = candidate['reasoning_details']
-  if (details === undefined || details === null) {
-    const direct = asNonEmptyString(candidate['thinkingSignature'])
-    return direct
-  }
-  try {
-    const serialized = JSON.stringify(details)
-    return serialized === undefined || serialized === '[]' ? undefined : serialized
-  } catch {
-    return undefined
-  }
+  return serializeReasoningDetails(candidate['reasoning_details'])
+    ?? asNonEmptyString(candidate['thinkingSignature'])
 }
 
 /** Content arrays have an order; sibling channels do not. Reasoning siblings precede content. */

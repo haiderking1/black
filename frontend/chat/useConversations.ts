@@ -1,17 +1,18 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { Message } from './types'
 import { loadConversations } from './conversations/storage'
-import { applyMessageUpdate, removeMessage, removeConversationsBySessionIds } from './conversations/state'
+import { applyMessageUpdate, insertMessageAfter as insertAfter, removeMessage, removeConversationsBySessionIds } from './conversations/state'
 import { createFramePublisher } from './conversations/publication'
 import { createConversationPersistence } from './conversations/persistence'
 import { recordRecovery } from './conversations/recovery'
 
 export { loadConversations, saveConversations } from './conversations/storage'
-export { applyMessageUpdate, removeMessage, removeConversationsBySessionIds } from './conversations/state'
+export { applyMessageUpdate, insertMessageAfter, removeMessage, removeConversationsBySessionIds } from './conversations/state'
 
 export interface UseConversationsResult {
   getMessages: (sessionId: string) => Message[]
   appendMessage: (sessionId: string, message: Message) => void
+  insertMessageAfter: (sessionId: string, afterMessageId: string, message: Message) => void
   /**
    * Rewrite one message. Used to grow a streaming reply in place, to append
    * reasoning beside it, and to retain partial output when a run is interrupted.
@@ -77,6 +78,20 @@ export function useConversations(): UseConversationsResult {
     })
   }, [publish])
 
+  const insertMessageAfter = useCallback(
+    (sessionId: string, afterMessageId: string, message: Message): void => {
+      publish((prev) => {
+        const existing = prev[sessionId] ?? []
+        if (existing.some((item) => item.id === message.id)) return prev
+        const anchorIndex = existing.findIndex((item) => item.id === afterMessageId)
+        const recoveryAnchor = anchorIndex === -1 ? existing.at(-1)?.id ?? null : afterMessageId
+        recordRecovery({ kind: 'message', sessionId, message, afterId: recoveryAnchor })
+        return insertAfter(prev, sessionId, afterMessageId, message)
+      })
+    },
+    [publish]
+  )
+
   const updateMessage = useCallback(
     (sessionId: string, messageId: string, update: (previous: Message) => Message): void => {
       let settled = false
@@ -114,6 +129,7 @@ export function useConversations(): UseConversationsResult {
   return {
     getMessages,
     appendMessage,
+    insertMessageAfter,
     updateMessage,
     replaceMessages,
     deleteMessage,

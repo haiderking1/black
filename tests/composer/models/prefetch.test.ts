@@ -174,5 +174,6 @@ test('catalogsToPrefetch keeps enabled signed-in ids in list order', () => {
     { id: 'openrouter', enabled: true, authenticated: false },
     { id: 'opencode-go', enabled: true, authenticated: true },
     { id: 'cline', enabled: true, authenticated: true },
+    { id: 'typesafe', enabled: true, authenticated: true, role: 'service' },
   ])).toEqual(['cline', 'opencode-go'])
 })

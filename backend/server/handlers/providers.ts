@@ -7,7 +7,7 @@ import { PROVIDER_ID as CODEX_ID } from '../../providers/codex/oauth/constants'
 import { fetchCodexUsage } from '../../providers/codex/usage'
 import { clearApiKey, readProviderEnabled, writeApiKey, writeOAuth, writeProviderEnabled } from '../../providers/credentialStore'
 import { resolveAccessToken, resolveApiKey } from '../../providers/credentials'
-import { findDescriptor, PROVIDER_DESCRIPTORS, type ProviderAuthKind } from '../../providers/descriptors'
+import { findDescriptor, PROVIDER_DESCRIPTORS, type ProviderAuthKind, type ProviderRole } from '../../providers/descriptors'
 import { createProvider } from '../../providers/create'
 import { clearClineCatalogCache } from '../../providers/cline/catalogStore'
 import { PROVIDER_ID as CLINE_ID } from '../../providers/cline/oauth/constants'
@@ -33,6 +33,7 @@ export interface ProviderStatus {
   authenticated: boolean
   modelCount: number | null
   authKind: ProviderAuthKind
+  role: ProviderRole
 }
 
 export interface ProviderHandlerOptions {
@@ -54,7 +55,7 @@ function buildProvider(providerId: string, apiKey: string): Provider | undefined
 }
 
 function statusFromDescriptor(
-  descriptor: { id: string; name: string; baseUrl: string; authKind: ProviderAuthKind },
+  descriptor: { id: string; name: string; baseUrl: string; authKind: ProviderAuthKind; role: ProviderRole },
   fields: { enabled: boolean; authenticated: boolean; modelCount: number | null },
 ): ProviderStatus {
   return {
@@ -62,6 +63,7 @@ function statusFromDescriptor(
     name: descriptor.name,
     baseUrl: descriptor.baseUrl,
     authKind: descriptor.authKind,
+    role: descriptor.role,
     ...fields,
   }
 }
@@ -91,7 +93,7 @@ async function describeProvider(providerId: string): Promise<ProviderStatus> {
   const authenticated = apiKey !== undefined
 
   let modelCount: number | null = null
-  if (apiKey !== undefined) {
+  if (apiKey !== undefined && descriptor.role !== 'service') {
     try {
       const provider = buildProvider(providerId, apiKey)
       if (provider !== undefined) modelCount = (await provider.listModels()).length

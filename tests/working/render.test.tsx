@@ -39,6 +39,7 @@ it('shows context compaction while an automatic checkpoint is running', () => {
 })
 
 it('shows Working only for live activity, not completed or cancelled turns', () => {
+  expect(render(fresh())).toContain('Working for ')
   expect(render(replay(rounds.slice(0, 4)))).toContain('Working for ')
   expect(render(replay([...rounds.slice(0, 4), { type: 'done', stopReason: 'aborted' }]))).not.toContain('Working for ')
   expect(render(replay([...rounds.slice(0, 4), { type: 'done', stopReason: 'aborted' }]))).toContain('Stopped')

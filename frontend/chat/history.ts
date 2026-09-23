@@ -1,6 +1,41 @@
 import type { Message } from './types'
 
 /**
+ * Reorder queued user rows into the actual send sequence before a request is
+ * built. This matters when a queued send is moved ahead of an older one.
+ */
+export function orderMessagesForSend(
+  messages: readonly Message[],
+  currentMessageId: string,
+  queuedMessageIds: readonly string[]
+): readonly Message[] {
+  const current = messages.find((message) => message.id === currentMessageId)
+  if (current === undefined || current.role !== 'user') return messages
+
+  const messagesById = new Map<string, Message>()
+  for (const message of messages) {
+    if (!messagesById.has(message.id)) messagesById.set(message.id, message)
+  }
+  const pending = new Map<string, Message>()
+  for (const id of queuedMessageIds) {
+    if (id === currentMessageId || pending.has(id)) continue
+    const message = messagesById.get(id)
+    if (message?.role === 'user') pending.set(id, message)
+  }
+
+  const movedIds = new Set([currentMessageId, ...pending.keys()])
+  const ordered = [
+    ...messages.filter((message) => !movedIds.has(message.id)),
+    current,
+    ...pending.values()
+  ]
+  if (ordered.length === messages.length && ordered.every((message, index) => message === messages[index])) {
+    return messages as Message[]
+  }
+  return ordered
+}
+
+/**
  * The conversation up to, but not including, one message.
  *
  * A queued turn appends its user message when it is queued but only sends when

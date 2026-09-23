@@ -9,6 +9,7 @@ import { createOpenCodeProvider } from './opencode'
 import { createOpenRouterProvider } from './openrouter'
 import { createClineProvider } from './cline'
 import { createCodexProvider } from './codex'
+import { createExperientialProvider } from './experiential'
 import type { Provider } from './types'
 
 export function createProvider(providerId: string, apiKey: string): Provider | undefined {
@@ -16,5 +17,6 @@ export function createProvider(providerId: string, apiKey: string): Provider | u
   if (providerId === 'openrouter') return createOpenRouterProvider({ apiKey })
   if (providerId === 'openai-codex') return createCodexProvider({ apiKey })
   if (providerId === 'cline') return createClineProvider({ apiKey })
+  if (providerId === 'experiential') return createExperientialProvider({ apiKey })
   return undefined
 }

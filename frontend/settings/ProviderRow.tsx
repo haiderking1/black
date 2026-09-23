@@ -2,7 +2,7 @@ import React, { useId, useState } from 'react'
 import { ChevronDown, Eye, EyeOff, Trash2 } from 'lucide-react'
 
 import type { ProviderStatus } from '../../contracts/providers'
-import { ClineLogo, CodexLogo, OpenCodeLogo, OpenRouterLogo } from '../providers'
+import { ClineLogo, CodexLogo, ExperientialLogo, OpenCodeLogo, OpenRouterLogo, ProviderLogo, TypeSafeLogo } from '../providers'
 import { useT } from '../i18n'
 import { OAuthPanel } from './oauth/OAuthPanel'
 import { oauthCopyKey } from './oauth/copy'
@@ -13,10 +13,8 @@ const LOGOS: Record<string, (props: { size?: number }) => React.JSX.Element> = {
   openrouter: OpenRouterLogo,
   'openai-codex': CodexLogo,
   cline: ClineLogo,
-}
-
-function NetworkMark(): React.JSX.Element {
-  return <span className="settings-provider-logo-fallback" aria-hidden="true" />
+  typesafe: TypeSafeLogo,
+  experiential: ExperientialLogo,
 }
 
 interface ProviderRowProps {
@@ -83,7 +81,7 @@ export function ProviderRow({
           onClick={() => { setExpanded(value => !value); setRevealed(false) }}
         >
           <span className="settings-provider-logo">
-            {Logo !== undefined ? <Logo size={24} /> : <NetworkMark />}
+            {Logo !== undefined ? <Logo size={24} /> : <ProviderLogo providerId={provider.id} fallbackLabel={provider.name} size={24} />}
             {ready ? <span className="settings-provider-dot" role="img" aria-label={readyLabel} title={readyLabel} /> : null}
           </span>
           <span className="settings-provider-copy">
@@ -169,7 +167,7 @@ export function ProviderRow({
           ) : null}
         </div>
         <p className="settings-provider-hint">
-          {t('providers.keyHint')}
+          {t(oauthCopyKey('providers.keyHint', provider.id))}
         </p>
       </div> : null}
       </div>

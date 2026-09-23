@@ -37,6 +37,8 @@ export interface StreamChatOptions {
   baseUrl: string
   apiKey: string
   fetchImpl?: FetchLike
+  /** Disable OpenCode's session header for other OpenAI-compatible gateways. */
+  sessionHeader?: boolean
 }
 
 /** Values meaning "send no reasoning parameter", in either vocabulary. */
@@ -151,7 +153,7 @@ export function createStreamingClient(options: StreamChatOptions): StreamingClie
             'Content-Type': 'application/json',
             Accept: 'text/event-stream',
             Authorization: 'Bearer ' + options.apiKey,
-            ...(request.sessionId !== undefined ? { 'x-opencode-session': request.sessionId } : {}),
+            ...(options.sessionHeader !== false && request.sessionId !== undefined ? { 'x-opencode-session': request.sessionId } : {}),
           },
           body: JSON.stringify(buildBody(request)),
           ...(request.signal !== undefined ? { signal: request.signal } : {}),

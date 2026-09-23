@@ -64,6 +64,8 @@ export const en = {
   'providers.enabledAria': '{name} enabled',
   'providers.enabledWithKey': 'Enabled with API key',
   'providers.keyHint': 'Stored in your agent directory and sent only to this provider.',
+  'providers.keyHint.typesafe': 'Get a key from console.typesafe.ai/settings/keys. TypeSafe is not a chat model.',
+  'providers.keyHint.experiential': 'Get a key from platform.experientiallabs.ai/settings/api-keys. Stored locally and sent only to Experiential Labs.',
   'providers.signIn': 'Sign in with ChatGPT',
   'providers.signingIn': 'Waiting for ChatGPT…',
   'providers.waitingBrowser': 'Complete sign-in in your browser, or paste the redirect URL.',

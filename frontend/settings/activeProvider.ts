@@ -1,10 +1,14 @@
-import type { ProviderStatus } from '../../contracts/providers'
+import { isChatProvider, type ProviderStatus } from '../../contracts/providers'
 
-/** Enabled providers on the model-picker rail, keyed or not. */
+function chatProviders(providers: readonly ProviderStatus[]): ProviderStatus[] {
+  return providers.filter((entry) => isChatProvider(entry.role))
+}
+
+/** Enabled chat providers on the model-picker rail, keyed or not. */
 export function pickerRail(
   providers: readonly ProviderStatus[],
 ): Array<{ id: string; name: string }> {
-  return providers
+  return chatProviders(providers)
     .filter((entry) => entry.enabled)
     .map((entry) => ({ id: entry.id, name: entry.name }))
 }
@@ -14,7 +18,7 @@ export function activeProviderId(
   selected: string | null,
   providers: readonly ProviderStatus[],
 ): string {
-  const enabled = providers.filter((entry) => entry.enabled)
+  const enabled = chatProviders(providers).filter((entry) => entry.enabled)
   if (selected !== null && enabled.some((entry) => entry.id === selected)) return selected
   // Status has not arrived yet. Keep the saved id rather than flashing OpenCode
   // and writing that catalog's first model over the stored one.

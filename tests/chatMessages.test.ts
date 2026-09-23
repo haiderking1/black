@@ -1,15 +1,49 @@
 import { describe, expect, it } from 'bun:test'
 
-import { applyMessageUpdate } from '../frontend/chat/useConversations'
+import { applyMessageUpdate, insertMessageAfter } from '../frontend/chat/useConversations'
+import { historyBefore, orderMessagesForSend } from '../frontend/chat/history'
 import type { Message } from '../frontend/chat/types'
 
 function message(id: string, content: string): Message {
   return { id, role: 'assistant', content, timestamp: '00:00' }
 }
 
+function userMessage(id: string, content: string): Message {
+  return { id, role: 'user', content, timestamp: '00:00' }
+}
+
 const conversations: Record<string, Message[]> = {
   s1: [message('m1', 'hello'), message('m2', 'wor')],
 }
+
+describe('insertMessageAfter', () => {
+  it('places a queued reply before later queued user messages', () => {
+    const queued: Record<string, Message[]> = {
+      s1: [userMessage('u1', 'first'), message('a1', 'answer'), userMessage('u2', 'second'), userMessage('u3', 'third')]
+    }
+    const ordered = insertMessageAfter(queued, 's1', 'u2', message('a2', 'second answer'))
+    expect(ordered['s1']?.map((item) => item.id)).toEqual(['u1', 'a1', 'u2', 'a2', 'u3'])
+    expect(historyBefore(ordered['s1']!, 'u3').map((item) => item.id)).toEqual(['u1', 'a1', 'u2', 'a2'])
+  })
+
+  it('orders steered sends before waiting prompts and carries their replies into later history', () => {
+    const submitted: Record<string, Message[]> = {
+      s1: [userMessage('u1', 'first'), message('a1', 'answer'), userMessage('u2', 'second'), userMessage('u3', 'third')]
+    }
+    const steered = orderMessagesForSend(submitted['s1']!, 'u3', ['u2'])
+    expect(steered.map((item) => item.id)).toEqual(['u1', 'a1', 'u3', 'u2'])
+    expect(historyBefore(steered, 'u3').map((item) => item.id)).toEqual(['u1', 'a1'])
+
+    const withReply = insertMessageAfter({ s1: [...steered] }, 's1', 'u3', message('a3', 'third answer'))['s1']!
+    const nextSend = orderMessagesForSend(withReply, 'u2', [])
+    expect(historyBefore(nextSend, 'u2').map((item) => item.id)).toEqual(['u1', 'a1', 'u3', 'a3'])
+  })
+
+  it('does not insert the same reply twice', () => {
+    const ordered = insertMessageAfter(conversations, 's1', 'm1', message('m2', 'duplicate'))
+    expect(ordered).toBe(conversations)
+  })
+})
 
 describe('applyMessageUpdate', () => {
   it('grows a streaming reply in place', () => {

@@ -2,9 +2,11 @@ import { describe, expect, it } from 'bun:test'
 import * as Effect from 'effect/Effect'
 
 import { t } from '../frontend/i18n'
+import type { ChatCompactResult } from '../contracts/chat'
 import {
   compactConversation,
-  decideCompact
+  decideCompact,
+  decideCompactAgainstLatest
 } from '../frontend/chat/turns/compact'
 import {
   dismissSend,
@@ -94,6 +96,19 @@ describe('compaction transcript', () => {
   it('fails closed when the cut point has disappeared', () => {
     expect(decideCompact(history, { compacted: true, firstKeptMessageId: 'gone', summary: 'x' })).toEqual({
       action: 'cutGone'
+    })
+  })
+
+  it('rebases the kept tail over messages appended while compacting', () => {
+    const latest = [...history, message('u3'), message('u4')]
+    expect(decideCompactAgainstLatest(history, latest, {
+      compacted: true,
+      firstKeptMessageId: 'u2',
+      summary: 'older work'
+    })).toEqual({
+      action: 'replace',
+      kept: latest.slice(2),
+      summary: 'older work'
     })
   })
 
@@ -214,6 +229,35 @@ describe('compaction transcript', () => {
     expect(replaced?.map((item) => item.role)).toEqual(['assistant', 'user', 'assistant'])
     expect(replaced?.[0]?.content).toBe('earlier turns')
     expect(replaced?.slice(1).map((item) => item.id)).toEqual(['u2', 'a2'])
+  })
+
+  it('keeps queued messages that arrive before the compact response', async () => {
+    let latest = [...history]
+    let resolveCompact: ((result: ChatCompactResult) => void) | undefined
+    const result = new Promise<ChatCompactResult>((resolve) => { resolveCompact = resolve })
+    let replaced: Message[] | undefined
+    const compacting = compactConversation({
+      client: { 'chat.compact': () => Effect.promise(() => result) },
+      sessionId: 's1',
+      model: 'glm',
+      providerId: 'opencode-go',
+      language: 'en',
+      getMessages: () => latest,
+      appendMessage: () => { throw new Error('successful compact must replace') },
+      replaceMessages: (_session, messages) => { replaced = messages }
+    })
+
+    await new Promise((resolve) => setTimeout(resolve, 0))
+    latest = [...latest, message('u3')]
+    resolveCompact?.({
+      compacted: true,
+      summary: 'earlier turns',
+      firstKeptMessageId: 'u2',
+      tokensBefore: 80,
+      tokensAfter: 20
+    })
+    await compacting
+    expect(replaced?.slice(1).map((item) => item.id)).toEqual(['u2', 'a2', 'u3'])
   })
 
   it('keeps the conversation when the cut id is gone, in the reader language', async () => {

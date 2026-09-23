@@ -10,6 +10,7 @@ import { CompactionProgress } from './compaction'
 import { PreviewProvider } from './lightbox'
 import { MessageRow } from './chat/virtual/MessageRow'
 import { VirtualTranscript } from './chat/virtual/VirtualTranscript'
+import { forgetTranscriptPosition } from './chat/virtual/positionCache'
 import type { Message } from './chat/types'
 import { useRpcClient } from './rpc'
 import './chat/chat-scroll.css'
@@ -60,6 +61,7 @@ export function App(): React.JSX.Element {
   const {
     getMessages,
     appendMessage,
+    insertMessageAfter,
     updateMessage,
     replaceMessages,
     deleteMessage,
@@ -111,6 +113,7 @@ export function App(): React.JSX.Element {
     touchSession,
     getMessages,
     appendMessage,
+    insertMessageAfter,
     updateMessage,
     replaceMessages,
     deleteMessage,
@@ -144,6 +147,7 @@ export function App(): React.JSX.Element {
   }
 
   const handleSidebarDeleteSession = (sessionId: string) => {
+    forgetTranscriptPosition(sessionId)
     deleteConversations([sessionId])
     deleteSession(sessionId)
   }
@@ -154,6 +158,7 @@ export function App(): React.JSX.Element {
     const removedSessionIds = sessions
       .filter((session) => session.projectId === id)
       .map((session) => session.id)
+    for (const sessionId of removedSessionIds) forgetTranscriptPosition(sessionId)
     deleteConversations(removedSessionIds)
     deleteSessionsForProject(id)
     removeProject(id)
@@ -293,6 +298,7 @@ export function App(): React.JSX.Element {
               items={messages}
               scrollRef={scrollRef}
               contentRef={contentRef}
+              positionKey={activeSessionId}
               itemKey={messageKey}
               renderItem={(message) => (
                 <MessageRow

@@ -66,6 +66,8 @@ export const ar: Record<MessageKey, string> = {
   'providers.enabledAria': '{name} مفعّل',
   'providers.enabledWithKey': 'مفعّل بمفتاح API',
   'providers.keyHint': 'يُحفظ في مجلد الوكيل ويُرسل لهذا المزود فقط.',
+  'providers.keyHint.typesafe': 'احصل على مفتاح من console.typesafe.ai/settings/keys. TypeSafe ليس نموذج محادثة.',
+  'providers.keyHint.experiential': 'احصل على مفتاح من platform.experientiallabs.ai/settings/api-keys. يُحفظ محليًا ويُرسل إلى Experiential Labs فقط.',
   'providers.signIn': 'دخول عبر ChatGPT',
   'providers.signingIn': 'بانتظار ChatGPT…',
   'providers.waitingBrowser': 'كمّل الدخول في المتصفح، أو الصق رابط التحويل.',

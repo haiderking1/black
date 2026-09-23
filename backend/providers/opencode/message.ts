@@ -1,4 +1,5 @@
 import type { ChatMessage } from '../types'
+import { parseReasoningDetails } from './reasoningDetails'
 
 /**
  * One message, in the shape the completions API expects.
@@ -41,8 +42,8 @@ export function buildMessage(message: ChatMessage): Record<string, unknown> {
     out['tool_call_id'] = message.toolCallId
   }
   if (message.role === 'assistant' && message.thinkingSignature !== undefined) {
-    try { out['reasoning_details'] = JSON.parse(message.thinkingSignature) }
-    catch { /* Non-JSON block signatures are retained locally, not sent as invalid details. */ }
+    const details = parseReasoningDetails(message.thinkingSignature)
+    if (details !== undefined) out['reasoning_details'] = details
   }
   return out
 }

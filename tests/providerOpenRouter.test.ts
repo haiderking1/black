@@ -64,6 +64,25 @@ describe('openrouter catalog', () => {
     expect(entry?.tools).toBe(true)
   })
 
+  it('drops Jev decision slugs so they never appear as chat models', async () => {
+    const catalog = createCatalog({
+      providerId: 'openrouter',
+      baseUrl: BASE,
+      apiKey: 'k',
+      fetchImpl: async () => jsonResponse({
+        data: [
+          modelRow('anthropic/claude-sonnet-4'),
+          modelRow('typesafe/jev-1.13', { name: 'Jev 1.13' }),
+          modelRow('~typesafe/jev-latest'),
+        ],
+      }),
+    })
+    expect(await catalog.list()).toEqual([
+      { id: 'anthropic/claude-sonnet-4', name: 'anthropic/claude-sonnet-4', ownedBy: 'anthropic', created: 1 },
+    ])
+    expect(await catalog.get('typesafe/jev-1.13')).toBeUndefined()
+  })
+
   it('treats a reasoning model with no effort list as unknown', async () => {
     const catalog = createCatalog({
       providerId: 'openrouter',

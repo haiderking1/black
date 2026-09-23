@@ -19,6 +19,28 @@ export function removeConversationsBySessionIds(
   return changed ? next : conversations
 }
 
+/** Insert a reply immediately after the message that started its turn. */
+export function insertMessageAfter(
+  conversations: Record<string, Message[]>,
+  sessionId: string,
+  afterMessageId: string,
+  message: Message
+): Record<string, Message[]> {
+  const existing = conversations[sessionId] ?? []
+  if (existing.some((item) => item.id === message.id)) return conversations
+
+  const anchorIndex = existing.findIndex((item) => item.id === afterMessageId)
+  const insertionIndex = anchorIndex === -1 ? existing.length : anchorIndex + 1
+  return {
+    ...conversations,
+    [sessionId]: [
+      ...existing.slice(0, insertionIndex),
+      message,
+      ...existing.slice(insertionIndex)
+    ]
+  }
+}
+
 /**
  * Rewrite one message.
  *

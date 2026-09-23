@@ -86,6 +86,50 @@ try {
   if (middle.length === 0 || middle.length > 40) throw new Error('Scrolling rendered too many rows: ' + middle.length)
   if (!middle.some((index) => index > 1800 && index < 3200)) throw new Error('Virtual range did not follow the scroll position: ' + middle.join(','))
 
+  const savedAnchor = await evaluate('window.virtualTranscriptHarness.visibleAnchor()') as { key: string; offset: number } | null
+  if (savedAnchor === null) throw new Error('The scrolled session did not expose a visible anchor row')
+
+  await evaluate('window.virtualTranscriptHarness.switchSession("second")')
+  await Bun.sleep(200)
+  await evaluate('window.virtualTranscriptHarness.trimFirstPrefix(1000)')
+  if (await evaluate('window.virtualTranscriptHarness.totalCount()') !== 3000) throw new Error('The second session did not load')
+  const second = await evaluate('window.virtualTranscriptHarness.renderedIndexes()') as number[]
+  if (!second.some((index) => index >= 2900)) {
+    throw new Error('A session without a saved position did not open at its latest messages: ' + second.join(','))
+  }
+
+  await evaluate('window.virtualTranscriptHarness.switchSession("first")')
+  await Bun.sleep(200)
+  const restoredAnchor = await evaluate('window.virtualTranscriptHarness.visibleAnchor()') as { key: string; offset: number } | null
+  if (restoredAnchor?.key !== savedAnchor.key) {
+    throw new Error('Returning to a session did not restore its visible row: ' + JSON.stringify({ savedAnchor, restoredAnchor }))
+  }
+  if (Math.abs(restoredAnchor.offset - savedAnchor.offset) > 2) {
+    throw new Error('Returning to a session shifted the saved row: ' + JSON.stringify({ savedAnchor, restoredAnchor }))
+  }
+
+  await evaluate('window.virtualTranscriptHarness.trimFirstPrefix(1500)')
+  await Bun.sleep(200)
+  const compactedAnchor = await evaluate('window.virtualTranscriptHarness.visibleAnchor()') as { key: string; offset: number } | null
+  if (compactedAnchor?.key !== restoredAnchor.key || Math.abs(compactedAnchor.offset - restoredAnchor.offset) > 2) {
+    throw new Error('Compaction shifted the reader away from its visible row: ' + JSON.stringify({ restoredAnchor, compactedAnchor }))
+  }
+
+  const replacementId = await evaluate('window.virtualTranscriptHarness.replaceVisibleAnchor()') as string | null
+  if (replacementId === null) throw new Error('Could not replace a visible transcript row')
+  await Bun.sleep(200)
+  const replacedAnchor = await evaluate('window.virtualTranscriptHarness.visibleAnchor()') as { key: string; offset: number } | null
+  if (replacedAnchor?.key !== replacementId || Math.abs(replacedAnchor.offset - compactedAnchor.offset) > 2) {
+    throw new Error('Replacing a row with the same count reused a stale measurement: ' + JSON.stringify({ compactedAnchor, replacedAnchor, replacementId }))
+  }
+
+  await evaluate('window.virtualTranscriptHarness.trimFirstPrefix(3000)')
+  await Bun.sleep(200)
+  const deletedAnchorFallback = await evaluate('window.virtualTranscriptHarness.visibleAnchor()') as { key: string; offset: number } | null
+  if (deletedAnchorFallback?.key !== 'first-message-3000') {
+    throw new Error('Compaction did not move a deleted anchor to the first retained message: ' + JSON.stringify({ replacedAnchor, deletedAnchorFallback }))
+  }
+
   await evaluate('window.virtualTranscriptHarness.scrollToIndex(0)')
   await Bun.sleep(150)
   const top = await evaluate('window.virtualTranscriptHarness.renderedIndexes()') as number[]
@@ -96,6 +140,10 @@ try {
     total: 5000,
     renderedAtStart: initial.length,
     renderedInMiddle: middle.length,
+    restoredAnchor: restoredAnchor.key,
+    compactedAnchor: compactedAnchor.key,
+    replacedAnchor: replacedAnchor.key,
+    deletedAnchorFallback: deletedAnchorFallback.key,
     renderedAtTop: top.length,
   }, null, 2))
 } finally {

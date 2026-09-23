@@ -23,6 +23,8 @@ const ENV_BY_PROVIDER: Record<string, string> = {
   'opencode-go': 'OPENCODE_API_KEY',
   opencode: 'OPENCODE_API_KEY',
   openrouter: 'OPENROUTER_API_KEY',
+  experiential: 'EXPLABS_API_KEY',
+  typesafe: 'TYPESAFE_API_KEY',
 }
 
 const DEFAULT_OAUTH_MINIMUM_VALIDITY_MS = 5 * 60 * 1000

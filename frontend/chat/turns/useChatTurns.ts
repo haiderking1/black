@@ -16,7 +16,7 @@ import { conversationHistory } from '../../working/history'
 import { startWork } from '../../working/model'
 import { finishWork } from '../../working/reducer'
 import { failedTurnToResend } from '../../working/retry/turn'
-import { historyBefore } from '../history'
+import { historyBefore, orderMessagesForSend } from '../history'
 import { newRequestId } from '../requestId'
 import { createMessage, type Message } from '../types'
 import { compactConversation } from './compact'
@@ -48,6 +48,7 @@ export interface UseChatTurnsOptions {
   touchSession: (sessionId: string) => void
   getMessages: (sessionId: string) => Message[]
   appendMessage: (sessionId: string, message: Message) => void
+  insertMessageAfter: (sessionId: string, afterMessageId: string, message: Message) => void
   updateMessage: (
     sessionId: string,
     messageId: string,
@@ -89,6 +90,7 @@ export function useChatTurns(options: UseChatTurnsOptions): UseChatTurnsResult {
     touchSession,
     getMessages,
     appendMessage,
+    insertMessageAfter,
     updateMessage,
     replaceMessages,
     deleteMessage,
@@ -238,16 +240,23 @@ export function useChatTurns(options: UseChatTurnsOptions): UseChatTurnsResult {
 
     try {
       if (stream === null || model === undefined || model === '') {
-        appendMessage(threadId, createMessage('assistant', t(languageRef.current, 'chat.noModel')))
+        insertMessageAfter(threadId, send.messageId, createMessage('assistant', t(languageRef.current, 'chat.noModel')))
         return
       }
 
-      const priorTurns = conversationHistory(
-        historyBefore(messagesRef.current(threadId), send.messageId)
+      const currentMessages = messagesRef.current(threadId)
+      const orderedMessages = orderMessagesForSend(
+        currentMessages,
+        send.messageId,
+        sendQueueRef.current
+          .filter((queued) => queued.sessionId === threadId)
+          .map((queued) => queued.messageId)
       )
+      if (orderedMessages !== currentMessages) replaceMessages(threadId, [...orderedMessages])
+      const priorTurns = conversationHistory(historyBefore(orderedMessages, send.messageId))
 
       const reply = { ...createMessage('assistant', ''), work: startWork() }
-      appendMessage(threadId, reply)
+      insertMessageAfter(threadId, send.messageId, reply)
 
       setActiveReplyId(reply.id)
       setActiveRequestId(send.requestId)

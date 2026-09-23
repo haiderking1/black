@@ -4,6 +4,8 @@ import { OpenCodeLogo } from './OpenCodeLogo'
 import { OpenRouterLogo } from './OpenRouterLogo'
 import { CodexLogo } from './CodexLogo'
 import { ClineLogo } from './ClineLogo'
+import { TypeSafeLogo } from './TypeSafeLogo'
+import { ExperientialLogo } from './ExperientialLogo'
 import './logo.css'
 
 export interface ProviderLogoProps {
@@ -36,6 +38,12 @@ export function ProviderLogo({
   }
   if (providerId === 'cline') {
     return <ClineLogo size={size} />
+  }
+  if (providerId === 'typesafe') {
+    return <TypeSafeLogo size={size} />
+  }
+  if (providerId === 'experiential') {
+    return <ExperientialLogo size={size} />
   }
 
   const label = (fallbackLabel ?? providerId).trim()

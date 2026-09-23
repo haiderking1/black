@@ -24,3 +24,9 @@
 
 ## 4. VOICE
 - ALWAYS load the unslop skill before talking, explaining anything, or writing commit messages.
+
+## 5. CRITICAL
+Do not stop at diagnosis.
+If you identify a bug and have enough access/context to fix it,implement the fix immediately, then verify it.
+A description of the cause is not task completion.
+Only stop without fixing when there is a genuine blocker that requires missing information, permission, or external access.

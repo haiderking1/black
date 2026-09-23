@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'bun:test'
 
 import { createChatClient } from '../backend/providers/opencode/client'
-import { extractContent } from '../backend/providers/opencode/reasoning'
+import { extractContent, extractStreamParts } from '../backend/providers/opencode/reasoning'
+import { buildMessage } from '../backend/providers/opencode/message'
 
 const BASE = 'https://example.test/zen/go/v1'
 
@@ -78,11 +79,25 @@ describe('extractContent', () => {
     expect(result.thinkingSignature).toBe('[{"type":"reasoning.text","text":"kept"}]')
   })
 
-  it('omits an empty or unreadable signature', () => {
-    expect(extractContent({ content: 'a', reasoning_details: [] }).thinkingSignature).toBe(undefined)
+  it('omits empty or malformed reasoning_details without losing the answer', () => {
+    for (const invalid of [[], {}, { type: 'reasoning', id: 'rs_1' }, null, ['sig-1'], [null], [{ id: 'a' }, 3]]) {
+      expect(extractContent({ content: 'a', reasoning_details: invalid }).thinkingSignature).toBe(undefined)
+      expect(extractStreamParts({ content: 'a', reasoning_details: invalid })).toEqual([{ type: 'text', text: 'a' }])
+    }
     const circular: Record<string, unknown> = { content: 'a' }
     circular['reasoning_details'] = circular
     expect(extractContent(circular).thinkingSignature).toBe(undefined)
+  })
+
+  it('never replays an object, primitive, or block signature as reasoning_details', () => {
+    for (const invalid of ['{"type":"reasoning","id":"rs_1"}', '{}', 'null', '42', '"sig"',
+      '[]', '["sig-1","sig-2"]', '[null]', '[{"id":"ok"},null]', 'not json']) {
+      expect(buildMessage({ role: 'assistant', content: 'answer', thinkingSignature: invalid }))
+        .toEqual({ role: 'assistant', content: 'answer' })
+    }
+    expect(buildMessage({ role: 'assistant', content: 'answer',
+      thinkingSignature: '[{"type":"reasoning.text","text":"thought"}]' })['reasoning_details'])
+      .toEqual([{ type: 'reasoning.text', text: 'thought' }])
   })
 
   it('tolerates malformed blocks and non-objects', () => {

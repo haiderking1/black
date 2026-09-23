@@ -18,6 +18,12 @@ bun install
 bun run dev
 ```
 
+## Experiential Labs
+
+In Settings → Providers, choose Experiential Labs and paste an organization API key from [the Experiential dashboard](https://platform.experientiallabs.ai/settings/api-keys). Black stores the key in its local agent directory, not in the project. Alternatively, export `EXPLABS_API_KEY` before starting Black. Then choose Experiential Labs and a model in the composer.
+
+Black lists models your key can call from `/v1/models` and reads their context, image, tool, and reasoning support from the Experiential catalog. Jev decision models do not appear in chat because they use `/v1/systemone`, not Chat Completions. No provider key is needed to build or run tests; live inference needs your own key and account access.
+
 ## Scripts
 
 | Command | What it does |

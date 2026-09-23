@@ -9,6 +9,7 @@
 import { ProviderError, describeError, messageFromBody, readErrorBody } from '../errors'
 import { createTtlCache, type TtlCache } from '../cache'
 import type { FetchLike, ModelInfo, ThinkingSupport } from '../types'
+import { isJevModelId } from '../typesafe/endpoints'
 import { authorOf, readCapabilities } from './capabilities'
 import { MODELS_PATH, joinUrl } from './endpoints'
 
@@ -70,6 +71,7 @@ function parseModelList(body: unknown): Map<string, OpenRouterModel> {
   for (const entry of data) {
     const model = asModel(entry)
     if (model === undefined || models.has(model.id)) continue
+    if (isJevModelId(model.id)) continue
     models.set(model.id, model)
   }
   return models

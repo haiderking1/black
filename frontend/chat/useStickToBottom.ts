@@ -3,6 +3,7 @@ import type { RefObject } from 'react'
 
 import { decideFollow, isAtBottom as measureAtBottom } from './scrollGeometry'
 import { isInspectingWork } from '../working/inspection'
+import { readTranscriptPosition, rememberVisibleTranscriptPosition } from './virtual/positionCache'
 
 export interface UseStickToBottomResult {
   /** The scrollable element. */
@@ -38,6 +39,7 @@ export interface UseStickToBottomResult {
  */
 export function useStickToBottom(resetKey: string | undefined): UseStickToBottomResult {
   const scrollRef = useRef<HTMLElement | null>(null)
+  const resetKeyRef = useRef(resetKey)
 
   // A callback ref rather than a RefObject: the observed element is not mounted
   // on first render when the conversation is empty, and it is replaced when the
@@ -58,6 +60,13 @@ export function useStickToBottom(resetKey: string | undefined): UseStickToBottom
     const element = scrollRef.current
     setIsAtBottom(element === null || measureAtBottom(element))
   }, [])
+
+  const rememberVisiblePosition = useCallback((): void => {
+    const sessionId = resetKeyRef.current
+    const element = scrollRef.current
+    if (sessionId === undefined || element === null || contentElement === null) return
+    rememberVisibleTranscriptPosition(sessionId, element, contentElement)
+  }, [contentElement])
 
   // The last scrollTop any scroll event reported. Comparing against it is what
   // separates a reader scrolling up from content growing underneath them.
@@ -96,25 +105,18 @@ export function useStickToBottom(resetKey: string | undefined): UseStickToBottom
     else if (decision === 'release') pin(false)
     // 'hold' leaves the current state alone: the geometry moved, but the reader
     // did not.
-  }, [pin, updateBottomPosition])
+    rememberVisiblePosition()
+  }, [pin, rememberVisiblePosition, updateBottomPosition])
 
-  // (1) A different conversation starts at its end. Instant rather than smooth:
-  // animating down from the top of a long history is a slideshow.
+  // A session change updates follow state here; VirtualTranscript performs the
+  // actual seek through TanStack Virtual so its internal offset stays in sync.
   useEffect(() => {
-    pin(true)
-    scrollToBottom('auto')
-    const frame = requestAnimationFrame(() => {
-      // Virtualized content may not have its measured total height until the
-      // first layout. Repeat once after that layout so a reopened long thread
-      // starts at its newest message rather than at the first rendered row.
-      if (pinnedRef.current) scrollToBottom('auto')
-      // Rebased for the new conversation, so its first scroll event is not
-      // compared against the previous conversation's position.
-      lastScrollTopRef.current = scrollRef.current?.scrollTop ?? 0
-      updateBottomPosition()
-    })
-    return () => cancelAnimationFrame(frame)
-  }, [resetKey, pin, scrollToBottom, updateBottomPosition])
+    const saved = resetKey === undefined ? undefined : readTranscriptPosition(resetKey)
+    resetKeyRef.current = resetKey
+    pin(saved?.atBottom !== false)
+    lastScrollTopRef.current = scrollRef.current?.scrollTop ?? 0
+    updateBottomPosition()
+  }, [resetKey, pin, updateBottomPosition])
 
   // (2) Stay at the bottom while content grows.
   //
@@ -133,6 +135,7 @@ export function useStickToBottom(resetKey: string | undefined): UseStickToBottom
         element.scrollTop = element.scrollHeight
       }
       updateBottomPosition()
+      rememberVisiblePosition()
     })
 
     const inspect = (event: Event): void => {
@@ -147,7 +150,7 @@ export function useStickToBottom(resetKey: string | undefined): UseStickToBottom
       contentElement.removeEventListener('pointerdown', inspect)
       contentElement.removeEventListener('focusin', inspect)
     }
-  }, [contentElement, pin, updateBottomPosition])
+  }, [contentElement, pin, rememberVisiblePosition, updateBottomPosition])
 
   return { scrollRef, contentRef, handleScroll, isPinned, isAtBottom, jumpToBottom }
 }

@@ -21,13 +21,15 @@ export interface PrefetchableProvider {
   id: string
   enabled: boolean
   authenticated: boolean
+  role?: 'chat' | 'service'
 }
 
-/** Enabled, signed-in providers the picker can actually open. */
+/** Enabled, signed-in chat providers the picker can actually open. */
 export function catalogsToPrefetch(providers: readonly PrefetchableProvider[]): string[] {
   const ids: string[] = []
   const seen = new Set<string>()
   for (const provider of providers) {
+    if (provider.role === 'service') continue
     if (!provider.enabled || !provider.authenticated || provider.id === '') continue
     if (seen.has(provider.id)) continue
     seen.add(provider.id)

@@ -23,6 +23,19 @@ export function decideCompact(
   return { action: 'replace', kept: existing.slice(cut), summary: result.summary }
 }
 
+export function decideCompactAgainstLatest(
+  original: readonly Message[],
+  latest: readonly Message[],
+  result: Pick<ChatCompactResult, 'compacted' | 'firstKeptMessageId' | 'summary'>
+): CompactDecision {
+  const decision = decideCompact(original, result)
+  if (decision.action !== 'replace') return decision
+
+  const currentCut = latest.findIndex((message) => message.id === result.firstKeptMessageId)
+  if (currentCut === -1) return { action: 'cutGone' }
+  return { action: 'replace', kept: [...latest.slice(currentCut)], summary: decision.summary }
+}
+
 export interface CompactRpc {
   readonly 'chat.compact': (
     input: ChatCompactInput
@@ -65,7 +78,8 @@ export async function compactConversation(input: CompactConversationInput): Prom
       })
     )
 
-    const decision = decideCompact(existing, result)
+    const latest = input.getMessages(input.sessionId)
+    const decision = decideCompactAgainstLatest(existing, latest, result)
     if (decision.action === 'notice') {
       input.appendMessage(
         input.sessionId,

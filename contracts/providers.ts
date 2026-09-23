@@ -19,6 +19,8 @@ export const ProviderStatus = Schema.Struct({
   modelCount: Schema.NullOr(Schema.Int),
   /** How this provider is signed in. Absent means a pasted API key. */
   authKind: Schema.optional(Schema.Literals(['api_key', 'oauth'])),
+  /** Absent means chat. A service holds a key and never appears on the picker. */
+  role: Schema.optional(Schema.Literals(['chat', 'service'])),
 })
 
 /**
@@ -26,6 +28,10 @@ export const ProviderStatus = Schema.Struct({
  * schema rather than declared twice and allowed to drift.
  */
 export type ProviderStatus = typeof ProviderStatus.Type
+
+export function isChatProvider(role: ProviderStatus['role']): boolean {
+  return role !== 'service'
+}
 
 /**
  * One model as the vendor reports it. The catalog is the vendor's, so this is

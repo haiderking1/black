@@ -41,6 +41,9 @@ export function WorkingSection({ message, active, onRetry, onExpandedChange }: {
   const note = statusNote(work, t('work.stopped'), t('work.interrupted'), t('work.limit'), t('work.failed'))
   const label = useWorkLabel(work, running)
   const hasWork = blocks.some(block => block.type === 'work')
+  const showInitialWorking = running && blocks.length === 0
+    && work?.retry === undefined && work?.compacting !== true
+  const showRetryStatus = work?.retry !== undefined && !hasWork
   return <div className="assistant-turn">
     {work?.compacting === true ? <CompactionProgress /> : null}
     {message.compacted === undefined ? null : <CompactionNotice tokensBefore={message.compacted.before}
@@ -52,7 +55,7 @@ export function WorkingSection({ message, active, onRetry, onExpandedChange }: {
           running={running}
           label={label} note={note}
           onExpandedChange={value => onExpandedChange(value, block.key)} />)}
-    {work?.retry !== undefined && !hasWork
+    {showInitialWorking || showRetryStatus
       ? <div className={running ? 'working-status shimmer-text' : 'working-status'} role="status">{label}</div>
       : null}
     {work?.retry !== undefined || work?.error !== undefined || onRetry !== undefined

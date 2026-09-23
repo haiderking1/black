@@ -1,6 +1,7 @@
 /* Own color, so a muted parent (the model rail, a caption) cannot wash it out. */
 .codex-logo,
-.cline-logo {
+.cline-logo,
+.experiential-logo {
   color: var(--text-primary);
   display: block;
   flex-shrink: 0;
